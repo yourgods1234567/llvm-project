@@ -647,9 +647,18 @@ void AbstractSparseBackwardDataFlowAnalysis::
   // non-contiguous in the presence of multiple successors.
   BitVector unaccounted(terminator->getNumOperands(), true);
 
+  // For propagating breaks, the immediate parent is transparent. Resolve to the
+  // actual HasBreakingControlFlowOpInterface ancestor.
+  // Successors not needed here; only the effective branch matters.
+  SmallVector<RegionSuccessor> unusedSuccessors;
+  RegionBranchOpInterface effectiveBranch =
+      resolveTerminatorSuccessors(terminator, unusedSuccessors);
+  if (!effectiveBranch)
+    effectiveBranch = branch;
+
   RegionBranchSuccessorMapping mapping;
-  branch.getSuccessorOperandInputMapping(mapping,
-                                         RegionBranchPoint(terminator));
+  effectiveBranch.getSuccessorOperandInputMapping(
+      mapping, RegionBranchPoint(terminator));
   for (const auto &[operand, inputs] : mapping) {
     for (Value input : inputs) {
       meet(getLatticeElement(operand->get()),

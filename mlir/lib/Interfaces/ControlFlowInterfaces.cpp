@@ -13,6 +13,7 @@
 #include "mlir/IR/Matchers.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
+#include "mlir/IR/RegionKindInterface.h"
 #include "mlir/Interfaces/ControlFlowInterfaces.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Support/DebugLog.h"
@@ -76,14 +77,14 @@ detail::getBranchSuccessorArgument(const SuccessorOperands &operands,
 LogicalResult
 detail::verifyBranchSuccessorOperands(Operation *op, unsigned succNo,
                                       const SuccessorOperands &operands) {
-  LDBG() << "Verifying branch successor operands for successor #" << succNo
-         << " in operation " << op->getName();
+  LDBG(3) << "Verifying branch successor operands for successor #" << succNo
+          << " in operation " << op->getName();
 
   // Check the count.
   unsigned operandCount = operands.size();
   Block *destBB = op->getSuccessor(succNo);
-  LDBG() << "Branch has " << operandCount << " operands, target block has "
-         << destBB->getNumArguments() << " arguments";
+  LDBG(3) << "Branch has " << operandCount << " operands, target block has "
+          << destBB->getNumArguments() << " arguments";
 
   if (operandCount != destBB->getNumArguments())
     return op->emitError() << "branch has " << operandCount
@@ -92,22 +93,22 @@ detail::verifyBranchSuccessorOperands(Operation *op, unsigned succNo,
                            << destBB->getNumArguments();
 
   // Check the types.
-  LDBG() << "Checking type compatibility for "
-         << (operandCount - operands.getProducedOperandCount())
-         << " forwarded operands";
+  LDBG(3) << "Checking type compatibility for "
+          << (operandCount - operands.getProducedOperandCount())
+          << " forwarded operands";
   for (unsigned i = operands.getProducedOperandCount(); i != operandCount;
        ++i) {
     Type operandType = operands[i].getType();
     Type argType = destBB->getArgument(i).getType();
-    LDBG() << "Checking type compatibility: operand type " << operandType
-           << " vs argument type " << argType;
+    LDBG(3) << "Checking type compatibility: operand type " << operandType
+            << " vs argument type " << argType;
 
     if (!cast<BranchOpInterface>(op).areTypesCompatible(operandType, argType))
       return op->emitError() << "type mismatch for bb argument #" << i
                              << " of successor #" << succNo;
   }
 
-  LDBG() << "Branch successor operand verification successful";
+  LDBG(3) << "Branch successor operand verification successful";
   return success();
 }
 
@@ -168,6 +169,9 @@ LogicalResult detail::verifyRegionBranchOpInterface(Operation *op) {
     SmallVector<RegionSuccessor> successors;
     regionInterface.getSuccessorRegions(branchPoint, successors);
     for (const RegionSuccessor &successor : successors) {
+      // Skip propagating-break sentinels — they are resolved by the ancestor.
+      if (successor.isPropagating())
+        continue;
       // Helper function that print the region branch point and the region
       // successor.
       auto emitRegionEdgeError = [&]() {
@@ -218,6 +222,7 @@ LogicalResult detail::verifyRegionBranchOpInterface(Operation *op) {
       }
     }
   }
+
   return success();
 }
 
@@ -246,7 +251,6 @@ static bool traverseRegionGraph(Region *begin,
   SmallVector<Region *> worklist;
   auto enqueueAllSuccessors = [&](Region *region) {
     LDBG() << "Enqueuing successors for region #" << region->getRegionNumber();
-    SmallVector<Attribute> operandAttributes(op->getNumOperands());
     for (Block &block : *region) {
       if (block.empty())
         continue;
@@ -255,8 +259,7 @@ static bool traverseRegionGraph(Region *begin,
       if (!terminator)
         continue;
       SmallVector<RegionSuccessor> successors;
-      operandAttributes.resize(terminator->getNumOperands());
-      terminator.getSuccessorRegions(operandAttributes, successors);
+      resolveTerminatorSuccessors(terminator, successors);
       LDBG() << "Found " << successors.size()
              << " successors from terminator in block";
       for (RegionSuccessor successor : successors) {
@@ -462,6 +465,31 @@ RegionBranchOpInterface::getNonSuccessorInputs(RegionSuccessor successor) {
   return results;
 }
 
+RegionBranchOpInterface mlir::resolveTerminatorSuccessors(
+    RegionBranchTerminatorOpInterface terminator,
+    SmallVectorImpl<RegionSuccessor> &successors) {
+  auto branch = dyn_cast<RegionBranchOpInterface>(terminator->getParentOp());
+  if (!branch)
+    return nullptr;
+  branch.getSuccessorRegions(RegionBranchPoint(terminator), successors);
+
+  // Check for the propagating sentinel: the immediate parent is transparent
+  // to this break. Reroute to the actual break target ancestor.
+  if (successors.size() == 1 && successors[0].isPropagating()) {
+    successors.clear();
+    if (auto breakTarget = findBreakTarget(terminator)) {
+      if (auto actualBranch =
+              dyn_cast<RegionBranchOpInterface>(breakTarget.getOperation())) {
+        actualBranch.getSuccessorRegions(RegionBranchPoint(terminator),
+                                         successors);
+        return actualBranch;
+      }
+    }
+    return nullptr;
+  }
+  return branch;
+}
+
 static MutableArrayRef<OpOperand> operandsToOpOperands(OperandRange &operands) {
   return MutableArrayRef<OpOperand>(operands.getBase(), operands.size());
 }
@@ -473,6 +501,9 @@ getSuccessorOperandInputMapping(RegionBranchOpInterface branchOp,
   SmallVector<RegionSuccessor> successors;
   branchOp.getSuccessorRegions(src, successors);
   for (RegionSuccessor dst : successors) {
+    // Skip propagating-break sentinels — they don't map to this op's inputs.
+    if (dst.isPropagating())
+      continue;
     OperandRange operands = branchOp.getSuccessorOperands(src, dst);
     assert(operands.size() == branchOp.getSuccessorInputs(dst).size() &&
            "expected the same number of operands and inputs");
@@ -1132,6 +1163,10 @@ computeSingleAcyclicRegionBranchPath(RegionBranchOpInterface op) {
     if (successors.size() != 1) {
       // There are multiple region successors. I.e., there are multiple paths
       // through the region branch op.
+      return {};
+    }
+    if (successors.front().isPropagating()) {
+      // Propagating break — can't inline through this op.
       return {};
     }
     path.push_back(successors.front());

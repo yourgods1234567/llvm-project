@@ -61,4 +61,61 @@ def GraphRegionNoTerminator : TraitList<[
     HasOnlyGraphRegion
   ]>;
 
+// Indicates that this op may propagate a breaking control-flow event (a
+// RegionTerminator with num-breaking-regions > 1) from a nested region upward
+// to an enclosing HasBreakingControlFlowOpInterface operation. The op does NOT
+// consume the break itself; it is merely transparent to it. All ops that sit
+// between a RegionTerminator and the HasBreakingControlFlowOpInterface ancestor
+// that will ultimately receive the break must carry this trait.
+def PropagateControlFlowBreak : NativeOpTrait<"PropagateControlFlowBreak">;
+
+// OpInterface for operations that can receive a breaking control-flow event
+// originating from a RegionTerminator (scf.break / scf.continue) anywhere
+// inside their (possibly deeply nested) regions. Every op between the
+// RegionTerminator and this receiver must carry the PropagateControlFlowBreak
+// trait.
+def HasBreakingControlFlowOpInterface : OpInterface<"HasBreakingControlFlowOpInterface"> {
+  let description = [{
+    Interface for operations that act as the target of a breaking control-flow
+    event (e.g. `scf.break` or `scf.continue`). When a `RegionTerminator` has
+    `num-breaking-regions = N > 1`, it exits N region levels; the op at the
+    N-th level must implement this interface. Every intermediate op (levels
+    1 .. N-1) must carry the `PropagateControlFlowBreak` trait.
+  }];
+  let cppNamespace = "::mlir";
+
+  let methods = [
+    StaticInterfaceMethod<
+      /*desc=*/[{
+        Return true if this operation accepts the given terminator operation
+        as a breaking-control-flow predecessor. Ops that also use
+        `HasNestedTerminator<[...]>` should delegate to the terminator list
+        check from that trait. Ops without `HasNestedTerminator` must provide
+        an explicit implementation (e.g. `return true;` to accept all, or a
+        type check to restrict).
+      }],
+      /*retTy=*/"bool",
+      /*methodName=*/"acceptsTerminator",
+      /*args=*/(ins "Operation *":$op)
+    >,
+    InterfaceMethod<
+      /*desc=*/[{
+        Return true if this operation has at least one RegionTerminator nested
+        inside it that targets this operation directly (i.e.
+        num-breaking-regions equals the nesting depth from this op's region to
+        the terminator). Used to decide whether post-dominance analysis must
+        account for early-exit paths.
+      }],
+      /*retTy=*/"bool",
+      /*methodName=*/"hasNestedPredecessors",
+      /*args=*/(ins),
+      /*methodBody=*/[{}],
+      /*defaultImplementation=*/[{
+        return ::mlir::hasNestedPredecessors(this->getOperation());
+      }]
+    >
+  ];
+}
+
+
 #endif // MLIR_IR_REGIONKINDINTERFACE

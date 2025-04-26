@@ -199,22 +199,32 @@ using RegionBranchInverseSuccessorMapping =
 class RegionSuccessor {
 public:
   /// Initialize a successor that branches to a region of the parent operation.
-  RegionSuccessor(Region *region) : successor(region) {
+  RegionSuccessor(Region *region) : successor(region), kind(Kind::Region) {
     assert(region && "Region must not be null");
   }
 
   /// Initialize a successor that branches after/out of the parent operation.
-  static RegionSuccessor parent() { return RegionSuccessor(); }
+  static RegionSuccessor parent() { return RegionSuccessor(Kind::Parent); }
+
+  /// Sentinel: the terminator propagates through this op to an ancestor.
+  /// The op is transparent to this break and does not consume it.
+  /// Use `resolveTerminatorSuccessors` to resolve to the actual target.
+  static RegionSuccessor propagating() {
+    return RegionSuccessor(Kind::Propagating);
+  }
 
   /// Return the given region successor. Returns nullptr if the successor is the
   /// parent operation.
   Region *getSuccessor() const { return successor; }
 
   /// Return true if the successor is the parent operation.
-  bool isParent() const { return successor == nullptr; }
+  bool isParent() const { return kind == Kind::Parent; }
+
+  /// Return true if this is a propagating-break sentinel.
+  bool isPropagating() const { return kind == Kind::Propagating; }
 
   bool operator==(RegionSuccessor rhs) const {
-    return successor == rhs.successor;
+    return successor == rhs.successor && kind == rhs.kind;
   }
 
   bool operator==(const Region *region) const { return successor == region; }
@@ -224,10 +234,12 @@ public:
   }
 
 private:
-  /// Private constructor to encourage the use of `RegionSuccessor::parent`.
-  RegionSuccessor() : successor(nullptr) {}
+  enum class Kind { Region, Parent, Propagating };
+
+  explicit RegionSuccessor(Kind kind) : successor(nullptr), kind(kind) {}
 
   Region *successor = nullptr;
+  Kind kind = Kind::Region;
 };
 
 /// This class represents a point being branched from in the methods of the
@@ -423,11 +435,24 @@ inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
 
 inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                      RegionSuccessor successor) {
+  if (successor.isPropagating())
+    return os << "<propagating>";
   if (successor.isParent())
     return os << "<to parent>";
   return os << "<to region #" << successor.getSuccessor()->getRegionNumber()
             << ">";
 }
+
+/// Get successor regions for a terminator, resolving propagating breaks.
+/// When the immediate parent returns a `RegionSuccessor::propagating()`
+/// sentinel, finds and queries the actual HasBreakingControlFlowOpInterface
+/// ancestor. Returns the RegionBranchOpInterface that owns the returned
+/// successors. For non-propagating terminators, this is the terminator's
+/// immediate parent.
+RegionBranchOpInterface
+resolveTerminatorSuccessors(RegionBranchTerminatorOpInterface terminator,
+                            SmallVectorImpl<RegionSuccessor> &successors);
+
 } // namespace mlir
 
 #endif // MLIR_INTERFACES_CONTROLFLOWINTERFACES_H

@@ -509,12 +509,27 @@ void DeadCodeAnalysis::visitRegionTerminator(Operation *op,
   if (!operands)
     return;
 
-  SmallVector<RegionSuccessor> successors;
   auto terminator = dyn_cast<RegionBranchTerminatorOpInterface>(op);
   if (!terminator)
     return;
+
+  SmallVector<RegionSuccessor> successors;
+  // Use operand-aware resolution to prune dead successors via constant folding
+  // (e.g. a scf.while condition known to be false).
   terminator.getSuccessorRegions(*operands, successors);
-  visitRegionBranchEdges(branch, op, successors);
+
+  // For propagating breaks, the immediate parent is transparent — resolve to
+  // the actual HasBreakingControlFlowOp ancestor.
+  RegionBranchOpInterface effectiveBranch = branch;
+  if (successors.size() == 1 && successors[0].isPropagating()) {
+    successors.clear();
+    // TODO: Re-query with operand-aware getSuccessorRegions after resolution
+    // to preserve constant-folding pruning for break targets that support it.
+    effectiveBranch = resolveTerminatorSuccessors(terminator, successors);
+    if (!effectiveBranch)
+      return;
+  }
+  visitRegionBranchEdges(effectiveBranch, op, successors);
 }
 
 void DeadCodeAnalysis::visitRegionBranchEdges(
