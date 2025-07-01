@@ -1286,6 +1286,8 @@ VPlan *VPlan::duplicate() {
       NewPlan->ExitBlocks.push_back(cast<VPIRBasicBlock>(VPB));
   }
 
+  NewPlan->HasEarlyExitWithSideEffects = HasEarlyExitWithSideEffects;
+
   return NewPlan;
 }
 

@@ -414,6 +414,12 @@ static cl::opt<bool> EnableEarlyExitVectorization(
     cl::desc(
         "Enable vectorization of early exit loops with uncountable exits."));
 
+static cl::opt<bool> EnableEarlyExitVectorizationWithSideEffects(
+    "enable-early-exit-vectorization-with-side-effects", cl::init(false),
+    cl::Hidden,
+    cl::desc("Enable vectorization of early exit loops with uncountable exits "
+             "and side effects"));
+
 static cl::opt<bool> ConsiderRegPressure(
     "vectorizer-consider-reg-pressure", cl::init(false), cl::Hidden,
     cl::desc("Discard VFs if their register pressure is too high."));
@@ -7659,7 +7665,12 @@ void LoopVectorizationPlanner::buildVPlansWithVPRecipes(ElementCount MinVF,
   if (!VPlanTransforms::handleEarlyExits(*VPlan0, EEStyle, OrigLoop, PSE, *DT,
                                          Legal->getAssumptionCache()))
     return;
-  VPlanTransforms::addMiddleCheck(*VPlan0, CM.foldTailByMasking());
+
+  // If we're handling uncountable exits in the scalar tail after a vector
+  // loop with an in-loop mask, then the middle check has already been
+  // created to compare against the actual number of lanes executed.
+  if (EEStyle != UncountableExitStyle::MaskedHandleExitInScalarLoop)
+    VPlanTransforms::addMiddleCheck(*VPlan0, CM.foldTailByMasking());
   RUN_VPLAN_PASS_NO_VERIFY(VPlanTransforms::createLoopRegions, *VPlan0);
   if (CM.foldTailByMasking())
     RUN_VPLAN_PASS_NO_VERIFY(VPlanTransforms::foldTailByMasking, *VPlan0);
@@ -9030,6 +9041,14 @@ bool LoopVectorizePass::processLoop(Loop *L) {
                                  "UncountableEarlyExitLoopsDisabled", ORE, L);
       return false;
     }
+    if (LVL.hasUncountableExitWithSideEffects() &&
+        !EnableEarlyExitVectorizationWithSideEffects) {
+      reportVectorizationFailure("Auto-vectorization of loops with uncountable "
+                                 "early exit and side effects is not enabled",
+                                 "UncountableEarlyExitSideEffectLoopsDisabled",
+                                 ORE, L);
+      return false;
+    }
   }
 
   // Entrance to the VPlan-native vectorization path. Outer loops are processed
@@ -9270,6 +9289,15 @@ bool LoopVectorizePass::processLoop(Loop *L) {
 
   // Override IC if user provided an interleave count.
   IC = UserIC > 0 ? UserIC : IC;
+
+  // FIXME: Enable interleaving for EE-with-side-effects.
+  if (InterleaveLoop && LVL.hasUncountableExitWithSideEffects()) {
+    LLVM_DEBUG(dbgs() << "LV: Not interleaving due to EE with side effects.\n");
+    IntDiagMsg = {"EEWithSideEffectsPreventsInterleaving",
+                  "Unable to interleave due to early exit with side effects."};
+    InterleaveLoop = false;
+    IC = 1;
+  }
 
   // Emit diagnostic messages, if any.
   const char *VAPassName = Hints.vectorizeAnalysisPassName();
