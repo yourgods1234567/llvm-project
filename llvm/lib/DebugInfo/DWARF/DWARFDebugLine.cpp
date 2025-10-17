@@ -1541,6 +1541,8 @@ bool DWARFDebugLine::LineTable::getFileLineInfoForAddress(
   Result.Column = Row.Column;
   Result.Discriminator = Row.Discriminator;
   Result.Source = getSourceByIndex(Row.File, Kind);
+  if (RowIndex + 1 < Rows.size())
+    Result.EndAddress = std::make_optional(Rows[RowIndex + 1].Address.Address);
   return true;
 }
 

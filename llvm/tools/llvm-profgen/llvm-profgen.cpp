@@ -185,6 +185,9 @@ int main(int argc, const char *argv[]) {
     PerfInputFile PerfFile = getPerfInputFile();
     std::unique_ptr<PerfReaderBase> Reader =
         PerfReaderBase::create(Binary.get(), PerfFile, PIDFilter);
+    if (Reader->profileIsCS() && SkipDisassembly)
+      exitWithError("--skip-disassembly is not compatible with CSSPGO.");
+
     // Parse perf events and samples
     Reader->parsePerfTraces();
 
