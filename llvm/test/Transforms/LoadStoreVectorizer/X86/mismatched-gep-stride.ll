@@ -7,13 +7,11 @@ define void @mismatched_stride(ptr %p, ptr %idx_ptr, ptr %out) {
 ; CHECK-LABEL: define void @mismatched_stride(
 ; CHECK-SAME: ptr [[P:%.*]], ptr [[IDX_PTR:%.*]], ptr [[OUT:%.*]]) {
 ; CHECK-NEXT:    [[X:%.*]] = load i32, ptr [[IDX_PTR]], align 4
-; CHECK-NEXT:    [[Y:%.*]] = add nsw i32 [[X]], 1
 ; CHECK-NEXT:    [[SX:%.*]] = sext i32 [[X]] to i64
-; CHECK-NEXT:    [[SY:%.*]] = sext i32 [[Y]] to i64
 ; CHECK-NEXT:    [[A:%.*]] = getelementptr i8, ptr [[P]], i64 [[SX]]
-; CHECK-NEXT:    [[B:%.*]] = getelementptr i32, ptr [[P]], i64 [[SY]]
-; CHECK-NEXT:    [[VA:%.*]] = load i8, ptr [[A]], align 2
-; CHECK-NEXT:    [[VB:%.*]] = load i8, ptr [[B]], align 2
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i8>, ptr [[A]], align 2
+; CHECK-NEXT:    [[VA:%.*]] = extractelement <2 x i8> [[TMP1]], i32 0
+; CHECK-NEXT:    [[VB:%.*]] = extractelement <2 x i8> [[TMP1]], i32 1
 ; CHECK-NEXT:    [[SUM:%.*]] = add i8 [[VA]], [[VB]]
 ; CHECK-NEXT:    store i8 [[SUM]], ptr [[OUT]], align 1
 ; CHECK-NEXT:    ret void
@@ -35,13 +33,11 @@ define void @mismatched_stride(ptr %p, ptr %idx_ptr, ptr %out) {
 define i32 @mismatched_stride_vec(ptr %p, i64 %i, i32 %x) {
 ; CHECK-LABEL: define i32 @mismatched_stride_vec(
 ; CHECK-SAME: ptr [[P:%.*]], i64 [[I:%.*]], i32 [[X:%.*]]) {
-; CHECK-NEXT:    [[Y:%.*]] = add nsw i32 [[X]], 1
 ; CHECK-NEXT:    [[SX:%.*]] = sext i32 [[X]] to i64
-; CHECK-NEXT:    [[SY:%.*]] = sext i32 [[Y]] to i64
 ; CHECK-NEXT:    [[A:%.*]] = getelementptr [4 x i32], ptr [[P]], i64 [[I]], i64 [[SX]]
-; CHECK-NEXT:    [[B:%.*]] = getelementptr [8 x i32], ptr [[P]], i64 [[I]], i64 [[SY]]
-; CHECK-NEXT:    [[VA1:%.*]] = load i32, ptr [[A]], align 4
-; CHECK-NEXT:    [[VB2:%.*]] = load i32, ptr [[B]], align 4
+; CHECK-NEXT:    [[TMP1:%.*]] = load <2 x i32>, ptr [[A]], align 4
+; CHECK-NEXT:    [[VA1:%.*]] = extractelement <2 x i32> [[TMP1]], i32 0
+; CHECK-NEXT:    [[VB2:%.*]] = extractelement <2 x i32> [[TMP1]], i32 1
 ; CHECK-NEXT:    [[SUM:%.*]] = add i32 [[VA1]], [[VB2]]
 ; CHECK-NEXT:    ret i32 [[SUM]]
 ;

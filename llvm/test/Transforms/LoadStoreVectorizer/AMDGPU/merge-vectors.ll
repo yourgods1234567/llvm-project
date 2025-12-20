@@ -130,14 +130,14 @@ entry:
   ret void
 }
 
-; Ideally this would be merged
 define amdgpu_kernel void @merge_load_i32_v2i16(ptr addrspace(1) nocapture %a) #0 {
 ; CHECK-LABEL: define amdgpu_kernel void @merge_load_i32_v2i16(
 ; CHECK-SAME: ptr addrspace(1) captures(none) [[A:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
-; CHECK-NEXT:    [[A_1:%.*]] = getelementptr inbounds i32, ptr addrspace(1) [[A]], i32 1
-; CHECK-NEXT:    [[LD_0:%.*]] = load i32, ptr addrspace(1) [[A]], align 4
-; CHECK-NEXT:    [[LD_1:%.*]] = load <2 x i16>, ptr addrspace(1) [[A_1]], align 4
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i16>, ptr addrspace(1) [[A]], align 4
+; CHECK-NEXT:    [[LD_01:%.*]] = shufflevector <4 x i16> [[TMP0]], <4 x i16> poison, <2 x i32> <i32 0, i32 1>
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <2 x i16> [[LD_01]] to i32
+; CHECK-NEXT:    [[LD_12:%.*]] = shufflevector <4 x i16> [[TMP0]], <4 x i16> poison, <2 x i32> <i32 2, i32 3>
 ; CHECK-NEXT:    ret void
 ;
 entry:
