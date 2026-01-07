@@ -34,8 +34,9 @@
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/VirtRegMap.h"
-#include "llvm/MC/MCInstBuilder.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Module.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Support/BranchProbability.h"
@@ -1032,7 +1033,8 @@ void SystemZInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
 // and no index.  Flag is SimpleBDXLoad for loads and SimpleBDXStore for stores.
 static bool isSimpleBD12Move(const MachineInstr *MI, unsigned Flag) {
   const MCInstrDesc &MCID = MI->getDesc();
-  return ((MCID.TSFlags & Flag) && isUInt<12>(MI->getOperand(2).getImm()) &&
+  return ((MCID.TSFlags & Flag) &&
+          isUInt<12>(MI->getOperand(2).getImm()) &&
           MI->getOperand(3).getReg() == 0);
 }
 
@@ -1778,12 +1780,12 @@ bool SystemZInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     splitAdjDynAlloc(MI);
     return true;
 
-  case SystemZ::MOVE_STACK_GUARD:
-    expandMSGPseudo(MI);
+  case SystemZ::MOVE_STACKGUARD:
+    expandStackGuardPseudo(MI, SystemZ::MVC);
     return true;
 
-  case SystemZ::COMPARE_STACK_GUARD:
-    expandCSGPseudo(MI);
+  case SystemZ::COMPARE_STACKGUARD:
+    expandStackGuardPseudo(MI, SystemZ::CLC);
     return true;
 
   default:
@@ -1792,125 +1794,78 @@ bool SystemZInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 }
 
 namespace {
-    Register scavengeAddrReg(MachineInstr& MI, MachineBasicBlock* MBB) {
-    // create fresh RegScavanger instance.
-    RegScavenger RS;
-    // initialize RegScavenger to correct location
-    RS.enterBasicBlockEnd(*MBB);
-    RS.backward(MI);
-
-    // Attempt to find a free register.
-    Register Scratch = RS.FindUnusedReg(&SystemZ::ADDR64BitRegClass);
-    // If not found, scavenge one, i.e. evict something to a stack spill slot.
-    if (!Scratch) {
-      Scratch = RS.scavengeRegisterBackwards(
-          SystemZ::ADDR64BitRegClass,
-          MI,              // Scavenge back to this position.
-          true,  // Will need Scratch Reg after MI.
-          0,            
-          true     // Spills are allowed.
-      );
-    }
-    return Scratch;
-  }
-unsigned long getStackGuardOffset(const MachineBasicBlock *MBB) {
-  // In the TLS (default) case, AddrReg will contain the thread pointer, so we
-  // need to add 40 bytes to get the actual address of the stack guard.
-  StringRef GuardType =
-      MBB->getParent()->getFunction().getParent()->getStackProtectorGuard();
-  return (GuardType == "global") ? 0 : 40;
-}
-// Check MI (which should be either MOVE_STACK_GUARD or COMPARE_STACK_GUARD)
-// to see if the early-clobber flag on the def reg was honored. If so,
-// return that register. If not, scavenge a new register and return that.
 // This is a workaround for https://github.com/llvm/llvm-project/issues/172511
 // and should be removed once that issue is resolved.
-Register chooseAddrReg(MachineInstr& MI, MachineBasicBlock *MBB) {
-  Register DefReg = MI.getOperand(0).getReg();
-  Register OpReg = MI.getOperand(1).getReg();
-  // if we can use DefReg, return it
-  if (DefReg != OpReg)
-    return DefReg;
-  // otherwise, scavenge
-  return scavengeAddrReg(MI, MBB);
+Register scavengeAddrReg(MachineInstr &MI, MachineBasicBlock *MBB) {
+  // create fresh RegScavanger instance.
+  RegScavenger RS;
+  // initialize RegScavenger to correct location
+  RS.enterBasicBlockEnd(*MBB);
+  RS.backward(MI);
+
+  // Attempt to find a free register.
+  Register Scratch = RS.FindUnusedReg(&SystemZ::ADDR64BitRegClass);
+  // If not found, scavenge one, i.e. evict something to a stack spill slot.
+  if (!Scratch) {
+    Scratch =
+        RS.scavengeRegisterBackwards(SystemZ::ADDR64BitRegClass,
+                                     MI,   // Scavenge back to this position.
+                                     true, // Scope must include MI.
+                                     0,
+                                     true // Spills are allowed.
+        );
+  }
+  return Scratch;
 }
 } // namespace
 
-// Emit the stack guard address load, depending on guard type.
-// Return the register the stack guard address was loaded into.
-void SystemZInstrInfo::emitLoadStackGuardAddress(MachineInstr &MI, Register AddrReg) const {
+void SystemZInstrInfo::expandStackGuardPseudo(MachineInstr &MI,
+                                              unsigned Opcode) const {
   MachineBasicBlock &MBB = *(MI.getParent());
   const MachineFunction &MF = *(MBB.getParent());
-  const MachineRegisterInfo &MRI = MF.getRegInfo();
-  const Register Reg32 =
-      MRI.getTargetRegisterInfo()->getSubReg(AddrReg, SystemZ::subreg_l32);
   const auto DL = MI.getDebugLoc();
-
   const Module *M = MF.getFunction().getParent();
   StringRef GuardType = M->getStackProtectorGuard();
+  unsigned int Offset = 0;
 
+  // Check MI (which should be either MOVE_STACKGUARD or COMPARE_STACKGUARD)
+  // to see if the early-clobber flag on the def reg was honored. If so,
+  // return that register. If not, scavenge a new register and return that.
+  // This is a workaround for https://github.com/llvm/llvm-project/issues/172511
+  // and should be removed once that issue is resolved.
+  // After this, AddrReg is set to a usable scratch register.
+  Register AddrReg = MI.getOperand(0).getReg();
+  Register OpReg = MI.getOperand(1).getReg();
+  // if we can't use AddrReg, scavenge a new one.
+  if (AddrReg == OpReg)
+    AddrReg = scavengeAddrReg(MI, &MBB);
+
+  // emit an appropriate pseudo for the guard type, which loads the address of
+  // said guard into the scratch register AddrReg.
   if (GuardType.empty() || (GuardType == "tls")) {
-    // EAR can only load the low subregister so use a shift for %a0 to produce
-    // the GR containing %a0 and %a1.
-
-    // ear <reg>, %a0
-    BuildMI(MBB, MI, DL, get(SystemZ::EAR), Reg32)
-        .addReg(SystemZ::A0);
-
-    // sllg <reg>, <reg>, 32
-    BuildMI(MBB, MI, DL, get(SystemZ::SLLG), AddrReg)
-        .addReg(AddrReg)
-        .addReg(0)
-        .addImm(32);
-
-    // ear <reg>, %a1
-    BuildMI(MBB, MI, DL, get(SystemZ::EAR), Reg32)
-        .addReg(SystemZ::A1);
-
+    // emit a load of the TLS stack guard's address
+    BuildMI(MBB, MI, DL, get(SystemZ::LOAD_TLS_BLOCK_ADDR), AddrReg);
+    // record the appropriate stack guard offset (40 in the tls case).
+    Offset = 40;
   } else if (GuardType == "global") {
-    // Obtain the global value.
-    const auto *GV = M->getNamedGlobal("__stack_chk_guard");
-    assert(GV &&
-           "could not create reference to global variable __stack_chk_guard");
-    // Ref->
-    // Emit the address load.
-    if (M->getPICLevel() == PICLevel::NotPIC) {
-      BuildMI(MBB, MI, DL, get(SystemZ::LARL), AddrReg).addGlobalAddress(GV);
-    } else {
-      BuildMI(MBB, MI, DL, get(SystemZ::LGRL), AddrReg)
-          .addGlobalAddress(GV, 0, SystemZII::MO_GOT);
-    }
-
+    // emit a load of the global stack guard's address
+    BuildMI(MBB, MI, DL, get(SystemZ::LOAD_GLOBAL_STACKGUARD_ADDR), AddrReg);
   } else {
     llvm_unreachable(
         (Twine("Unknown stack protector type \"") + GuardType + "\"")
             .str()
             .c_str());
   }
-}
 
-void SystemZInstrInfo::expandMSGPseudo(MachineInstr &MI) const {
-  MachineBasicBlock* MBB = MI.getParent();
-  Register AddrReg = chooseAddrReg(MI, MBB);
-  emitLoadStackGuardAddress(MI, AddrReg);
-  BuildMI(*(MI.getParent()), MI, MI.getDebugLoc(), get(SystemZ::MVC))
+  // Construct the appropriate move or compare instruction using the
+  // scratch register.
+  BuildMI(*(MI.getParent()), MI, MI.getDebugLoc(), get(Opcode))
       .addReg(MI.getOperand(1).getReg())
       .addImm(MI.getOperand(2).getImm())
       .addImm(8)
       .addReg(AddrReg)
-      .addImm(getStackGuardOffset(MBB));
-  MI.removeFromParent();
-}
-void SystemZInstrInfo::expandCSGPseudo(MachineInstr &MI) const {
-  MachineBasicBlock* MBB = MI.getParent();
-  Register AddrReg = chooseAddrReg(MI, MBB);
-  emitLoadStackGuardAddress(MI, AddrReg);
-  BuildMI(*(MI.getParent()), MI, MI.getDebugLoc(), get(SystemZ::CLC))
-      .addReg(MI.getOperand(1).getReg())
-      .addImm(MI.getOperand(2).getImm())
-      .addImm(8)
-      .addReg(AddrReg)
-      .addImm(getStackGuardOffset(MBB));
+      .addImm(Offset);
+
   MI.removeFromParent();
 }
 
@@ -1930,25 +1885,13 @@ unsigned SystemZInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
     return 18;
   if (MI.getOpcode() == TargetOpcode::PATCHABLE_RET)
     return 18 + (MI.getOperand(0).getImm() == SystemZ::CondReturn ? 4 : 0);
-  if ((MI.getOpcode() == SystemZ::MOVE_STACK_GUARD) ||
-      (MI.getOpcode() == SystemZ::COMPARE_STACK_GUARD)) {
-      StringRef GuardType = MI.getParent()
-      ->getParent()
-      ->getFunction()
-      .getParent()
-      ->getStackProtectorGuard();
-      unsigned Size = 6;  // mvc,clc
-      if (GuardType == "global")
-        Size += 6; // larl/lgrl
-      else if (GuardType.empty() || GuardType == "tls")
-        Size += 14; // ear,sllg,ear
-      else
-        llvm_unreachable(
-          (Twine("Unknown stack protector type \"") + GuardType + "\"")
-            .str()
-            .c_str());
-      return Size;
-    }
+  if (MI.getOpcode() == SystemZ::LOAD_TLS_BLOCK_ADDR)
+    // ear (4), sllg (6), ear (4) = 14 bytes
+    return 14;
+  if (MI.getOpcode() == SystemZ::LOAD_GLOBAL_STACKGUARD_ADDR) {
+    // both larl and lgrl are 6 bytes long.
+    return 6;
+  }
 
   return MI.getDesc().getSize();
 }

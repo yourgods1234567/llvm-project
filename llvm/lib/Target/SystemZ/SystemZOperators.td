@@ -21,6 +21,9 @@ def SDT_ZICmp               : SDTypeProfile<1, 3,
                                             [SDTCisVT<0, i32>,
                                              SDTCisSameAs<1, 2>,
                                              SDTCisVT<3, i32>]>;
+def SDT_ZIcmpSG                : SDTypeProfile<1, 1,
+                                            [SDTCisVT<0, i32>,
+                                             SDTCisPtrTy<1>]>;
 def SDT_ZBRCCMask           : SDTypeProfile<0, 4,
                                             [SDTCisVT<0, i32>,
                                              SDTCisVT<1, i32>,
@@ -302,6 +305,10 @@ def z_pcrel_offset      : SDNode<"SystemZISD::PCREL_OFFSET",
 // Integer comparisons.  There are three operands: the two values
 // to compare, and an integer of type SystemZICMP.
 def z_icmp              : SDNode<"SystemZISD::ICMP", SDT_ZICmp>;
+
+// A special form of icmp dedicated to comparing a stack protector value
+// to a stack slot. Kept separate to enable custom lowering.
+def z_csg              : SDNode<"SystemZISD::COMPARE_STACKGUARD", SDT_ZIcmpSG>;
 
 // Floating-point comparisons.  The two operands are the values to compare.
 def z_fcmp              : SDNode<"SystemZISD::FCMP", SDT_ZCmp>;

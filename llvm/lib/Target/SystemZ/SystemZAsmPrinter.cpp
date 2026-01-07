@@ -22,6 +22,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/BinaryFormat/GOFF.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -775,21 +776,12 @@ void SystemZAsmPrinter::emitInstruction(const MachineInstr *MI) {
   case SystemZ::EH_SjLj_Setup:
     return;
 
-  case SystemZ::LOAD_STACK_GUARD:
-    llvm_unreachable("LOAD_STACK_GUARD should have been eliminated by the DAG Combiner.");
-
-  case SystemZ::MOVE_STACK_GUARD:
-  case SystemZ::COMPARE_STACK_GUARD:
-    llvm_unreachable("MOVE_STACK_GUARD and COMPARE_STACK_GUARD should have been expanded by ExpandPostRAPseudo.");
-
-  case SystemZ::LARL:
-  case SystemZ::LGRL: {
-    auto & Op = MI->getOperand(1);
-    if (Op.isGlobal() && (Op.getGlobal()->getName() == "__stack_chk_guard"))
-      emitStackProtectorLocEntry();
-    Lower.lower(MI, LoweredMI);
-    break;
-  }
+  case SystemZ::LOAD_TLS_BLOCK_ADDR:
+    lowerLOAD_TLS_BLOCK_ADDR(*MI, Lower);
+    return;
+  case SystemZ::LOAD_GLOBAL_STACKGUARD_ADDR:
+    lowerLOAD_GLOBAL_STACKGUARD_ADDR(*MI, Lower);
+    return;
 
   default:
     Lower.lower(MI, LoweredMI);
@@ -797,17 +789,6 @@ void SystemZAsmPrinter::emitInstruction(const MachineInstr *MI) {
   }
   EmitToStreamer(*OutStreamer, LoweredMI);
 }
-
-void SystemZAsmPrinter::emitStackProtectorLocEntry() {
-  MCSymbol *Sym = OutContext.createTempSymbol();
-  OutStreamer->pushSection();
-  OutStreamer->switchSection(OutContext.getELFSection(
-      "__stack_protector_loc", ELF::SHT_PROGBITS, ELF::SHF_ALLOC));
-  OutStreamer->emitSymbolValue(Sym, getDataLayout().getPointerSize());
-  OutStreamer->popSection();
-  OutStreamer->emitLabel(Sym);
-}
-
 
 // Emit the largest nop instruction smaller than or equal to NumBytes
 // bytes.  Return the size of nop emitted.
@@ -1053,6 +1034,70 @@ void SystemZAsmPrinter::LowerPATCHABLE_RET(const MachineInstr &MI,
   if (FallthroughLabel)
     OutStreamer->emitLabel(FallthroughLabel);
   recordSled(BeginOfSled, MI, SledKind::FUNCTION_EXIT, 2);
+}
+
+void SystemZAsmPrinter::lowerLOAD_TLS_BLOCK_ADDR(const MachineInstr &MI,
+                                                 SystemZMCInstLower &Lower) {
+  Register AddrReg = MI.getOperand(0).getReg();
+  const MachineRegisterInfo &MRI = MI.getParent()->getParent()->getRegInfo();
+
+  // EAR can only load the low subregister so use a shift for %a0 to produce
+  // the GR containing %a0 and %a1.
+  const Register Reg32 =
+      MRI.getTargetRegisterInfo()->getSubReg(AddrReg, SystemZ::subreg_l32);
+
+  // ear <reg>, %a0
+  EmitToStreamer(*OutStreamer,
+                 MCInstBuilder(SystemZ::EAR).addReg(Reg32).addReg(SystemZ::A0));
+
+  // sllg <reg>, <reg>, 32
+  EmitToStreamer(*OutStreamer, MCInstBuilder(SystemZ::SLLG)
+                                   .addReg(AddrReg)
+                                   .addReg(AddrReg)
+                                   .addReg(0)
+                                   .addImm(32));
+
+  // ear <reg>, %a1
+  EmitToStreamer(*OutStreamer,
+                 MCInstBuilder(SystemZ::EAR).addReg(Reg32).addReg(SystemZ::A1));
+  return;
+}
+
+void SystemZAsmPrinter::lowerLOAD_GLOBAL_STACKGUARD_ADDR(
+    const MachineInstr &MI, SystemZMCInstLower &Lower) {
+  Register AddrReg = MI.getOperand(0).getReg();
+  const MachineFunction &MF = *(MI.getParent()->getParent());
+  const Module *M = MF.getFunction().getParent();
+  const TargetLowering *TLI = MF.getSubtarget().getTargetLowering();
+
+  // Obtain the global value (assert if stack guard variable can't be found).
+  const GlobalVariable *GV = cast<GlobalVariable>(
+      TLI->getSDagStackGuard(*M, TLI->getLibcallLoweringInfo()));
+
+  // If configured, emit the `__stack_protector_loc` entry
+  if (M->hasStackProtectorGuardRecord()) {
+    MCSymbol *Sym = OutContext.createTempSymbol();
+    OutStreamer->pushSection();
+    OutStreamer->switchSection(OutContext.getELFSection(
+        "__stack_protector_loc", ELF::SHT_PROGBITS, ELF::SHF_ALLOC));
+    OutStreamer->emitSymbolValue(Sym, getDataLayout().getPointerSize());
+    OutStreamer->popSection();
+    OutStreamer->emitLabel(Sym);
+  }
+  // Emit the address load.
+  if (M->getPICLevel() == PICLevel::NotPIC) {
+    EmitToStreamer(*OutStreamer, MCInstBuilder(SystemZ::LARL)
+                                     .addReg(AddrReg)
+                                     .addExpr(MCSymbolRefExpr::create(
+                                         getSymbol(GV), OutContext)));
+  } else {
+    EmitToStreamer(*OutStreamer,
+                   MCInstBuilder(SystemZ::LGRL)
+                       .addReg(AddrReg)
+                       .addExpr(MCSymbolRefExpr::create(
+                           getSymbol(GV), SystemZ::S_GOTENT, OutContext)));
+  }
+  return;
 }
 
 // The *alignment* of 128-bit vector types is different between the software
