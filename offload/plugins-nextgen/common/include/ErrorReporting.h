@@ -28,7 +28,16 @@
 #include <functional>
 #include <optional>
 #include <string>
+
+#ifndef _WIN32
 #include <unistd.h>
+#endif
+
+// Fallback definitions for file descriptor constants on platforms that don't
+// have unistd.h (e.g., Windows)
+#ifndef STDERR_FILENO
+#define STDERR_FILENO 2
+#endif
 
 namespace llvm {
 namespace omp {
@@ -73,9 +82,11 @@ class ErrorReporter {
     llvm_unreachable("Unknown target alloc kind");
   }
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wgcc-compat"
 #pragma clang diagnostic ignored "-Wformat-security"
+#endif
   /// Print \p Format, instantiated with \p Args to stderr.
   /// TODO: Allow redirection into a file stream.
   template <typename... ArgsTy>
@@ -110,7 +121,9 @@ class ErrorReporter {
     print(BoldRed, Format, Args...);
     print("\n");
   }
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 
   static void reportError(const char *Str) { reportError("%s", Str); }
   static void print(const char *Str) { print("%s", Str); }

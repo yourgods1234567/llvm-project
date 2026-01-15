@@ -9,12 +9,20 @@ add_public_tablegen_target(PluginErrcodes)
 
 # NOTE: Don't try to build `PluginInterface` using `add_llvm_library` because we
 # don't want to export `PluginInterface` while `add_llvm_library` requires that.
+
+# Use platform-specific RPC implementation
+if(WIN32)
+  set(RPC_SOURCE src/RPC_Windows.cpp)
+else()
+  set(RPC_SOURCE src/RPC.cpp)
+endif()
+
 add_library(PluginCommon OBJECT
   src/PluginInterface.cpp
   src/GlobalHandler.cpp
   src/JIT.cpp
   src/RecordReplay.cpp
-  src/RPC.cpp
+  ${RPC_SOURCE}
   src/OffloadError.cpp
   src/Utils/ELF.cpp
 )

@@ -9,8 +9,8 @@ set(OFFLOAD_MIN_CUDA_VERSION 11.8.0)
 set(OFFLOAD_MIN_CUDA_VERSION_CODE 11080)
 
 # Check that the library can actually be built.
-if(APPLE OR WIN32 OR WASM)
-  message(WARNING "libomptarget cannot be built on Windows and MacOS X!")
+if(APPLE OR WASM)
+  message(WARNING "libomptarget cannot be built on MacOS X and WASM!")
   return()
 elseif("${LLVM_DEFAULT_TARGET_TRIPLE}" MATCHES "^(amdgcn|nvptx|spirv)" OR
        "${CMAKE_CXX_COMPILER_TARGET}" MATCHES "^(amdgcn|nvptx|spirv)")
@@ -42,6 +42,11 @@ else()
 endif()
 
 set(LLVM_COMMON_CMAKE_UTILS ${CMAKE_CURRENT_SOURCE_DIR}/../cmake)
+
+# These are needed for RtlGetLastNtStatus and delay-load helpers
+if(WIN32)
+  add_link_options(/DEFAULTLIB:ntdll.lib /DEFAULTLIB:delayimp.lib)
+endif()
 
 option(OFFLOAD_INCLUDE_TESTS "Generate and build offload tests." ${LLVM_INCLUDE_TESTS})
 
@@ -123,15 +128,29 @@ if(DEFINED LIBOMPTARGET_BUILD_CUDA_PLUGIN OR
 endif()
 
 set(LIBOMPTARGET_ALL_PLUGIN_TARGETS amdgpu cuda)
-set(LIBOMPTARGET_PLUGINS_TO_BUILD "all" CACHE STRING
-    "Semicolon-separated list of plugins to use: cuda, amdgpu, level_zero, or \"all\".")
+# On Windows, build only the Level Zero plugin for now.
+if(WIN32)
+  set(LIBOMPTARGET_PLUGINS_TO_BUILD "level_zero" CACHE STRING
+      "Semicolon-separated list of plugins to use: level_zero.")
+  message(STATUS "Building liboffload on Windows with the level_zero plugin")
+else()
+  set(LIBOMPTARGET_PLUGINS_TO_BUILD "all" CACHE STRING
+      "Semicolon-separated list of plugins to use: cuda, amdgpu or \"all\".")
 
-if(LIBOMPTARGET_PLUGINS_TO_BUILD STREQUAL "all")
-  set(LIBOMPTARGET_PLUGINS_TO_BUILD ${LIBOMPTARGET_ALL_PLUGIN_TARGETS})
+  if(LIBOMPTARGET_PLUGINS_TO_BUILD STREQUAL "all")
+    set(LIBOMPTARGET_PLUGINS_TO_BUILD ${LIBOMPTARGET_ALL_PLUGIN_TARGETS})
+  endif()
 endif()
 
 list(APPEND LIBOMPTARGET_PLUGINS_TO_BUILD "host")
 list(REMOVE_DUPLICATES LIBOMPTARGET_PLUGINS_TO_BUILD)
+
+if(WIN32)
+  if("host" IN_LIST LIBOMPTARGET_PLUGINS_TO_BUILD)
+    message(STATUS "Not building host plugin: it is not supported on Windows")
+    list(REMOVE_ITEM LIBOMPTARGET_PLUGINS_TO_BUILD "host")
+  endif()
+endif()
 
 if(NOT (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)|(ppc64le)|(aarch64)$"
         AND CMAKE_SYSTEM_NAME MATCHES "Linux"))
@@ -165,7 +184,7 @@ foreach(plugin IN LISTS LIBOMPTARGET_PLUGINS_TO_BUILD)
   set(LIBOMPTARGET_ENUM_PLUGIN_TARGETS
       "${LIBOMPTARGET_ENUM_PLUGIN_TARGETS}PLUGIN_TARGET(${plugin})\n")
 endforeach()
-string(STRIP ${LIBOMPTARGET_ENUM_PLUGIN_TARGETS} LIBOMPTARGET_ENUM_PLUGIN_TARGETS)
+string(STRIP "${LIBOMPTARGET_ENUM_PLUGIN_TARGETS}" LIBOMPTARGET_ENUM_PLUGIN_TARGETS)
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/include/Shared/Targets.def.in
   ${CMAKE_CURRENT_BINARY_DIR}/include/Shared/Targets.def
@@ -213,10 +232,20 @@ if(LIBOMPTARGET_ENABLE_DEBUG)
 endif()
 
 # No exceptions and no RTTI, except if requested.
-set(offload_compile_flags -fno-exceptions)
-if(NOT LLVM_ENABLE_RTTI)
-  set(offload_compile_flags ${offload_compile_flags} -fno-rtti)
+if(MSVC)
+  set(offload_compile_flags /EHs-c-)
+else()
+  set(offload_compile_flags -fno-exceptions)
 endif()
+
+if(NOT LLVM_ENABLE_RTTI)
+  if(MSVC)
+    list(APPEND offload_compile_flags /GR-)
+  else()
+    list(APPEND offload_compile_flags -fno-rtti)
+  endif()
+endif()
+
 if(OFFLOAD_HAVE_WERROR_CTOR)
   list(APPEND offload_compile_flags -Werror=global-constructors)
 endif()
@@ -296,8 +325,19 @@ add_subdirectory(plugins-nextgen)
 add_subdirectory(tools)
 add_subdirectory(docs)
 
-# Build target agnostic offloading library.
-add_subdirectory(libomptarget)
+# Allow disabling libomptarget (e.g., on Windows) while still building
+# liboffload and plugins.
+if (WIN32)
+  set(LIBOMPTARGET_ENABLE_LIBOMPTARGET_DEFAULT OFF)
+else()
+  set(LIBOMPTARGET_ENABLE_LIBOMPTARGET_DEFAULT ON)
+endif()
+option(LIBOMPTARGET_ENABLE_LIBOMPTARGET
+       "Build the libomptarget runtime library"
+       ${LIBOMPTARGET_ENABLE_LIBOMPTARGET_DEFAULT})
+if(LIBOMPTARGET_PLUGINS_TO_BUILD AND LIBOMPTARGET_ENABLE_LIBOMPTARGET)
+  add_subdirectory(libomptarget)
+endif()
 
 add_subdirectory(liboffload)
 
