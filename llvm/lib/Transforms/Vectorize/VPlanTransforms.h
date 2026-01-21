@@ -538,6 +538,11 @@ struct VPlanTransforms {
   /// recipes. Non load/store input instructions are left unchanged.
   static void makeMemOpWideningDecisions(VPlan &Plan, VFRange &Range,
                                          VPRecipeBuilder &RecipeBuilder);
+
+  /// Convert the scatter to extract-last-active-lane + scalar store if
+  /// profitable.
+  static void narrowScatters(VPlan &Plan, VPCostContext &Ctx, VFRange &Range,
+                             const bool &FoldTailWithEVL);
 };
 
 } // namespace llvm
