@@ -144,6 +144,7 @@
 #include "llvm/Transforms/Utils/ExtraPassManager.h"
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/Transforms/Utils/LibCallsShrinkWrap.h"
+#include "llvm/Transforms/Utils/LowerCommentStringPass.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/MoveAutoInit.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
@@ -1471,6 +1472,9 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   const bool LTOPreLink = isLTOPreLink(LTOPhase);
   ModulePassManager MPM;
 
+  // Process copyright metadata early, before any optimizations
+  MPM.addPass(LowerCommentStringPass());
+
   // Run partial inlining pass to partially inline functions that have
   // large bodies.
   if (RunPartialInlining)
@@ -2339,6 +2343,9 @@ PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
          "buildO0DefaultPipeline should only be used with O0");
 
   ModulePassManager MPM;
+
+  // Process copyright metadata at O0 before any other transformations
+  MPM.addPass(LowerCommentStringPass());
 
   instructionCountersPass(MPM, /*IsPreOptimization=*/true);
 
