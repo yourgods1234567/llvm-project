@@ -135,7 +135,6 @@ define void @sink_replicate_region_2(i32 %x, i8 %y, ptr %ptr, i32 %z) optsize {
 ; CHECK-NEXT:  Successor(s): scalar.ph, vector.ph
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
-; CHECK-NEXT:    WIDEN-CAST ir<%recur.next> = sext ir<%y> to i32
 ; CHECK-NEXT:  Successor(s): vector loop
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <x1> vector loop: {
@@ -144,6 +143,7 @@ define void @sink_replicate_region_2(i32 %x, i8 %y, ptr %ptr, i32 %z) optsize {
 ; CHECK-NEXT:      FIRST-ORDER-RECURRENCE-PHI ir<%recur> = phi ir<0>, ir<%recur.next>
 ; CHECK-NEXT:      ir<%iv> = WIDEN-INDUCTION ir<0>, ir<1>, vp<[[VP0]]>
 ; CHECK-NEXT:      EMIT vp<[[VP5:%[0-9]+]]> = icmp ule ir<%iv>, vp<[[VP3]]>
+; CHECK-NEXT:      WIDEN-CAST ir<%recur.next> = sext ir<%y> to i32
 ; CHECK-NEXT:      EMIT vp<[[VP6:%[0-9]+]]> = first-order splice ir<%recur>, ir<%recur.next>
 ; CHECK-NEXT:      WIDEN ir<%cond> = icmp eq ir<%iv>, ir<%z>
 ; CHECK-NEXT:      EMIT vp<[[VP7:%[0-9]+]]> = logical-and vp<[[VP5]]>, ir<%cond>
@@ -232,7 +232,6 @@ define i32 @sink_replicate_region_3_reduction(i32 %x, i8 %y, ptr %ptr) optsize {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
 ; CHECK-NEXT:    EMIT vp<[[VP3:%[0-9]+]]> = reduction-start-vector ir<1234>, ir<-1>, ir<1>
-; CHECK-NEXT:    WIDEN-CAST ir<%recur.next> = sext ir<%y> to i32
 ; CHECK-NEXT:  Successor(s): vector loop
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <x1> vector loop: {
@@ -242,6 +241,7 @@ define i32 @sink_replicate_region_3_reduction(i32 %x, i8 %y, ptr %ptr) optsize {
 ; CHECK-NEXT:      WIDEN-REDUCTION-PHI ir<%and.red> = phi vp<[[VP3]]>, ir<%and.red.next>
 ; CHECK-NEXT:      EMIT vp<[[VP5:%[0-9]+]]> = WIDEN-CANONICAL-INDUCTION vp<[[VP4]]>
 ; CHECK-NEXT:      EMIT vp<[[VP6:%[0-9]+]]> = icmp ule vp<[[VP5]]>, vp<[[VP2]]>
+; CHECK-NEXT:      WIDEN-CAST ir<%recur.next> = sext ir<%y> to i32
 ; CHECK-NEXT:      EMIT vp<[[VP7:%[0-9]+]]> = first-order splice ir<%recur>, ir<%recur.next>
 ; CHECK-NEXT:    Successor(s): pred.srem
 ; CHECK-EMPTY:
@@ -263,6 +263,7 @@ define i32 @sink_replicate_region_3_reduction(i32 %x, i8 %y, ptr %ptr) optsize {
 ; CHECK-NEXT:    loop.0:
 ; CHECK-NEXT:      WIDEN ir<%add> = add vp<[[VP8]]>, ir<%recur.next>
 ; CHECK-NEXT:      WIDEN ir<%and.red.next> = and ir<%and.red>, ir<%add>
+; CHECK-NEXT:      EMIT vp<[[VP9:%[0-9]+]]> = select vp<[[VP6]]>, ir<%and.red.next>, ir<%and.red>
 ; CHECK-NEXT:      EMIT vp<%index.next> = add nuw vp<[[VP4]]>, vp<[[VP0]]>
 ; CHECK-NEXT:      EMIT branch-on-count vp<%index.next>, vp<[[VP1]]>
 ; CHECK-NEXT:    No successors
@@ -270,8 +271,7 @@ define i32 @sink_replicate_region_3_reduction(i32 %x, i8 %y, ptr %ptr) optsize {
 ; CHECK-NEXT:  Successor(s): middle.block
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  middle.block:
-; CHECK-NEXT:    EMIT vp<[[VP10:%[0-9]+]]> = select vp<[[VP6]]>, ir<%and.red.next>, ir<%and.red>
-; CHECK-NEXT:    EMIT vp<[[VP11:%[0-9]+]]> = compute-reduction-result (and) vp<[[VP10]]>
+; CHECK-NEXT:    EMIT vp<[[VP11:%[0-9]+]]> = compute-reduction-result (and) vp<[[VP9]]>
 ; CHECK-NEXT:  Successor(s): ir-bb<exit>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  ir-bb<exit>:
@@ -477,7 +477,6 @@ define void @sink_replicate_region_after_replicate_region(ptr %ptr, ptr noalias 
 ; CHECK-NEXT:  Successor(s): scalar.ph, vector.ph
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.ph:
-; CHECK-NEXT:    WIDEN-CAST ir<%recur.next> = sext ir<%y> to i32
 ; CHECK-NEXT:  Successor(s): vector loop
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <x1> vector loop: {
@@ -486,6 +485,7 @@ define void @sink_replicate_region_after_replicate_region(ptr %ptr, ptr noalias 
 ; CHECK-NEXT:      FIRST-ORDER-RECURRENCE-PHI ir<%recur> = phi ir<0>, ir<%recur.next>
 ; CHECK-NEXT:      ir<%iv> = WIDEN-INDUCTION ir<0>, ir<1>, vp<[[VP0]]>
 ; CHECK-NEXT:      EMIT vp<[[VP6:%[0-9]+]]> = icmp ule ir<%iv>, vp<[[VP3]]>
+; CHECK-NEXT:      WIDEN-CAST ir<%recur.next> = sext ir<%y> to i32
 ; CHECK-NEXT:      EMIT vp<[[VP7:%[0-9]+]]> = first-order splice ir<%recur>, ir<%recur.next>
 ; CHECK-NEXT:    Successor(s): pred.store
 ; CHECK-EMPTY:
