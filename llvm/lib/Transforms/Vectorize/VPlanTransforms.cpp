@@ -289,7 +289,8 @@ collectGroupedReplicateMemOps(
 
 /// Return true if we do not know how to (mechanically) hoist or sink \p R out
 /// of a loop region. When sinking, passing \p Sinking = true ensures that
-/// assumes aren't sunk.
+/// assumes aren't sunk. This returns true for recipes that access memory, use
+/// the other overload for memory recipes.
 static bool cannotHoistOrSinkRecipe(const VPRecipeBase &R,
                                     bool Sinking = false) {
   // Assumes don't alias anything or throw; as long as they're guaranteed to
@@ -298,14 +299,24 @@ static bool cannotHoistOrSinkRecipe(const VPRecipeBase &R,
   if (match(&R, m_Intrinsic<Intrinsic::assume>()))
     return Sinking;
 
-  // TODO: Relax checks in the future, e.g. we could also hoist reads, if their
-  // memory location is not modified in the vector loop.
   if (R.mayHaveSideEffects() || R.mayReadFromMemory() || R.isPhi())
     return true;
 
   // Allocas cannot be hoisted.
   auto *RepR = dyn_cast<VPReplicateRecipe>(&R);
   return RepR && RepR->getOpcode() == Instruction::Alloca;
+}
+
+/// Return true if we do not know how to (mechanically) hoist or sink a
+/// non-memory or memory recipe \p R out of a loop region.
+static bool cannotHoistOrSinkRecipe(VPRecipeBase &R, VPBasicBlock *FirstBB,
+                                    VPBasicBlock *LastBB) {
+  if (!isa<VPReplicateRecipe>(R) || !R.mayReadFromMemory())
+    return cannotHoistOrSinkRecipe(R);
+
+  // Check that the load doesn't alias with stores between FirstBB and LastBB.
+  auto MemLoc = vputils::getMemoryLocation(R);
+  return !MemLoc || !canHoistOrSinkWithNoAliasCheck(*MemLoc, FirstBB, LastBB);
 }
 
 static bool sinkScalarOperands(VPlan &Plan) {
@@ -2686,7 +2697,8 @@ static void licm(VPlan &Plan) {
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
            vp_depth_first_shallow(LoopRegion->getEntry()))) {
     for (VPRecipeBase &R : make_early_inc_range(*VPBB)) {
-      if (cannotHoistOrSinkRecipe(R))
+      if (cannotHoistOrSinkRecipe(R, LoopRegion->getEntryBasicBlock(),
+                                  LoopRegion->getExitingBasicBlock()))
         continue;
       if (any_of(R.operands(), [](VPValue *Op) {
             return !Op->isDefinedOutsideLoopRegions();
@@ -2938,7 +2950,6 @@ void VPlanTransforms::optimize(VPlan &Plan) {
   RUN_VPLAN_PASS(removeDeadRecipes, Plan);
 
   RUN_VPLAN_PASS(createAndOptimizeReplicateRegions, Plan);
-  RUN_VPLAN_PASS(hoistInvariantLoads, Plan);
   RUN_VPLAN_PASS(mergeBlocksIntoPredecessors, Plan);
   RUN_VPLAN_PASS(licm, Plan);
 }
@@ -4725,54 +4736,6 @@ void VPlanTransforms::materializeBroadcasts(VPlan &Plan) {
                            [VPV, Broadcast](VPUser &U, unsigned Idx) {
                              return Broadcast != &U && !U.usesScalars(VPV);
                            });
-  }
-}
-
-void VPlanTransforms::hoistInvariantLoads(VPlan &Plan) {
-  VPRegionBlock *LoopRegion = Plan.getVectorLoopRegion();
-
-  // Collect candidate loads with invariant addresses and noalias scopes
-  // metadata and memory-writing recipes with noalias metadata.
-  SmallVector<std::pair<VPRecipeBase *, MemoryLocation>> CandidateLoads;
-  SmallVector<MemoryLocation> Stores;
-  for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
-           vp_depth_first_shallow(LoopRegion->getEntry()))) {
-    for (VPRecipeBase &R : *VPBB) {
-      // Only handle single-scalar replicated loads with invariant addresses.
-      if (auto *RepR = dyn_cast<VPReplicateRecipe>(&R)) {
-        if (RepR->isPredicated() || !RepR->isSingleScalar() ||
-            RepR->getOpcode() != Instruction::Load)
-          continue;
-
-        VPValue *Addr = RepR->getOperand(0);
-        if (Addr->isDefinedOutsideLoopRegions()) {
-          MemoryLocation Loc = *vputils::getMemoryLocation(*RepR);
-          if (!Loc.AATags.Scope)
-            continue;
-          CandidateLoads.push_back({RepR, Loc});
-        }
-      }
-      if (R.mayWriteToMemory()) {
-        auto Loc = vputils::getMemoryLocation(R);
-        if (!Loc || !Loc->AATags.Scope || !Loc->AATags.NoAlias)
-          return;
-        Stores.push_back(*Loc);
-      }
-    }
-  }
-
-  VPBasicBlock *Preheader = Plan.getVectorPreheader();
-  for (auto &[LoadRecipe, LoadLoc] : CandidateLoads) {
-    // Hoist the load to the preheader if it doesn't alias with any stores
-    // according to the noalias metadata. Other loads should have been hoisted
-    // by other passes
-    const AAMDNodes &LoadAA = LoadLoc.AATags;
-    if (all_of(Stores, [&](const MemoryLocation &StoreLoc) {
-          return !ScopedNoAliasAAResult::mayAliasInScopes(
-              LoadAA.Scope, StoreLoc.AATags.NoAlias);
-        })) {
-      LoadRecipe->moveBefore(*Preheader, Preheader->getFirstNonPhi());
-    }
   }
 }
 
