@@ -27,8 +27,9 @@ define <4 x i32> @deinterleave_shuffle_v8i32_c(<8 x i32> %a) {
 define <2 x i32> @deinterleave_shuffle_v4i32(<4 x i32> %a) {
 ; CHECK-LABEL: deinterleave_shuffle_v4i32:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    addp v0.4s, v0.4s, v0.4s
-; CHECK-NEXT:    // kill: def $d0 killed $d0 killed $q0
+; CHECK-NEXT:    xtn v1.2s, v0.2d
+; CHECK-NEXT:    uzp2 v0.4s, v0.4s, v0.4s
+; CHECK-NEXT:    add v0.2s, v1.2s, v0.2s
 ; CHECK-NEXT:    ret
   %r0 = shufflevector <4 x i32> %a, <4 x i32> poison, <2 x i32> <i32 0, i32 2>
   %r1 = shufflevector <4 x i32> %a, <4 x i32> poison, <2 x i32> <i32 1, i32 3>
@@ -387,10 +388,9 @@ define <4 x i32> @or_deinterleave_shuffle_v8i32_c(<8 x i32> %a) {
 define <2 x i32> @or_deinterleave_shuffle_v4i32(<4 x i32> %a) {
 ; CHECK-LABEL: or_deinterleave_shuffle_v4i32:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    ext v1.16b, v0.16b, v0.16b, #8
-; CHECK-NEXT:    zip1 v2.2s, v0.2s, v1.2s
-; CHECK-NEXT:    zip2 v0.2s, v0.2s, v1.2s
-; CHECK-NEXT:    orr v0.8b, v2.8b, v0.8b
+; CHECK-NEXT:    xtn v1.2s, v0.2d
+; CHECK-NEXT:    uzp2 v0.4s, v0.4s, v0.4s
+; CHECK-NEXT:    orr v0.8b, v1.8b, v0.8b
 ; CHECK-NEXT:    ret
   %r0 = shufflevector <4 x i32> %a, <4 x i32> poison, <2 x i32> <i32 0, i32 2>
   %r1 = shufflevector <4 x i32> %a, <4 x i32> poison, <2 x i32> <i32 1, i32 3>
