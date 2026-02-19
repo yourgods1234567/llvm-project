@@ -46,7 +46,8 @@ VPValue *vputils::getOrCreateVPValueForSCEVExpr(VPlan &Plan, const SCEV *Expr) {
   if (U && !isa<Instruction>(U->getValue()))
     return Plan.getOrAddLiveIn(U->getValue());
   auto *Expanded = new VPExpandSCEVRecipe(Expr);
-  Plan.getEntry()->appendRecipe(Expanded);
+  VPBasicBlock *EntryVPBB = Plan.getEntry();
+  EntryVPBB->insert(Expanded, EntryVPBB->getFirstNonPhi());
   return Expanded;
 }
 
@@ -79,8 +80,15 @@ bool vputils::isHeaderMask(const VPValue *V, const VPlan &Plan) {
     return true;
   }
 
-  return match(V, m_ICmp(m_VPValue(A), m_VPValue(B))) && IsWideCanonicalIV(A) &&
-         B == Plan.getBackedgeTakenCount();
+  if (match(V, m_ICmp(m_VPValue(A), m_VPValue(B))) && IsWideCanonicalIV(A))
+    return B == Plan.getBackedgeTakenCount();
+
+  if (match(V,
+            m_c_BinaryAnd(m_VPValue(),
+                          m_VPInstruction<VPInstruction::IncomingAliasMask>())))
+    return true;
+
+  return false;
 }
 
 /// Returns true if \p R propagates poison from any operand to its result.
@@ -577,6 +585,13 @@ vputils::getRecipesForUncountableExit(SmallVectorImpl<VPInstruction *> &Recipes,
 }
 
 VPSingleDefRecipe *vputils::findHeaderMask(VPlan &Plan) {
+  if (VPValue *AliasMask = findIncomingAliasMask(Plan)) {
+    assert(match(AliasMask->getSingleUser(),
+                 m_c_BinaryAnd(m_VPValue(), m_Specific(AliasMask))) &&
+           "AliasMask must be only be used with the original header mask");
+    return cast<VPSingleDefRecipe>(AliasMask->getSingleUser());
+  }
+
   VPRegionBlock *LoopRegion = Plan.getVectorLoopRegion();
   SmallVector<VPValue *> WideCanonicalIVs;
   auto *FoundWidenCanonicalIVUser = find_if(
@@ -615,6 +630,15 @@ VPSingleDefRecipe *vputils::findHeaderMask(VPlan &Plan) {
       HeaderMask = VPI;
     }
   }
+
+  for (VPRecipeBase &R : LoopRegion->getEntryBasicBlock()->phis()) {
+    auto *Def = cast<VPSingleDefRecipe>(&R);
+    if (vputils::isHeaderMask(Def, Plan)) {
+      assert(!HeaderMask && "Multiple header masks found?");
+      HeaderMask = Def;
+    }
+  }
+
   return HeaderMask;
 }
 
@@ -637,6 +661,13 @@ VPBlockUtils::blocksInSingleSuccessorChainBetween(VPBasicBlock *FirstBB,
          "LastBB unreachable from FirstBB in depth-first traversal");
   Blocks.erase(std::next(LastIt), Blocks.end());
   return Blocks;
+}
+
+VPValue *vputils::findIncomingAliasMask(const VPlan &Plan) {
+  for (VPRecipeBase &R : *const_cast<VPlan &>(Plan).getVectorPreheader())
+    if (match(&R, m_VPInstruction<VPInstruction::IncomingAliasMask>()))
+      return cast<VPInstruction>(&R);
+  return nullptr;
 }
 
 bool VPBlockUtils::isHeader(const VPBlockBase *VPB,
