@@ -354,7 +354,7 @@ Improvements to Clang's diagnostics
   ``__VA_OPT__`` if the current language version supports it(#GH188624)
 
 - Added ``-Wstringop-overread`` to warn when ``memcpy``, ``memmove``, ``memcmp``,
-  and related builtins read more bytes than the source buffer size (#GH183004).
+  and related builtins read more bytes than the source buffer size (#GH83728).
 
 Improvements to Clang's time-trace
 ----------------------------------
