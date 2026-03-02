@@ -34,7 +34,6 @@
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/VirtRegMap.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCInstrDesc.h"
@@ -55,7 +54,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "systemz-II"
 
-STATISTIC(NumRSWorkaround, "The # of times the RegScavenger workaround for the FIE bug was triggered.");
+STATISTIC(NumRSWorkaround, "The # of times the RegScavenger workaround for the "
+                           "FIE bug was triggered.");
 
 // Return a mask with Count low bits set.
 static uint64_t allOnes(unsigned int Count) {
@@ -1782,11 +1782,11 @@ bool SystemZInstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     splitAdjDynAlloc(MI);
     return true;
 
-  case SystemZ::MOVE_STACKGUARD:
+  case SystemZ::MOV_STACKGUARD:
     expandStackGuardPseudo(MI, SystemZ::MVC);
     return true;
 
-  case SystemZ::COMPARE_STACKGUARD:
+  case SystemZ::CMP_STACKGUARD:
     expandStackGuardPseudo(MI, SystemZ::CLC);
     return true;
 
@@ -1800,9 +1800,9 @@ namespace {
 // and should be removed once that issue is resolved.
 Register scavengeAddrReg(MachineInstr &MI, MachineBasicBlock *MBB) {
   NumRSWorkaround++;
-  // create fresh RegScavanger instance.
+  // Create fresh RegScavenger instance.
   RegScavenger RS;
-  // initialize RegScavenger to correct location
+  // Initialize RegScavenger to correct location.
   RS.enterBasicBlockEnd(*MBB);
   RS.backward(MI);
 
@@ -1831,31 +1831,31 @@ void SystemZInstrInfo::expandStackGuardPseudo(MachineInstr &MI,
   StringRef GuardType = M->getStackProtectorGuard();
   unsigned int Offset = 0;
 
-  // Check MI (which should be either MOVE_STACKGUARD or COMPARE_STACKGUARD)
+  // Check MI (which should be either MOV_STACKGUARD or CMP_STACKGUARD)
   // to see if the early-clobber flag on the def reg was honored. If so,
   // return that register. If not, scavenge a new register and return that.
   // This is a workaround for https://github.com/llvm/llvm-project/issues/172511
   // and should be removed once that issue is resolved.
-  // After this, AddrReg is set to a usable scratch register.
   Register AddrReg = MI.getOperand(0).getReg();
   Register OpReg = MI.getOperand(1).getReg();
-  // if we can't use AddrReg, scavenge a new one.
+  // If we can't use AddrReg, scavenge a new one.
   if (AddrReg == OpReg)
     AddrReg = scavengeAddrReg(MI, &MBB);
+  // At this point, AddrReg should be set to a usable scratch register.
 
-  // emit an appropriate pseudo for the guard type, which loads the address of
+  // Emit an appropriate pseudo for the guard type, which loads the address of
   // said guard into the scratch register AddrReg.
   if (GuardType.empty() || (GuardType == "tls")) {
-    // emit a load of the TLS stack guard's address
+    // Emit a load of the TLS block's address
     BuildMI(MBB, MI, DL, get(SystemZ::LOAD_TLS_BLOCK_ADDR), AddrReg);
-    // record the appropriate stack guard offset (40 in the tls case).
+    // Record the appropriate stack guard offset (40 in the tls case).
     Offset = 40;
   } else if (GuardType == "global") {
-    // emit a load of the global stack guard's address
+    // Emit a load of the global stack guard's address
     BuildMI(MBB, MI, DL, get(SystemZ::LOAD_GLOBAL_STACKGUARD_ADDR), AddrReg);
   } else {
-    llvm_unreachable(
-        (Twine("Unknown stack protector type \"") + GuardType + "\"")
+    report_fatal_error(
+        (Twine("unknown stack protector type \"") + GuardType + "\".")
             .str()
             .c_str());
   }
@@ -1891,10 +1891,9 @@ unsigned SystemZInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   if (MI.getOpcode() == SystemZ::LOAD_TLS_BLOCK_ADDR)
     // ear (4), sllg (6), ear (4) = 14 bytes
     return 14;
-  if (MI.getOpcode() == SystemZ::LOAD_GLOBAL_STACKGUARD_ADDR) {
-    // both larl and lgrl are 6 bytes long.
+  if (MI.getOpcode() == SystemZ::LOAD_GLOBAL_STACKGUARD_ADDR)
+    // Both larl and lgrl are 6 bytes long.
     return 6;
-  }
 
   return MI.getDesc().getSize();
 }

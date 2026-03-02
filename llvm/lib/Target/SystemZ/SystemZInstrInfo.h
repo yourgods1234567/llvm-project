@@ -218,11 +218,6 @@ protected:
                                        unsigned CommuteOpIdx1,
                                        unsigned CommuteOpIdx2) const override;
 
-  // Emits a load of the stack guard's address, using the given
-  // AddrReg as the target. Returns the appropriate offset to load
-  // the stack guard from that address.
-  unsigned emitLoadStackGuardAddress(MachineInstr &MI, Register AddrReg) const;
-
 public:
   explicit SystemZInstrInfo(const SystemZSubtarget &STI);
 

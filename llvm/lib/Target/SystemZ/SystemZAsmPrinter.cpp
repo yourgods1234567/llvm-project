@@ -22,7 +22,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/BinaryFormat/GOFF.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -30,7 +29,6 @@
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCStreamer.h"
@@ -1060,7 +1058,6 @@ void SystemZAsmPrinter::lowerLOAD_TLS_BLOCK_ADDR(const MachineInstr &MI,
   // ear <reg>, %a1
   EmitToStreamer(*OutStreamer,
                  MCInstBuilder(SystemZ::EAR).addReg(Reg32).addReg(SystemZ::A1));
-  return;
 }
 
 void SystemZAsmPrinter::lowerLOAD_GLOBAL_STACKGUARD_ADDR(
@@ -1097,7 +1094,6 @@ void SystemZAsmPrinter::lowerLOAD_GLOBAL_STACKGUARD_ADDR(
                        .addExpr(MCSymbolRefExpr::create(
                            getSymbol(GV), SystemZ::S_GOTENT, OutContext)));
   }
-  return;
 }
 
 // The *alignment* of 128-bit vector types is different between the software
