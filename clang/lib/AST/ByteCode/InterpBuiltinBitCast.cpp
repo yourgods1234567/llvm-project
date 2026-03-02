@@ -36,9 +36,8 @@ using namespace clang::interp;
 //    bytes to/from the buffer.
 
 /// Used to iterate over pointer fields.
-using DataFunc =
-    llvm::function_ref<bool(const Pointer &P, PrimType Ty, Bits BitOffset,
-                            Bits FullBitWidth, bool PackedBools)>;
+using DataFunc = llvm::function_ref<bool(PtrView P, PrimType Ty, Bits BitOffset,
+                                         Bits FullBitWidth, bool PackedBools)>;
 
 #define BITCAST_TYPE_SWITCH(Expr, B)                                           \
   do {                                                                         \
@@ -78,7 +77,7 @@ using DataFunc =
 
 /// We use this to recursively iterate over all fields and elements of a pointer
 /// and extract relevant data for a bitcast.
-static bool enumerateData(const Pointer &P, const Context &Ctx, Bits Offset,
+static bool enumerateData(PtrView P, const Context &Ctx, Bits Offset,
                           Bits BitsToRead, DataFunc F) {
   const Descriptor *FieldDesc = P.getFieldDesc();
   assert(FieldDesc);
@@ -133,13 +132,13 @@ static bool enumerateData(const Pointer &P, const Context &Ctx, Bits Offset,
     for (const Record::Field &Fi : R->fields()) {
       if (Fi.isUnnamedBitField())
         continue;
-      Pointer Elem = P.atField(Fi.Offset);
+      PtrView Elem = P.atField(Fi.Offset);
       Bits BitOffset =
           Offset + Bits(Layout.getFieldOffset(Fi.Decl->getFieldIndex()));
       Ok = Ok && enumerateData(Elem, Ctx, BitOffset, BitsToRead, F);
     }
     for (const Record::Base &B : R->bases()) {
-      Pointer Elem = P.atField(B.Offset);
+      PtrView Elem = P.atField(B.Offset);
       CharUnits ByteOffset =
           Layout.getBaseClassOffset(cast<CXXRecordDecl>(B.Decl));
       Bits BitOffset = Offset + Bits(Ctx.getASTContext().toBits(ByteOffset));
@@ -158,7 +157,7 @@ static bool enumerateData(const Pointer &P, const Context &Ctx, Bits Offset,
 
 static bool enumeratePointerFields(const Pointer &P, const Context &Ctx,
                                    Bits BitsToRead, DataFunc F) {
-  return enumerateData(P, Ctx, Bits::zero(), BitsToRead, F);
+  return enumerateData(P.view(), Ctx, Bits::zero(), BitsToRead, F);
 }
 
 //  This function is constexpr if and only if To, From, and the types of
@@ -268,7 +267,7 @@ bool clang::interp::readPointerToBuffer(const Context &Ctx,
 
   return enumeratePointerFields(
       FromPtr, Ctx, Buffer.size(),
-      [&](const Pointer &P, PrimType T, Bits BitOffset, Bits FullBitWidth,
+      [&](PtrView P, PrimType T, Bits BitOffset, Bits FullBitWidth,
           bool PackedBools) -> bool {
         Bits BitWidth = FullBitWidth;
 
@@ -395,7 +394,7 @@ bool clang::interp::DoBitCastPtr(InterpState &S, CodePtr OpPC,
       ASTCtx.getTargetInfo().isLittleEndian() ? Endian::Little : Endian::Big;
   bool Success = enumeratePointerFields(
       ToPtr, S.getContext(), Buffer.size(),
-      [&](const Pointer &P, PrimType T, Bits BitOffset, Bits FullBitWidth,
+      [&](PtrView P, PrimType T, Bits BitOffset, Bits FullBitWidth,
           bool PackedBools) -> bool {
         QualType PtrType = P.getType();
         if (T == PT_Float) {
@@ -496,7 +495,7 @@ bool clang::interp::DoMemcpy(InterpState &S, CodePtr OpPC,
 
   llvm::SmallVector<PrimTypeVariant> Values;
   enumeratePointerFields(SrcPtr, S.getContext(), Size,
-                         [&](const Pointer &P, PrimType T, Bits BitOffset,
+                         [&](PtrView P, PrimType T, Bits BitOffset,
                              Bits FullBitWidth, bool PackedBools) -> bool {
                            TYPE_SWITCH(T, { Values.push_back(P.deref<T>()); });
                            return true;
@@ -504,7 +503,7 @@ bool clang::interp::DoMemcpy(InterpState &S, CodePtr OpPC,
 
   unsigned ValueIndex = 0;
   enumeratePointerFields(DestPtr, S.getContext(), Size,
-                         [&](const Pointer &P, PrimType T, Bits BitOffset,
+                         [&](PtrView P, PrimType T, Bits BitOffset,
                              Bits FullBitWidth, bool PackedBools) -> bool {
                            TYPE_SWITCH(T, {
                              P.deref<T>() = std::get<T>(Values[ValueIndex]);
