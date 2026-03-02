@@ -353,6 +353,9 @@ Improvements to Clang's diagnostics
 - Improved ``-Wgnu-zero-variadic-macro-arguments`` to suggest using
   ``__VA_OPT__`` if the current language version supports it(#GH188624)
 
+- Added ``-Wstringop-overread`` to warn when ``memcpy``, ``memmove``, ``memcmp``,
+  and related builtins read more bytes than the source buffer size (#GH183004).
+
 Improvements to Clang's time-trace
 ----------------------------------
 
