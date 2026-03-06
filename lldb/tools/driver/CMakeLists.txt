@@ -38,6 +38,16 @@ if(WIN32)
   list(APPEND LLDB_DRIVER_LINK_LIBS lldbHostPythonPathSetup)
 endif()
 
+if (LLDB_ENABLE_DYNAMIC_SCRIPTINTERPRETERS)
+  if (LLDB_ENABLE_PYTHON)
+    list(APPEND LLDB_DRIVER_LINK_LIBS lldbPluginScriptInterpreterPython)
+  endif()
+
+  if(LLDB_ENABLE_LUA)
+    list(APPEND LLDB_DRIVER_LINK_LIBS lldbPluginScriptInterpreterLua)
+  endif()
+endif()
+
 add_lldb_tool(lldb
   Driver.cpp
   Platform.cpp
