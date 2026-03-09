@@ -3339,12 +3339,13 @@ void GVNPass::assignValNumForDeadCode() {
 /// Return true if the load can be hoisted to the loop preheader (no clobber
 /// in the loop) using MemorySSA's clobbering access.
 static bool canHoistLoadWithMSSA(Loop *L, Instruction *LoadInst,
-                                 MemorySSAUpdater *MSSAU) {
-  MemoryAccess *MA = MSSAU->getMemorySSA()->getMemoryAccess(LoadInst);
+                                 MemorySSA *MSSA) {
+  MemoryAccess *MA = MSSA->getMemoryAccess(LoadInst);
   assert(MA && "MemoryAccess expected when MemorySSA is available");
   MemoryAccess *Clobber =
-      MSSAU->getMemorySSA()->getSkipSelfWalker()->getClobberingMemoryAccess(MA);
-  if (!Clobber || MSSAU->getMemorySSA()->isLiveOnEntryDef(Clobber))
+      MSSA->getSkipSelfWalker()->getClobberingMemoryAccess(MA);
+  assert(Clobber && "getClobberingMemoryAccess should never return null");
+  if (MSSA->isLiveOnEntryDef(Clobber))
     return true;
   if (!L->contains(Clobber->getBlock()))
     return true;
@@ -3433,14 +3434,13 @@ bool GVNPass::transformMinFindingSelectPattern(
   assert(BasePtr && "BasePtr is null");
   assert(OffsetVal && "OffsetVal is null");
   assert(IndexValPhi && "IndexValPhi is null");
-  AAResults *AA = VN.getAliasAnalysis();
-  assert(AA && "AA is null");
 
   // Check if any instruction in the loop clobbers this location. Require MSSA
   // or MD to perform the transformation.
   bool CanHoist = false;
   if (MSSAU)
-    CanHoist = canHoistLoadWithMSSA(L, dyn_cast<Instruction>(LoadVal), MSSAU);
+    CanHoist = canHoistLoadWithMSSA(L, dyn_cast<Instruction>(LoadVal),
+                                    MSSAU->getMemorySSA());
   else if (MD)
     CanHoist = canHoistLoadWithMD(L, cast<LoadInst>(LoadVal), MD);
 
@@ -3606,7 +3606,7 @@ bool GVNPass::recognizeMinFindingSelectPattern(SelectInst *Select) {
     return false;
   }
 
-  // Check if the "To" and "from" type of the sext instruction are i64 and i32
+  // Check if the "to" and "from" type of the sext instruction are i64 and i32
   // respectively.
   if (SEInst->getType() != Type::getInt64Ty(SEInst->getContext()) ||
       SEInst->getOperand(0)->getType() !=
