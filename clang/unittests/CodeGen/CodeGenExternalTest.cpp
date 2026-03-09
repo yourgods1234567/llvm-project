@@ -42,8 +42,10 @@ static const bool DebugThisTest = false;
 
 // forward declarations
 struct MyASTConsumer;
-static void test_codegen_fns(MyASTConsumer *my);
-static bool test_codegen_fns_ran;
+static void test_generic_codegen_fns(MyASTConsumer *my);
+static void test_x86_avx_abi_codegen_fns(MyASTConsumer *my);
+static bool test_generic_codegen_fns_ran;
+static bool test_x86_avx_abi_codegen_fns_ran;
 
 // This forwards the calls to the Clang CodeGenerator
 // so that we can test CodeGen functions while it is open.
@@ -52,13 +54,15 @@ static bool test_codegen_fns_ran;
 // before forwarding that function to the CodeGenerator.
 
 struct MyASTConsumer : public ASTConsumer {
+  using TestFn = void (*)(MyASTConsumer *);
+
   std::unique_ptr<CodeGenerator> Builder;
+  TestFn TestFunction;
   std::vector<Decl*> toplevel_decls;
 
-  MyASTConsumer(std::unique_ptr<CodeGenerator> Builder_in)
-    : ASTConsumer(), Builder(std::move(Builder_in))
-  {
-  }
+  MyASTConsumer(std::unique_ptr<CodeGenerator> Builder_in, TestFn TestFunction)
+      : ASTConsumer(), Builder(std::move(Builder_in)),
+        TestFunction(TestFunction) {}
 
   ~MyASTConsumer() { }
 
@@ -104,7 +108,7 @@ void MyASTConsumer::HandleInterestingDecl(DeclGroupRef D) {
 }
 
 void MyASTConsumer::HandleTranslationUnit(ASTContext &Context) {
-  test_codegen_fns(this);
+  TestFunction(this);
   // HandleTranslationUnit can close the module
   Builder->HandleTranslationUnit(Context);
 }
@@ -161,13 +165,23 @@ bool MyASTConsumer::shouldSkipFunctionBody(Decl *D) {
   return Builder->shouldSkipFunctionBody(D);
 }
 
-const char TestProgram[] =
+const char GenericTestProgram[] =
     "struct mytest_struct { char x; short y; char p; long z; };\n"
     "int mytest_fn(int x) { return x; }\n";
 
-// This function has the real test code here
-static void test_codegen_fns(MyASTConsumer *my) {
+const char X86AVXABITestProgram[] =
+    "typedef float mytest_v8f __attribute__((vector_size(32)));\n"
+    "__attribute__((target(\"avx\"))) mytest_v8f mytest_avx_fn(mytest_v8f x) "
+    "{\n"
+    "  return x;\n"
+    "}\n"
+    "struct mytest_avx_method_holder {\n"
+    "  __attribute__((target(\"avx\"))) mytest_v8f method(mytest_v8f x) {\n"
+    "    return x;\n"
+    "  }\n"
+    "};\n";
 
+static void test_generic_codegen_fns(MyASTConsumer *my) {
   bool mytest_fn_ok = false;
   bool mytest_struct_ok = false;
 
@@ -254,7 +268,61 @@ static void test_codegen_fns(MyASTConsumer *my) {
   ASSERT_TRUE(mytest_fn_ok);
   ASSERT_TRUE(mytest_struct_ok);
 
-  test_codegen_fns_ran = true;
+  test_generic_codegen_fns_ran = true;
+}
+
+static void test_x86_avx_abi_codegen_fns(MyASTConsumer *my) {
+  bool mytest_avx_fn_ok = false;
+  bool mytest_avx_method_ok = false;
+
+  CodeGen::CodeGenModule &CGM = my->Builder->CGM();
+  const ASTContext &Ctx = my->toplevel_decls.front()->getASTContext();
+
+  for (auto decl : my->toplevel_decls) {
+    if (FunctionDecl *fd = dyn_cast<FunctionDecl>(decl)) {
+      if (fd->getName() != "mytest_avx_fn")
+        continue;
+
+      const auto *FPT = fd->getType()->castAs<FunctionProtoType>();
+      SmallVector<CanQualType, 4> ArgTypes;
+      for (const ParmVarDecl *Param : fd->parameters())
+        ArgTypes.push_back(Ctx.getCanonicalParamType(Param->getType()));
+
+      const CodeGen::CGFunctionInfo &FnInfo = CodeGen::arrangeFreeFunctionCall(
+          CGM, Ctx.getCanonicalType(FPT->getReturnType()), ArgTypes,
+          FPT->getExtInfo(), {},
+          CodeGen::RequiredArgs::forPrototypePlus(FPT, 0), fd);
+      ASSERT_EQ(FnInfo.getX86AVXABILevel(), 1u);
+      ASSERT_TRUE(FnInfo.getReturnInfo().isDirect());
+      ASSERT_FALSE(FnInfo.arg_begin()->info.isIndirect());
+      mytest_avx_fn_ok = true;
+    } else if (RecordDecl *rd = dyn_cast<RecordDecl>(decl)) {
+      if (rd->getName() != "mytest_avx_method_holder")
+        continue;
+
+      const auto *MethodRD = cast<CXXRecordDecl>(rd->getDefinition());
+      const auto *MD = cast<CXXMethodDecl>(*MethodRD->method_begin());
+      const auto *FPT = MD->getType()->castAs<FunctionProtoType>();
+      SmallVector<CanQualType, 4> ArgTypes;
+      ArgTypes.push_back(Ctx.getCanonicalParamType(MD->getThisType()));
+      for (const ParmVarDecl *Param : MD->parameters())
+        ArgTypes.push_back(Ctx.getCanonicalParamType(Param->getType()));
+
+      const CodeGen::CGFunctionInfo &FnInfo = CodeGen::arrangeCXXMethodCall(
+          CGM, Ctx.getCanonicalType(FPT->getReturnType()), ArgTypes,
+          FPT->getExtInfo(), {},
+          CodeGen::RequiredArgs::forPrototypePlus(FPT, 1), MD);
+      ASSERT_EQ(FnInfo.getX86AVXABILevel(), 1u);
+      ASSERT_TRUE(FnInfo.getReturnInfo().isDirect());
+      ASSERT_FALSE(FnInfo.arg_begin()[1].info.isIndirect());
+      mytest_avx_method_ok = true;
+    }
+  }
+
+  ASSERT_TRUE(mytest_avx_fn_ok);
+  ASSERT_TRUE(mytest_avx_method_ok);
+
+  test_x86_avx_abi_codegen_fns_ran = true;
 }
 
 TEST(CodeGenExternalTest, CodeGenExternalTest) {
@@ -262,14 +330,30 @@ TEST(CodeGenExternalTest, CodeGenExternalTest) {
   LO.CPlusPlus = 1;
   LO.CPlusPlus11 = 1;
   TestCompiler Compiler(LO);
-  auto CustomASTConsumer
-    = std::make_unique<MyASTConsumer>(std::move(Compiler.CG));
+  auto CustomASTConsumer = std::make_unique<MyASTConsumer>(
+      std::move(Compiler.CG), test_generic_codegen_fns);
 
-  Compiler.init(TestProgram, std::move(CustomASTConsumer));
+  Compiler.init(GenericTestProgram, std::move(CustomASTConsumer));
 
   clang::ParseAST(Compiler.compiler.getSema(), false, false);
 
-  ASSERT_TRUE(test_codegen_fns_ran);
+  ASSERT_TRUE(test_generic_codegen_fns_ran);
+}
+
+TEST(CodeGenExternalTest, X86AVXABIQuery) {
+  clang::LangOptions LO;
+  LO.CPlusPlus = 1;
+  LO.CPlusPlus11 = 1;
+  TestCompiler Compiler(LO, clang::CodeGenOptions(),
+                        "x86_64-unknown-linux-gnu");
+  auto CustomASTConsumer = std::make_unique<MyASTConsumer>(
+      std::move(Compiler.CG), test_x86_avx_abi_codegen_fns);
+
+  Compiler.init(X86AVXABITestProgram, std::move(CustomASTConsumer));
+
+  clang::ParseAST(Compiler.compiler.getSema(), false, false);
+
+  ASSERT_TRUE(test_x86_avx_abi_codegen_fns_ran);
 }
 
 } // end anonymous namespace
