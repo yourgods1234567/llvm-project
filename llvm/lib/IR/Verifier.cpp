@@ -91,6 +91,7 @@
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicDiagnostics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
@@ -3898,9 +3899,17 @@ void Verifier::visitCallBase(CallBase &Call) {
   Function *Callee =
       dyn_cast<Function>(Call.getCalledOperand()->stripPointerCasts());
   bool IsIntrinsic = Callee && Callee->isIntrinsic();
-  if (IsIntrinsic)
-    Check(Callee->getFunctionType() == FTy,
-          "Intrinsic called with incompatible signature", Call);
+  if (IsIntrinsic) {
+    FunctionType *DeclFTy = cast<FunctionType>(Callee->getValueType());
+    if (DeclFTy != FTy) {
+      std::string Msg = "Intrinsic called with incompatible signature";
+      raw_string_ostream SS(Msg);
+      IntrinsicDiagnosticsProvider::querySignatureMismatch(
+          Callee->getName(), DeclFTy, FTy, SS);
+      CheckFailed(Msg, Call);
+      return;
+    }
+  }
 
   // Verify if the calling convention of the callee is callable.
   Check(isCallableCC(Call.getCallingConv()),
@@ -5914,10 +5923,22 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   SmallVector<Type *, 4> ArgTys;
   Intrinsic::MatchIntrinsicTypesResult Res =
       Intrinsic::matchIntrinsicSignature(IFTy, TableRef, ArgTys);
-  Check(Res != Intrinsic::MatchIntrinsicTypes_NoMatchRet,
-        "Intrinsic has incorrect return type!", IF);
-  Check(Res != Intrinsic::MatchIntrinsicTypes_NoMatchArg,
-        "Intrinsic has incorrect argument type!", IF);
+  if (Res == Intrinsic::MatchIntrinsicTypes_NoMatchRet) {
+    std::string Msg = "Intrinsic has incorrect return type!";
+    raw_string_ostream SS(Msg);
+    IntrinsicDiagnosticsProvider::queryReturnTypeMismatch(
+        IF->getName(), IFTy, SS);
+    CheckFailed(Msg, IF);
+    return;
+  }
+  if (Res == Intrinsic::MatchIntrinsicTypes_NoMatchArg) {
+    std::string Msg = "Intrinsic has incorrect argument type!";
+    raw_string_ostream SS(Msg);
+    IntrinsicDiagnosticsProvider::queryArgTypeMismatch(
+        IF->getName(), IFTy, SS);
+    CheckFailed(Msg, IF);
+    return;
+  }
 
   // Verify if the intrinsic call matches the vararg property.
   if (IsVarArg)

@@ -36,6 +36,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicDiagnostics.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
@@ -354,7 +355,17 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
           if (!UpgradeIntrinsicFunction(TmpF, NewF)) {
             if (IID == Intrinsic::not_intrinsic)
               return error(Info.second, "unknown intrinsic '" + Name + "'");
-            return error(Info.second, "invalid intrinsic signature");
+            FunctionType *ExpFTy = nullptr;
+            if (!Intrinsic::isOverloaded(IID)) {
+              SmallVector<Type *, 4> OverloadTys;
+              ExpFTy =
+                  Intrinsic::getType(M->getContext(), IID, OverloadTys);
+            }
+            std::string Msg = "invalid intrinsic signature";
+            raw_string_ostream SS(Msg);
+            IntrinsicDiagnosticsProvider::queryParserMismatch(
+                Name, CB->getFunctionType(), ExpFTy, SS);
+            return error(Info.second, Msg);
           }
 
           U.set(TmpF);
