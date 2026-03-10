@@ -3904,8 +3904,8 @@ void Verifier::visitCallBase(CallBase &Call) {
     if (DeclFTy != FTy) {
       std::string Msg = "Intrinsic called with incompatible signature";
       raw_string_ostream SS(Msg);
-      IntrinsicDiagnosticsProvider::querySignatureMismatch(
-          Callee->getName(), DeclFTy, FTy, SS);
+      IntrinsicDiagnosticsProvider::querySignatureMismatch(Callee->getName(),
+                                                           DeclFTy, FTy, SS);
       CheckFailed(Msg, Call);
       return;
     }
@@ -5926,16 +5926,15 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   if (Res == Intrinsic::MatchIntrinsicTypes_NoMatchRet) {
     std::string Msg = "Intrinsic has incorrect return type!";
     raw_string_ostream SS(Msg);
-    IntrinsicDiagnosticsProvider::queryReturnTypeMismatch(
-        IF->getName(), IFTy, SS);
+    IntrinsicDiagnosticsProvider::queryReturnTypeMismatch(IF->getName(), IFTy,
+                                                          SS);
     CheckFailed(Msg, IF);
     return;
   }
   if (Res == Intrinsic::MatchIntrinsicTypes_NoMatchArg) {
     std::string Msg = "Intrinsic has incorrect argument type!";
     raw_string_ostream SS(Msg);
-    IntrinsicDiagnosticsProvider::queryArgTypeMismatch(
-        IF->getName(), IFTy, SS);
+    IntrinsicDiagnosticsProvider::queryArgTypeMismatch(IF->getName(), IFTy, SS);
     CheckFailed(Msg, IF);
     return;
   }

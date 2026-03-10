@@ -358,8 +358,7 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
             FunctionType *ExpFTy = nullptr;
             if (!Intrinsic::isOverloaded(IID)) {
               SmallVector<Type *, 4> OverloadTys;
-              ExpFTy =
-                  Intrinsic::getType(M->getContext(), IID, OverloadTys);
+              ExpFTy = Intrinsic::getType(M->getContext(), IID, OverloadTys);
             }
             std::string Msg = "invalid intrinsic signature";
             raw_string_ostream SS(Msg);
