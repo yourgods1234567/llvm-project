@@ -136,6 +136,10 @@ static cl::opt<uint32_t> MaxNumInsnsPerBlock(
     cl::desc("Max number of instructions to scan in each basic block in GVN "
              "(default = 100)"));
 
+static cl::opt<bool> GVNEnableMinFindingSelectPattern(
+    "gvn-enable-min-finding-select-pattern", cl::init(false), cl::Hidden,
+    cl::desc("Enable GVN transformation for minimum finding select pattern"));
+
 struct llvm::GVNPass::Expression {
   uint32_t Opcode;
   bool Commutative = false;
@@ -2746,7 +2750,8 @@ bool GVNPass::processInstruction(Instruction *I) {
     return Changed;
   }
   if (SelectInst *Select = dyn_cast<SelectInst>(I)) {
-    if (recognizeMinFindingSelectPattern(Select))
+    if (GVNEnableMinFindingSelectPattern &&
+        recognizeMinFindingSelectPattern(Select))
       return true;
   }
 
