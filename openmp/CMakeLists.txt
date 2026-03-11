@@ -169,3 +169,11 @@ else()
   # Now that we have seen all testsuites, create the check-openmp target.
   construct_check_openmp_target()
 endif()
+
+# Target to be invoked by the pre-merge CI to build the OpenMP runtime library.
+add_custom_target(openmp ALL
+  COMMENT "OpenMP meta-target. Use 'make openmp' to build all OpenMP targets."
+  )
+if(TARGET omp)
+  add_dependencies(openmp omp)
+endif()
