@@ -403,3 +403,17 @@ if(OFFLOAD_INCLUDE_TESTS)
   add_subdirectory(test)
   add_subdirectory(unittests)
 endif()
+
+# Expose a high-level target to build the offloading runtimes.
+# This is used in pre-commit CI to run a build of the libraries without requiring
+# to invoke the check-* targets.
+# TODO: This should be a separate PR but is here for testing purposes for now.
+add_custom_target(offload ALL
+  COMMENT "Building OpenMP offloading runtime library and plugins"
+)
+if(TARGET omptarget)
+  add_dependencies(offload omptarget)
+endif()
+if(TARGET LLVMOffload)
+  add_dependencies(offload LLVMOffload)
+endif()
