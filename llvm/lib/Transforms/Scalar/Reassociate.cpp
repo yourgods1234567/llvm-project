@@ -304,81 +304,6 @@ static BinaryOperator *LowerNegateToMultiply(Instruction *Neg) {
   return Res;
 }
 
-/// Try to distribute multiply over add when beneficial for reassociation
-/// Transforms: (A + B) * C  →  A*C + B*C
-/// This enables further reassociation opportunities
-static BinaryOperator *tryDistributeMul(BinaryOperator *I) {
-  if (I->getOpcode() != Instruction::Mul)
-    return nullptr;
-
-  Value *MulOp0 = I->getOperand(0);
-  Value *MulOp1 = I->getOperand(1);
-
-  // We need one constant and one add
-  ConstantInt *C = dyn_cast<ConstantInt>(MulOp1);
-  BinaryOperator *Add = dyn_cast<BinaryOperator>(MulOp0);
-
-  // Try swapped operands if needed
-  if (!C || !Add) {
-    C = dyn_cast<ConstantInt>(MulOp0);
-    Add = dyn_cast<BinaryOperator>(MulOp1);
-  }
-
-  if (!C || !Add || Add->getOpcode() != Instruction::Add)
-    return nullptr;
-
-  // Only distribute if the add has one use (avoid code bloat)
-  if (!Add->hasOneUse())
-    return nullptr;
-
-  // Only distribute if both add operands are non-constant
-  // This avoids distributing things like (x + 1) * 3 which don't help
-  Value *AddLHS = Add->getOperand(0);
-  Value *AddRHS = Add->getOperand(1);
-
-  bool AIsConstant = isa<Constant>(AddLHS);
-  bool BIsConstant = isa<Constant>(AddRHS);
-
-  // Don't distribute if either operand is a constant
-  // Distributing (x + 5) * 3 → x*3 + 15 doesn't create reassociation
-  // opportunities
-  if (AIsConstant || BIsConstant) {
-    return nullptr;
-  }
-
-  // DEBUG: Print what we found
-  LLVM_DEBUG(dbgs() << "DISTRIBUTING: " << *I << "\n");
-  LLVM_DEBUG(dbgs() << "  Add: " << *Add << "\n");
-  LLVM_DEBUG(dbgs() << "  Constant: " << *C << "\n");
-
-  Value *A = Add->getOperand(0);
-  Value *B = Add->getOperand(1);
-
-  IRBuilder<> Builder(I);
-
-  // TODO: Reassociate pass needs comprehensive flag preservation.
-  // Distribution preserves flags, but later passes may drop them.
-  // Create with proper flags preserved
-  Value *AC = Builder.CreateMul(A, C);
-  Value *BC = Builder.CreateMul(B, C);
-
-  if (auto *MulInst = dyn_cast<BinaryOperator>(AC))
-    MulInst->copyIRFlags(I); // Copy nsw/nuw from original mul
-  if (auto *MulInst = dyn_cast<BinaryOperator>(BC))
-    MulInst->copyIRFlags(I);
-
-  Value *NewAdd = Builder.CreateAdd(AC, BC);
-  if (auto *AddInst = dyn_cast<BinaryOperator>(NewAdd))
-    AddInst->copyIRFlags(Add); // Copy nsw/nuw from original add
-
-  // After creating the new operations:
-  LLVM_DEBUG(dbgs() << "Created AC: " << *AC << "\n");
-  LLVM_DEBUG(dbgs() << "Created BC: " << *BC << "\n");
-  LLVM_DEBUG(dbgs() << "Created NewAdd: " << *NewAdd << "\n");
-
-  return cast<BinaryOperator>(NewAdd);
-}
-
 using RepeatedValue = std::pair<Value *, uint64_t>;
 
 /// Given an associative binary expression, return the leaf
@@ -2281,7 +2206,6 @@ Instruction *ReassociatePass::canonicalizeNegFPConstants(Instruction *I) {
 /// instructions is not allowed.
 void ReassociatePass::OptimizeInst(Instruction *I) {
   // Only consider operations that we understand.
-  errs() << "----------------------- Optimizing " << *I << "-------------------------------------\n";
   if (!isa<UnaryOperator>(I) && !isa<BinaryOperator>(I))
     return;
 
@@ -2339,8 +2263,6 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
 
   if(I->getOpcode() == Instruction::Mul && 
       ShouldBreakUpDistribution(I)){
-    // handle NSW/NUW flags
-    errs() << "we are getting this I  = "<< *I << "\n";
     BinaryOperator *Result = BreakUpDistribute(I, RedoInsts);
     RedoInsts.insert(I);
     MadeChange = true;
@@ -2698,7 +2620,6 @@ PreservedAnalyses ReassociatePass::run(Function &F, FunctionAnalysisManager &) {
   // BuildRankMap to pre calculate ranks correctly. It also excludes dead basic
   // blocks (it has been seen that the analysis in this pass could hang when
   // analysing dead basic blocks).
-  errs() << "-----------------------Pass start -------------------------------------\n";
   ReversePostOrderTraversal<Function *> RPOT(&F);
 
   // Calculate the rank map for F.
