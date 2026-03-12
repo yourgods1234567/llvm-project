@@ -33,11 +33,20 @@ Location DebugImporter::translateFuncLocation(llvm::Function *func) {
   if (!subprogram)
     return UnknownLoc::get(context);
 
-  // Add a fused location to link the subprogram information.
   StringAttr fileName = StringAttr::get(context, subprogram->getFilename());
-  return FusedLocWith<DISubprogramAttr>::get(
-      {FileLineColLoc::get(fileName, subprogram->getLine(), /*column=*/0)},
-      translate(subprogram), context);
+  auto fileLoc =
+      FileLineColLoc::get(fileName, subprogram->getLine(), /*column=*/0);
+  auto scope =
+      dyn_cast_or_null<DILocalScopeAttr>(translate(subprogram));
+  // DILocAttr requires a non-null DILocalScopeAttr, but
+  // translateImpl(DISubprogram*) can return null when the subprogram's parent
+  // scope or subroutine type cannot be translated. Preserve the file location
+  // so diagnostics still have source info. This also matches the original
+  // FusedLocWith<DISubprogramAttr> behavior, where a null metadata caused the
+  // location to fail FusedLocWith<DISubprogramAttr> classof checks anyway.
+  if (!scope)
+    return fileLoc;
+  return DILocAttr::get(fileLoc, scope);
 }
 
 //===----------------------------------------------------------------------===//
@@ -465,19 +474,17 @@ Location DebugImporter::translateLoc(llvm::DILocation *loc) {
   if (!loc)
     return UnknownLoc::get(context);
 
-  // Get the file location of the instruction.
-  Location result = FileLineColLoc::get(context, loc->getFilename(),
-                                        loc->getLine(), loc->getColumn());
-
-  // Add scope information.
-  assert(loc->getScope() && "expected non-null scope");
-  result = FusedLocWith<DIScopeAttr>::get({result}, translate(loc->getScope()),
-                                          context);
-
-  // Add call site information, if available.
+  auto fileLoc = FileLineColLoc::get(context, loc->getFilename(),
+                                    loc->getLine(), loc->getColumn());
+  auto scope =
+      dyn_cast_or_null<DILocalScopeAttr>(translate(loc->getScope()));
+  // DILocAttr requires a non-null DILocalScopeAttr. When the scope cannot
+  // be translated, preserve the file location for diagnostics.
+  Location result = scope
+      ? Location(DILocAttr::get(fileLoc, scope))
+      : Location(fileLoc);
   if (llvm::DILocation *inlinedAt = loc->getInlinedAt())
     result = CallSiteLoc::get(result, translateLoc(inlinedAt));
-
   return result;
 }
 

@@ -643,6 +643,33 @@ def LLVM_DILexicalBlockFile : LLVM_Attr<"DILexicalBlockFile", "di_lexical_block_
 }
 
 //===----------------------------------------------------------------------===//
+// DILocAttr
+//===----------------------------------------------------------------------===//
+
+def LLVM_DILocAttr : LocationAttrDef<LLVM_Dialect, "DILoc"> {
+  let description = [{
+    Represents a debug location combining a source position and a debug info
+    scope. Replaces the convention-based FusedLoc encoding for instruction-level
+    and function-level debug locations.
+  }];
+  let mnemonic = "di_loc";
+
+  let parameters = (ins
+    "FileLineColLoc":$sourceLoc,
+    "DILocalScopeAttr":$scope
+  );
+  let assemblyFormat = "`<` $sourceLoc `in` $scope `>`";
+
+  let builders = [
+    AttrBuilderWithInferredContext<(ins
+      "FileLineColLoc":$sourceLoc, "DILocalScopeAttr":$scope
+    ), [{
+      return $_get(sourceLoc.getContext(), sourceLoc, scope);
+    }]>,
+  ];
+}
+
+//===----------------------------------------------------------------------===//
 // DILocalVariableAttr
 //===----------------------------------------------------------------------===//
 

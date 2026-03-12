@@ -364,6 +364,10 @@ static void convertModuleFlagsOp(ArrayAttr flags, llvm::IRBuilderBase &builder,
 static llvm::DILocalScope *
 getLocalScopeFromLoc(llvm::IRBuilderBase &builder, Location loc,
                      LLVM::ModuleTranslation &moduleTranslation) {
+  if (auto diLoc = loc->findInstanceOf<LLVM::DILocAttr>())
+    if (auto *localScope = llvm::dyn_cast<llvm::DILocalScope>(
+            moduleTranslation.translateDebugInfo(diLoc.getScope())))
+      return localScope;
   if (auto scopeLoc =
           loc->findInstanceOf<FusedLocWith<LLVM::DILocalScopeAttr>>())
     if (auto *localScope = llvm::dyn_cast<llvm::DILocalScope>(

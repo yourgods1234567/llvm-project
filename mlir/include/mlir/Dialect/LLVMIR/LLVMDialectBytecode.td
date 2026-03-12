@@ -276,6 +276,15 @@ def DILexicalBlockFileAttr : DialectAttribute<(attr
 )>;
 
 //===----------------------------------------------------------------------===//
+// DILocAttr
+//===----------------------------------------------------------------------===//
+
+def DILocAttr : DialectAttribute<(attr
+  Attr<"FileLineColLoc">:$sourceLoc,
+  Attr<"DILocalScopeAttr">:$scope
+)>;
+
+//===----------------------------------------------------------------------===//
 // DINamespaceAttr
 //===----------------------------------------------------------------------===//
 
@@ -338,6 +347,7 @@ def LLVMDialectAttributes : DialectAttributes<"LLVM"> {
     DILabelAttr,
     DILexicalBlockAttr,
     DILexicalBlockFileAttr,
+    DILocAttr,
     DILocalVariableAttr,
     DINamespaceAttr,
     DISubprogramAttr,
