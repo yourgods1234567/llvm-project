@@ -331,7 +331,6 @@ static BinaryOperator *tryDistributeMul(BinaryOperator *I) {
   if (!Add->hasOneUse())
     return nullptr;
 
-  // ===== NEW PROFITABILITY CHECK =====
   // Only distribute if both add operands are non-constant
   // This avoids distributing things like (x + 1) * 3 which don't help
   Value *AddLHS = Add->getOperand(0);
@@ -346,12 +345,11 @@ static BinaryOperator *tryDistributeMul(BinaryOperator *I) {
   if (AIsConstant || BIsConstant) {
     return nullptr;
   }
-  // ===== END PROFITABILITY CHECK =====
 
   // DEBUG: Print what we found
-  dbgs() << "DISTRIBUTING: " << *I << "\n";
-  dbgs() << "  Add: " << *Add << "\n";
-  dbgs() << "  Constant: " << *C << "\n";
+  LLVM_DEBUG(dbgs() << "DISTRIBUTING: " << *I << "\n");
+  LLVM_DEBUG(dbgs() << "  Add: " << *Add << "\n");
+  LLVM_DEBUG(dbgs() << "  Constant: " << *C << "\n");
 
   Value *A = Add->getOperand(0);
   Value *B = Add->getOperand(1);
@@ -374,9 +372,9 @@ static BinaryOperator *tryDistributeMul(BinaryOperator *I) {
     AddInst->copyIRFlags(Add); // Copy nsw/nuw from original add
 
   // After creating the new operations:
-  dbgs() << "Created AC: " << *AC << "\n";
-  dbgs() << "Created BC: " << *BC << "\n";
-  dbgs() << "Created NewAdd: " << *NewAdd << "\n";
+  LLVM_DEBUG(dbgs() << "Created AC: " << *AC << "\n");
+  LLVM_DEBUG(dbgs() << "Created BC: " << *BC << "\n");
+  LLVM_DEBUG(dbgs() << "Created NewAdd: " << *NewAdd << "\n");
 
   return cast<BinaryOperator>(NewAdd);
 }
@@ -1038,6 +1036,61 @@ static BinaryOperator *convertOrWithNoCommonBitsToAdd(Instruction *Or) {
 
   LLVM_DEBUG(dbgs() << "Converted or into an add: " << *New << '\n');
   return New;
+}
+
+static bool ShouldBreakUpDistribution(Instruction *Mul) {
+  int ConstSide = isa<Constant>(Mul->getOperand(0)) ? 0 : 1;
+  Value *MulConst   = Mul->getOperand(ConstSide);
+  Value *AddSubVal  = Mul->getOperand(1 - ConstSide);
+
+  if (!isa<Constant>(MulConst))
+    return false;
+
+  // Only handle integer mul — FMul requires FastMathFlags handling
+  if (isa<FPMathOperator>(Mul))
+    return false;
+
+  if (!isReassociableOp(AddSubVal, Instruction::Add, Instruction::FAdd) &&
+      !isReassociableOp(AddSubVal, Instruction::Sub, Instruction::FSub))
+    return false;
+
+  User *AddSubInst = cast<User>(AddSubVal);
+
+  for (Value *Operand : AddSubInst->operands()) {
+    for (User *U : Operand->users()) {
+      Instruction *I = dyn_cast<Instruction>(U);
+      if (!I || I == Mul)
+        continue;
+      if ((I->getOpcode() == Instruction::Mul ||
+          I->getOpcode() == Instruction::FMul) &&
+          (isa<Constant>(I->getOperand(0)) ||
+          isa<Constant>(I->getOperand(1)))){ 
+        return true; 
+      }
+   }
+  }
+  return false;
+}
+
+static BinaryOperator *BreakUpDistribute(Instruction *Mul,
+                                       ReassociatePass::OrderedSet &ToRedo) {
+
+  int ConstSide = isa<Constant>(Mul->getOperand(0)) ? 0 : 1;
+  Instruction *AddSub = cast<Instruction>(Mul->getOperand(1-ConstSide));
+
+  BinaryOperator *M1 = CreateMul(AddSub->getOperand(0), Mul->getOperand(ConstSide), "Mul1", Mul->getIterator(), Mul);
+  BinaryOperator *M2 = CreateMul(AddSub->getOperand(1), Mul->getOperand(ConstSide), "Mul2", Mul->getIterator(), Mul);
+  BinaryOperator *Result;
+  if (isReassociableOp(AddSub, Instruction::Add, Instruction::FAdd))
+      Result = CreateAdd(M1, M2, "DistAdd", Mul->getIterator(), Mul);
+  else {
+      Result = BinaryOperator::CreateSub(M1, M2, "DistSub", Mul->getIterator());
+  }
+
+  Mul->replaceAllUsesWith(Result);
+  Result->setDebugLoc(Mul->getDebugLoc());
+
+  return Result;
 }
 
 /// Return true if we should break up this subtract of X-Y into (X + -Y).
@@ -2228,6 +2281,7 @@ Instruction *ReassociatePass::canonicalizeNegFPConstants(Instruction *I) {
 /// instructions is not allowed.
 void ReassociatePass::OptimizeInst(Instruction *I) {
   // Only consider operations that we understand.
+  errs() << "----------------------- Optimizing " << *I << "-------------------------------------\n";
   if (!isa<UnaryOperator>(I) && !isa<BinaryOperator>(I))
     return;
 
@@ -2281,6 +2335,16 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
     RedoInsts.insert(I);
     MadeChange = true;
     I = NI;
+  }
+
+  if(I->getOpcode() == Instruction::Mul && 
+      ShouldBreakUpDistribution(I)){
+    // handle NSW/NUW flags
+    errs() << "we are getting this I  = "<< *I << "\n";
+    BinaryOperator *Result = BreakUpDistribute(I, RedoInsts);
+    RedoInsts.insert(I);
+    MadeChange = true;
+    I = Result;
   }
 
   // If this is a subtract instruction which is not already in negate form,
@@ -2634,6 +2698,7 @@ PreservedAnalyses ReassociatePass::run(Function &F, FunctionAnalysisManager &) {
   // BuildRankMap to pre calculate ranks correctly. It also excludes dead basic
   // blocks (it has been seen that the analysis in this pass could hang when
   // analysing dead basic blocks).
+  errs() << "-----------------------Pass start -------------------------------------\n";
   ReversePostOrderTraversal<Function *> RPOT(&F);
 
   // Calculate the rank map for F.
@@ -2651,26 +2716,6 @@ PreservedAnalyses ReassociatePass::run(Function &F, FunctionAnalysisManager &) {
   BuildPairMap(RPOT);
 
   MadeChange = false;
-
-  // Pre-process: Distribute multiplications to enable reassociation
-  for (BasicBlock *BI : RPOT) {
-    for (BasicBlock::iterator II = BI->begin(), IE = BI->end(); II != IE;) {
-      Instruction *Inst = &*II;
-      ++II; // Advance before modification
-
-      if (auto *Mul = dyn_cast<BinaryOperator>(Inst)) {
-        if (Mul->getOpcode() == Instruction::Mul) {
-          if (BinaryOperator *Dist = tryDistributeMul(Mul)) {
-            LLVM_DEBUG(dbgs()
-                       << "Distributed: " << *Mul << " -> " << *Dist << "\n");
-            Mul->replaceAllUsesWith(Dist);
-            Mul->eraseFromParent();
-            MadeChange = true;
-          }
-        }
-      }
-    }
-  }
 
   // Traverse the same blocks that were analysed by BuildRankMap.
   for (BasicBlock *BI : RPOT) {
