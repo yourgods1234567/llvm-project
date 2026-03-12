@@ -3274,6 +3274,42 @@ static bool hasIGLPInstrs(ScheduleDAGInstrs *DAG) {
   });
 }
 
+void GCNPostGenericScheduler::initPolicy(MachineBasicBlock::iterator Begin,
+                                         MachineBasicBlock::iterator End,
+                                         unsigned NumRegionInstrs) {
+  LastTopScheduledIsMFMA = false;
+  LastBottomScheduledIsMFMA = false;
+  PostGenericScheduler::initPolicy(Begin, End, NumRegionInstrs);
+}
+
+void GCNPostGenericScheduler::schedNode(SUnit *SU, bool IsTopNode) {
+  // Track MFMA vs other VALU along each scheduling direction. Issuing a
+  // non-MFMA VALU immediately after an MFMA is modeled as costing an extra
+  // cycle (bumpCycle) so the post-scheduler's pressure/latency accounting
+  // matches hardware behavior for that transition.
+  if (SU->isInstr()) {
+    MachineInstr *MI = SU->getInstr();
+    bool IsNonMFMAVALU = SIInstrInfo::isVALU(*MI) && !SIInstrInfo::isMFMA(*MI);
+    if (IsNonMFMAVALU) {
+      if (IsTopNode && LastTopScheduledIsMFMA) {
+        Top.bumpCycle(Top.getCurrCycle() + 1);
+        LastTopScheduledIsMFMA = false;
+      }
+      if (!IsTopNode && LastBottomScheduledIsMFMA) {
+        Bot.bumpCycle(Bot.getCurrCycle() + 1);
+        LastBottomScheduledIsMFMA = false;
+      }
+    } else if (SIInstrInfo::isMFMA(*MI)) {
+      if (IsTopNode)
+        LastTopScheduledIsMFMA = true;
+      if (!IsTopNode)
+        LastBottomScheduledIsMFMA = true;
+    }
+  }
+
+  PostGenericScheduler::schedNode(SU, IsTopNode);
+}
+
 GCNPostScheduleDAGMILive::GCNPostScheduleDAGMILive(
     MachineSchedContext *C, std::unique_ptr<MachineSchedStrategy> S,
     bool RemoveKillFlags)

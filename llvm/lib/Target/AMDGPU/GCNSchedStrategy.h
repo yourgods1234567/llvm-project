@@ -808,6 +808,26 @@ public:
       : GCNSchedStage(StageID, DAG) {}
 };
 
+/// AMDGPU post-RA scheduler built on \c PostGenericScheduler. Extends the
+/// generic policy with VALU/MFMA awareness: when a non-MFMA VALU is placed
+/// immediately after an MFMA on the same scheduling boundary, the boundary
+/// cycle is advanced to reflect the hardware cost of that issue pattern.
+class GCNPostGenericScheduler : public PostGenericScheduler {
+private:
+  bool LastTopScheduledIsMFMA = false;
+  bool LastBottomScheduledIsMFMA = false;
+
+public:
+  GCNPostGenericScheduler(const MachineSchedContext *C)
+      : PostGenericScheduler(C) {}
+
+  void initPolicy(MachineBasicBlock::iterator Begin,
+                  MachineBasicBlock::iterator End,
+                  unsigned NumRegionInstrs) override;
+
+  void schedNode(SUnit *SU, bool IsTopNode) override;
+};
+
 class GCNPostScheduleDAGMILive final : public ScheduleDAGMI {
 private:
   std::vector<std::unique_ptr<ScheduleDAGMutation>> SavedMutations;
