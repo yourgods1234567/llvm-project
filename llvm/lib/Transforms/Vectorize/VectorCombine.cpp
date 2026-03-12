@@ -5827,7 +5827,7 @@ bool VectorCombine::foldContiguousLoads(Instruction &I) {
   Value *NewBasePtr =
       Builder.CreatePtrAdd(CommonBase, Builder.getInt64(StartByteOffset));
   LoadInst *NewLoad = Builder.CreateAlignedLoad(VT, NewBasePtr, NewAlign);
-  NewLoad->copyMetadata(*FirstLI);
+  copyMetadataForLoad(*NewLoad, *FirstLI);
   replaceValue(I, *NewLoad);
 
   return true;
