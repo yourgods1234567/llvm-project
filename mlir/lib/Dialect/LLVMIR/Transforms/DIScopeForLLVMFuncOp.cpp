@@ -47,11 +47,12 @@ static FileLineColLoc extractFileLoc(Location loc) {
 /// subprogram.
 static void addScopeToFunction(LLVM::LLVMFuncOp llvmFunc,
                                LLVM::DICompileUnitAttr compileUnitAttr) {
-
-  Location loc = llvmFunc.getLoc();
-  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(loc))
+  // Use getLoc() directly so the result is an rvalue; ValueIsPresent<Location>
+  // lacks unwrapValue, so dyn_cast_if_present fails on lvalue Locations.
+  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(llvmFunc.getLoc()))
     if (isa<LLVM::DISubprogramAttr>(diLoc.getScope()))
       return;
+  Location loc = llvmFunc.getLoc();
   if (loc->findInstanceOf<FusedLocWith<LLVM::DISubprogramAttr>>())
     return;
 
