@@ -492,8 +492,8 @@ handleLoopAnnotations(Operation *call,
   if (!func)
     return;
   LLVM::DISubprogramAttr scope;
-  if (auto diLoc = func->getLoc()->findInstanceOf<LLVM::DILocAttr>())
-    scope = dyn_cast<LLVM::DISubprogramAttr>(diLoc.getScope());
+  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(func->getLoc()))
+    scope = dyn_cast_if_present<LLVM::DISubprogramAttr>(diLoc.getScope());
   else if (auto fusedLoc = dyn_cast_if_present<FusedLoc>(func->getLoc()))
     scope = dyn_cast_if_present<LLVM::DISubprogramAttr>(fusedLoc.getMetadata());
   if (!scope)

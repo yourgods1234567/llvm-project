@@ -49,7 +49,7 @@ static void addScopeToFunction(LLVM::LLVMFuncOp llvmFunc,
                                LLVM::DICompileUnitAttr compileUnitAttr) {
 
   Location loc = llvmFunc.getLoc();
-  if (auto diLoc = loc->findInstanceOf<LLVM::DILocAttr>())
+  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(loc))
     if (isa<LLVM::DISubprogramAttr>(diLoc.getScope()))
       return;
   if (loc->findInstanceOf<FusedLocWith<LLVM::DISubprogramAttr>>())
@@ -94,7 +94,7 @@ static void addScopeToFunction(LLVM::LLVMFuncOp llvmFunc,
       /*retainedNodes=*/{}, /*annotations=*/{});
   FileLineColLoc fileLoc = extractFileLoc(loc);
   if (!fileLoc)
-    fileLoc = FileLineColLoc::get(context, "<unknown>", line, /*column=*/0);
+    fileLoc = FileLineColLoc::get(context, "", line, /*column=*/0);
   llvmFunc->setLoc(LLVM::DILocAttr::get(fileLoc, subprogramAttr));
 }
 
@@ -106,6 +106,8 @@ static Location getNestedLoc(Operation *op, LLVM::DIScopeAttr scopeAttr,
                              Location calleeLoc) {
   FileLineColLoc calleeFileLoc = extractFileLoc(calleeLoc);
   auto *context = op->getContext();
+  if (!calleeFileLoc)
+    calleeFileLoc = FileLineColLoc::get(context, "", 0, 0);
   StringAttr calleeFileName = calleeFileLoc.getFilename();
   LLVM::DIFileAttr calleeFileAttr =
       LLVM::DIFileAttr::get(context, llvm::sys::path::filename(calleeFileName),
@@ -129,8 +131,8 @@ static void setLexicalBlockFileAttr(Operation *op) {
 
   // Extract the subprogram scope from the function's location.
   LLVM::DISubprogramAttr scopeAttr;
-  if (auto diLoc = funcOp.getLoc()->findInstanceOf<LLVM::DILocAttr>()) {
-    scopeAttr = dyn_cast<LLVM::DISubprogramAttr>(diLoc.getScope());
+  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(funcOp.getLoc())) {
+    scopeAttr = dyn_cast_if_present<LLVM::DISubprogramAttr>(diLoc.getScope());
   } else if (auto funcOpLoc =
                  llvm::dyn_cast_if_present<FusedLoc>(funcOp.getLoc())) {
     scopeAttr = dyn_cast<LLVM::DISubprogramAttr>(funcOpLoc.getMetadata());
@@ -139,9 +141,9 @@ static void setLexicalBlockFileAttr(Operation *op) {
     return;
 
   if (auto callSiteLoc = dyn_cast<CallSiteLoc>(opLoc)) {
-    op->setLoc(CallSiteLoc::get(
-        getNestedLoc(op, scopeAttr, callSiteLoc.getCallee()),
-        callSiteLoc.getCaller()));
+    op->setLoc(
+        CallSiteLoc::get(getNestedLoc(op, scopeAttr, callSiteLoc.getCallee()),
+                         callSiteLoc.getCaller()));
     return;
   }
 

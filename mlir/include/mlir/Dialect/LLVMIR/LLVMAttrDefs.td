@@ -649,8 +649,10 @@ def LLVM_DILexicalBlockFile : LLVM_Attr<"DILexicalBlockFile", "di_lexical_block_
 def LLVM_DILocAttr : LocationAttrDef<LLVM_Dialect, "DILoc"> {
   let description = [{
     Represents a debug location combining a source position and a debug info
-    scope. Replaces the convention-based FusedLoc encoding for instruction-level
-    and function-level debug locations.
+    scope for instruction-level and function-level debug locations.
+
+    Note: Older code represented this with a FusedLoc carrying the debug
+    scope as its metadata and a convention on how to interpret it.
   }];
   let mnemonic = "di_loc";
 

@@ -63,8 +63,8 @@ void DebugTranslation::translate(LLVMFuncOp func, llvm::Function &llvmFunc) {
 
   // Look for a subprogram: check DILocAttr first, fall back to FusedLoc.
   LLVM::DISubprogramAttr sp;
-  if (auto diLoc = func.getLoc()->findInstanceOf<LLVM::DILocAttr>()) {
-    sp = dyn_cast<LLVM::DISubprogramAttr>(diLoc.getScope());
+  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(func.getLoc())) {
+    sp = dyn_cast_if_present<LLVM::DISubprogramAttr>(diLoc.getScope());
   } else if (auto spLoc =
                  func.getLoc()
                      ->findInstanceOf<FusedLocWith<LLVM::DISubprogramAttr>>()) {
@@ -556,9 +556,9 @@ llvm::DILocation *DebugTranslation::translateLoc(Location loc,
       return nullptr;
 
     auto sourceLoc = diLoc.getSourceLoc();
-    llvmLoc = llvm::DILocation::get(
-        llvmCtx, sourceLoc.getLine(), sourceLoc.getColumn(), diScope,
-        const_cast<llvm::DILocation *>(inlinedAt));
+    llvmLoc = llvm::DILocation::get(llvmCtx, sourceLoc.getLine(),
+                                    sourceLoc.getColumn(), diScope,
+                                    const_cast<llvm::DILocation *>(inlinedAt));
 
   } else if (auto fileLoc = dyn_cast<FileLineColLoc>(loc)) {
     // A scope of a DILocation cannot be null.
