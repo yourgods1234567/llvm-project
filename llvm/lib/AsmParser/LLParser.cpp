@@ -356,14 +356,15 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
             if (IID == Intrinsic::not_intrinsic)
               return error(Info.second, "unknown intrinsic '" + Name + "'");
             FunctionType *ExpFTy = nullptr;
-            if (!Intrinsic::isOverloaded(IID)) {
-              SmallVector<Type *, 4> OverloadTys;
-              ExpFTy = Intrinsic::getType(M->getContext(), IID, OverloadTys);
-            }
-            std::string Msg = "invalid intrinsic signature";
-            raw_string_ostream SS(Msg);
+            if (!Intrinsic::isOverloaded(IID))
+              ExpFTy = Intrinsic::getType(M->getContext(), IID);
+            std::string Detail;
+            raw_string_ostream SS(Detail);
             IntrinsicDiagnosticsProvider::queryParserMismatch(
                 Name, CB->getFunctionType(), ExpFTy, SS);
+            std::string Msg = "invalid intrinsic signature";
+            if (!Detail.empty())
+              Msg += "\n" + Detail;
             return error(Info.second, Msg);
           }
 
