@@ -10,10 +10,10 @@ unsigned up0() {
   return +a;
 }
 
-// CHECK: cir.func{{.*}} @_Z3up0v() -> !u32i
+// CHECK: cir.func{{.*}} @_Z3up0v() -> (!u32i{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !u32i, !cir.ptr<!u32i>, ["a", init]
 // CHECK:   %[[INPUT:.*]] = cir.load{{.*}} %[[A]]
-// CHECK:   %[[OUTPUT:.*]] = cir.unary(plus, %[[INPUT]])
+// CHECK-NOT: cir.unary
 
 // LLVM: define{{.*}} i32 @_Z3up0v()
 // LLVM:   %[[RV:.*]] = alloca i32, i64 1, align 4
@@ -31,7 +31,7 @@ unsigned um0() {
   return -a;
 }
 
-// CHECK: cir.func{{.*}} @_Z3um0v() -> !u32i
+// CHECK: cir.func{{.*}} @_Z3um0v() -> (!u32i{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !u32i, !cir.ptr<!u32i>, ["a", init]
 // CHECK:   %[[INPUT:.*]] = cir.load{{.*}} %[[A]]
 // CHECK:   %[[OUTPUT:.*]] = cir.unary(minus, %[[INPUT]])
@@ -54,7 +54,7 @@ unsigned un0() {
   return ~a; // a ^ -1 , not
 }
 
-// CHECK: cir.func{{.*}} @_Z3un0v() -> !u32i
+// CHECK: cir.func{{.*}} @_Z3un0v() -> (!u32i{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !u32i, !cir.ptr<!u32i>, ["a", init]
 // CHECK:   %[[INPUT:.*]] = cir.load{{.*}} %[[A]]
 // CHECK:   %[[OUTPUT:.*]] = cir.unary(not, %[[INPUT]])
@@ -78,7 +78,7 @@ int inc0() {
   return a;
 }
 
-// CHECK: cir.func{{.*}} @_Z4inc0v() -> !s32i
+// CHECK: cir.func{{.*}} @_Z4inc0v() -> (!s32i{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !s32i, !cir.ptr<!s32i>, ["a", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.int<1> : !s32i
 // CHECK:   cir.store{{.*}} %[[ATMP]], %[[A]] : !s32i
@@ -106,7 +106,7 @@ int dec0() {
   return a;
 }
 
-// CHECK: cir.func{{.*}} @_Z4dec0v() -> !s32i
+// CHECK: cir.func{{.*}} @_Z4dec0v() -> (!s32i{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !s32i, !cir.ptr<!s32i>, ["a", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.int<1> : !s32i
 // CHECK:   cir.store{{.*}} %[[ATMP]], %[[A]] : !s32i
@@ -134,7 +134,7 @@ int inc1() {
   return a;
 }
 
-// CHECK: cir.func{{.*}} @_Z4inc1v() -> !s32i
+// CHECK: cir.func{{.*}} @_Z4inc1v() -> (!s32i{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !s32i, !cir.ptr<!s32i>, ["a", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.int<1> : !s32i
 // CHECK:   cir.store{{.*}} %[[ATMP]], %[[A]] : !s32i
@@ -162,7 +162,7 @@ int dec1() {
   return a;
 }
 
-// CHECK: cir.func{{.*}} @_Z4dec1v() -> !s32i
+// CHECK: cir.func{{.*}} @_Z4dec1v() -> (!s32i{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !s32i, !cir.ptr<!s32i>, ["a", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.int<1> : !s32i
 // CHECK:   cir.store{{.*}} %[[ATMP]], %[[A]] : !s32i
@@ -191,7 +191,7 @@ int inc2() {
   return b;
 }
 
-// CHECK: cir.func{{.*}} @_Z4inc2v() -> !s32i
+// CHECK: cir.func{{.*}} @_Z4inc2v() -> (!s32i{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !s32i, !cir.ptr<!s32i>, ["a", init]
 // CHECK:   %[[B:.*]] = cir.alloca !s32i, !cir.ptr<!s32i>, ["b", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.int<1> : !s32i
@@ -228,10 +228,10 @@ float fpPlus() {
   return +a;
 }
 
-// CHECK: cir.func{{.*}} @_Z6fpPlusv() -> !cir.float
+// CHECK: cir.func{{.*}} @_Z6fpPlusv() -> (!cir.float{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !cir.float, !cir.ptr<!cir.float>, ["a", init]
 // CHECK:   %[[INPUT:.*]] = cir.load{{.*}} %[[A]]
-// CHECK:   %[[OUTPUT:.*]] = cir.unary(plus, %[[INPUT]])
+// CHECK-NOT: cir.unary
 
 // LLVM: define{{.*}} float @_Z6fpPlusv()
 // LLVM:   %[[RV:.*]] = alloca float, i64 1, align 4
@@ -249,7 +249,7 @@ float fpMinus() {
   return -a;
 }
 
-// CHECK: cir.func{{.*}} @_Z7fpMinusv() -> !cir.float
+// CHECK: cir.func{{.*}} @_Z7fpMinusv() -> (!cir.float{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !cir.float, !cir.ptr<!cir.float>, ["a", init]
 // CHECK:   %[[INPUT:.*]] = cir.load{{.*}} %[[A]]
 // CHECK:   %[[OUTPUT:.*]] = cir.unary(minus, %[[INPUT]])
@@ -272,7 +272,7 @@ float fpPreInc() {
   return ++a;
 }
 
-// CHECK: cir.func{{.*}} @_Z8fpPreIncv() -> !cir.float
+// CHECK: cir.func{{.*}} @_Z8fpPreIncv() -> (!cir.float{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !cir.float, !cir.ptr<!cir.float>, ["a", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.fp<1.000000e+00> : !cir.float
 // CHECK:   cir.store{{.*}} %[[ATMP]], %[[A]] : !cir.float
@@ -297,7 +297,7 @@ float fpPreDec() {
   return --a;
 }
 
-// CHECK: cir.func{{.*}} @_Z8fpPreDecv() -> !cir.float
+// CHECK: cir.func{{.*}} @_Z8fpPreDecv() -> (!cir.float{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !cir.float, !cir.ptr<!cir.float>, ["a", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.fp<1.000000e+00> : !cir.float
 // CHECK:   cir.store{{.*}} %[[ATMP]], %[[A]] : !cir.float
@@ -322,7 +322,7 @@ float fpPostInc() {
   return a++;
 }
 
-// CHECK: cir.func{{.*}} @_Z9fpPostIncv() -> !cir.float
+// CHECK: cir.func{{.*}} @_Z9fpPostIncv() -> (!cir.float{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !cir.float, !cir.ptr<!cir.float>, ["a", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.fp<1.000000e+00> : !cir.float
 // CHECK:   cir.store{{.*}} %[[ATMP]], %[[A]] : !cir.float
@@ -347,7 +347,7 @@ float fpPostDec() {
   return a--;
 }
 
-// CHECK: cir.func{{.*}} @_Z9fpPostDecv() -> !cir.float
+// CHECK: cir.func{{.*}} @_Z9fpPostDecv() -> (!cir.float{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !cir.float, !cir.ptr<!cir.float>, ["a", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.fp<1.000000e+00> : !cir.float
 // CHECK:   cir.store{{.*}} %[[ATMP]], %[[A]] : !cir.float
@@ -374,7 +374,7 @@ float fpPostInc2() {
   return b;
 }
 
-// CHECK: cir.func{{.*}} @_Z10fpPostInc2v() -> !cir.float
+// CHECK: cir.func{{.*}} @_Z10fpPostInc2v() -> (!cir.float{{.*}})
 // CHECK:   %[[A:.*]] = cir.alloca !cir.float, !cir.ptr<!cir.float>, ["a", init]
 // CHECK:   %[[B:.*]] = cir.alloca !cir.float, !cir.ptr<!cir.float>, ["b", init]
 // CHECK:   %[[ATMP:.*]] = cir.const #cir.fp<1.000000e+00> : !cir.float
@@ -411,7 +411,7 @@ void chars(char c) {
 
   int c1 = +c;
   // CHECK: %[[PROMO:.*]] = cir.cast integral %{{.+}} : !s8i -> !s32i
-  // CHECK: cir.unary(plus, %[[PROMO]]) : !s32i, !s32i
+  // CHECK-NOT: cir.unary
   int c2 = -c;
   // CHECK: %[[PROMO:.*]] = cir.cast integral %{{.+}} : !s8i -> !s32i
   // CHECK: cir.unary(minus, %[[PROMO]]) nsw : !s32i, !s32i
@@ -429,11 +429,11 @@ _Float16 fp16UPlus(_Float16 f) {
   return +f;
 }
 
-// CHECK: cir.func{{.*}} @_Z9fp16UPlusDF16_({{.*}}) -> !cir.f16
+// CHECK: cir.func{{.*}} @_Z9fp16UPlusDF16_({{.*}}) -> (!cir.f16{{.*}})
 // CHECK:   %[[INPUT:.*]] = cir.load{{.*}} %[[F:.*]]
 // CHECK:   %[[PROMOTED:.*]] = cir.cast floating %[[INPUT]] : !cir.f16 -> !cir.float
-// CHECK:   %[[RESULT:.*]] = cir.unary(plus, %[[PROMOTED]])
-// CHECK:   %[[UNPROMOTED:.*]] = cir.cast floating %[[RESULT]] : !cir.float -> !cir.f16
+// CHECK-NOT: cir.unary
+// CHECK:   %[[UNPROMOTED:.*]] = cir.cast floating %[[PROMOTED]] : !cir.float -> !cir.f16
 
 // LLVM: define{{.*}} half @_Z9fp16UPlusDF16_({{.*}})
 // LLVM:   %[[F_LOAD:.*]] = load half, ptr %{{.*}}, align 2
@@ -449,7 +449,7 @@ _Float16 fp16UMinus(_Float16 f) {
   return -f;
 }
 
-// CHECK: cir.func{{.*}} @_Z10fp16UMinusDF16_({{.*}}) -> !cir.f16
+// CHECK: cir.func{{.*}} @_Z10fp16UMinusDF16_({{.*}}) -> (!cir.f16{{.*}})
 // CHECK:   %[[INPUT:.*]] = cir.load{{.*}} %[[F:.*]]
 // CHECK:   %[[PROMOTED:.*]] = cir.cast floating %[[INPUT]] : !cir.f16 -> !cir.float
 // CHECK:   %[[RESULT:.*]] = cir.unary(minus, %[[PROMOTED]])
@@ -567,9 +567,8 @@ void f16NestedUPlus() {
 // CHECK:  %[[B_ADDR:.*]] = cir.alloca !cir.f16, !cir.ptr<!cir.f16>, ["b", init]
 // CHECK:  %[[TMP_A:.*]] = cir.load{{.*}} %[[A_ADDR]] : !cir.ptr<!cir.f16>, !cir.f16
 // CHECK:  %[[A_F32:.*]] = cir.cast floating %[[TMP_A]] : !cir.f16 -> !cir.float
-// CHECK:  %[[A_PLUS:.*]] = cir.unary(plus, %[[A_F32]]) : !cir.float, !cir.float
-// CHECK:  %[[RESULT_F32:.*]] = cir.unary(plus, %[[A_PLUS]]) : !cir.float, !cir.float
-// CHECK:  %[[RESULT:.*]] = cir.cast floating %[[RESULT_F32]] : !cir.float -> !cir.f16
+// CHECK-NOT: cir.unary
+// CHECK:  %[[RESULT:.*]] = cir.cast floating %[[A_F32]] : !cir.float -> !cir.f16
 // CHECK:  cir.store{{.*}} %[[RESULT]], %[[B_ADDR]] : !cir.f16, !cir.ptr<!cir.f16>
 
 // LLVM: define{{.*}} void @_Z14f16NestedUPlusv()

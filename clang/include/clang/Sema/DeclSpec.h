@@ -48,6 +48,7 @@ namespace clang {
   class ObjCDeclSpec;
   class Sema;
   class Declarator;
+  class OverflowBehaviorType;
   struct TemplateIdAnnotation;
 
 /// Represents a C++ nested-name-specifier or a global scope specifier.
@@ -422,6 +423,7 @@ private:
   SourceRange TypeofParensRange;
   SourceLocation TQ_constLoc, TQ_restrictLoc, TQ_volatileLoc, TQ_atomicLoc,
       TQ_unalignedLoc;
+  SourceLocation OB_Loc;
   SourceLocation FS_inlineLoc, FS_virtualLoc, FS_explicitLoc, FS_noreturnLoc;
   SourceLocation FS_explicitCloseParenLoc;
   SourceLocation FS_forceinlineLoc;
@@ -597,6 +599,7 @@ public:
   static const char *getSpecifierName(DeclSpec::SCS S);
   static const char *getSpecifierName(DeclSpec::TSCS S);
   static const char *getSpecifierName(ConstexprSpecKind C);
+  static const char *getSpecifierName(OverflowBehaviorState S);
 
   // type-qualifiers
 
@@ -610,6 +613,25 @@ public:
   SourceLocation getPipeLoc() const { return TQ_pipeLoc; }
   SourceLocation getEllipsisLoc() const { return EllipsisLoc; }
 
+  // overflow behavior qualifiers
+  OverflowBehaviorState getOverflowBehaviorState() const {
+    return static_cast<OverflowBehaviorState>(OB_state);
+  }
+  bool isWrapSpecified() const {
+    return getOverflowBehaviorState() == OverflowBehaviorState::Wrap;
+  }
+  bool isTrapSpecified() const {
+    return getOverflowBehaviorState() == OverflowBehaviorState::Trap;
+  }
+  bool isOverflowBehaviorSpecified() const {
+    return getOverflowBehaviorState() != OverflowBehaviorState::Unspecified;
+  }
+  SourceLocation getOverflowBehaviorLoc() const { return OB_Loc; }
+
+  bool SetOverflowBehavior(OverflowBehaviorType::OverflowBehaviorKind Kind,
+                           SourceLocation Loc, const char *&PrevSpec,
+                           unsigned &DiagID);
+
   /// Clear out all of the type qualifiers.
   void ClearTypeQualifiers() {
     TypeQualifiers = 0;
@@ -619,6 +641,8 @@ public:
     TQ_atomicLoc = SourceLocation();
     TQ_unalignedLoc = SourceLocation();
     TQ_pipeLoc = SourceLocation();
+    OB_state = static_cast<unsigned>(OverflowBehaviorState::Unspecified);
+    OB_Loc = SourceLocation();
   }
 
   // function-specifier
@@ -1276,6 +1300,14 @@ struct DeclaratorChunk {
     /// The location of the __unaligned-qualifier, if any.
     SourceLocation UnalignedQualLoc;
 
+    /// The location of an __ob_wrap or __ob_trap qualifier, if any.
+    SourceLocation OverflowBehaviorLoc;
+
+    /// Whether the overflow behavior qualifier is wrap (true) or trap (false).
+    /// Only meaningful if OverflowBehaviorLoc is valid.
+    LLVM_PREFERRED_TYPE(bool)
+    unsigned OverflowBehaviorIsWrap : 1;
+
     void destroy() {
     }
   };
@@ -1657,7 +1689,9 @@ struct DeclaratorChunk {
                                     SourceLocation VolatileQualLoc,
                                     SourceLocation RestrictQualLoc,
                                     SourceLocation AtomicQualLoc,
-                                    SourceLocation UnalignedQualLoc) {
+                                    SourceLocation UnalignedQualLoc,
+                                    SourceLocation OverflowBehaviorLoc = {},
+                                    bool OverflowBehaviorIsWrap = false) {
     DeclaratorChunk I;
     I.Kind                = Pointer;
     I.Loc                 = Loc;
@@ -1668,6 +1702,8 @@ struct DeclaratorChunk {
     I.Ptr.RestrictQualLoc = RestrictQualLoc;
     I.Ptr.AtomicQualLoc   = AtomicQualLoc;
     I.Ptr.UnalignedQualLoc = UnalignedQualLoc;
+    I.Ptr.OverflowBehaviorLoc = OverflowBehaviorLoc;
+    I.Ptr.OverflowBehaviorIsWrap = OverflowBehaviorIsWrap;
     return I;
   }
 
