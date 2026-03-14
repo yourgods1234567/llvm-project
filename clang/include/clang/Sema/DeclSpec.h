@@ -322,6 +322,12 @@ public:
 
   enum FriendSpecified : bool { No, Yes };
 
+  enum class OverflowBehaviorState {
+    Unspecified, // No overflow behavior specified
+    Wrap,        // __ob_wrap or __attribute__((overflow_behavior(wrap)))
+    Trap         // __ob_trap or __attribute__((overflow_behavior(trap)))
+  };
+
 private:
   // storage-class-specifier
   LLVM_PREFERRED_TYPE(SCS)
@@ -361,6 +367,10 @@ private:
   // type-qualifiers
   LLVM_PREFERRED_TYPE(TQ)
   unsigned TypeQualifiers : 5;  // Bitwise OR of TQ.
+
+  // overflow behavior qualifiers
+  LLVM_PREFERRED_TYPE(OverflowBehaviorState)
+  unsigned OB_state : 2;
 
   // function-specifier
   LLVM_PREFERRED_TYPE(bool)
@@ -463,11 +473,12 @@ public:
         TypeSpecType(TST_unspecified), TypeAltiVecVector(false),
         TypeAltiVecPixel(false), TypeAltiVecBool(false), TypeSpecOwned(false),
         TypeSpecPipe(false), TypeSpecSat(false), ConstrainedAuto(false),
-        TypeQualifiers(TQ_unspecified), FS_inline_specified(false),
-        FS_forceinline_specified(false), FS_virtual_specified(false),
-        FS_noreturn_specified(false), FriendSpecifiedFirst(false),
-        ConstexprSpecifier(
-            static_cast<unsigned>(ConstexprSpecKind::Unspecified)),
+        TypeQualifiers(TQ_unspecified),
+        OB_state(static_cast<unsigned>(OverflowBehaviorState::Unspecified)),
+        FS_inline_specified(false), FS_forceinline_specified(false),
+        FS_virtual_specified(false), FS_noreturn_specified(false),
+        FriendSpecifiedFirst(false), ConstexprSpecifier(static_cast<unsigned>(
+                                         ConstexprSpecKind::Unspecified)),
         Attrs(attrFactory), ConflictingTypeSpecifier(TST_unspecified),
         ConflictingTypeSpecifierLoc(), writtenBS(), ObjCQualifiers(nullptr) {}
 
