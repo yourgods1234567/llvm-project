@@ -61,9 +61,9 @@ void DebugTranslation::translate(LLVMFuncOp func, llvm::Function &llvmFunc) {
   if (!debugEmissionIsEnabled)
     return;
 
-  // Look for a subprogram: check DILocAttr first, fall back to FusedLoc.
+  // Look for a subprogram: check DILocationAttr first, fall back to FusedLoc.
   LLVM::DISubprogramAttr sp;
-  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(func.getLoc())) {
+  if (auto diLoc = dyn_cast_if_present<LLVM::DILocationAttr>(func.getLoc())) {
     sp = dyn_cast_if_present<LLVM::DISubprogramAttr>(diLoc.getScope());
   } else if (auto spLoc =
                  func.getLoc()
@@ -549,8 +549,8 @@ llvm::DILocation *DebugTranslation::translateLoc(Location loc,
     if (!llvmLoc)
       llvmLoc = callerLoc;
 
-  } else if (auto diLoc = dyn_cast<LLVM::DILocAttr>(loc)) {
-    // Translate the scope from the DILocAttr.
+  } else if (auto diLoc = dyn_cast<LLVM::DILocationAttr>(loc)) {
+    // Translate the scope from the DILocationAttr.
     llvm::DILocalScope *diScope = translate(diLoc.getScope());
     if (!diScope)
       return nullptr;

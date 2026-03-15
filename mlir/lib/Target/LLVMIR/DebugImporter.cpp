@@ -37,7 +37,7 @@ Location DebugImporter::translateFuncLocation(llvm::Function *func) {
   auto fileLoc =
       FileLineColLoc::get(fileName, subprogram->getLine(), /*column=*/0);
   auto scope = dyn_cast_if_present<DILocalScopeAttr>(translate(subprogram));
-  // DILocAttr requires a non-null DILocalScopeAttr, but
+  // DILocationAttr requires a non-null DILocalScopeAttr, but
   // translateImpl(DISubprogram*) can return null when the subprogram's parent
   // scope or subroutine type cannot be translated. Preserve the file location
   // so diagnostics still have source info. This also matches the original
@@ -45,7 +45,7 @@ Location DebugImporter::translateFuncLocation(llvm::Function *func) {
   // location to fail FusedLocWith<DISubprogramAttr> classof checks anyway.
   if (!scope)
     return fileLoc;
-  return DILocAttr::get(fileLoc, scope);
+  return DILocationAttr::get(fileLoc, scope);
 }
 
 //===----------------------------------------------------------------------===//
@@ -477,10 +477,10 @@ Location DebugImporter::translateLoc(llvm::DILocation *loc) {
                                      loc->getLine(), loc->getColumn());
   auto scope =
       dyn_cast_if_present<DILocalScopeAttr>(translate(loc->getScope()));
-  // DILocAttr requires a non-null DILocalScopeAttr. When the scope cannot
+  // DILocationAttr requires a non-null DILocalScopeAttr. When the scope cannot
   // be translated, preserve the file location for diagnostics.
   Location result =
-      scope ? Location(DILocAttr::get(fileLoc, scope)) : Location(fileLoc);
+      scope ? Location(DILocationAttr::get(fileLoc, scope)) : Location(fileLoc);
   if (llvm::DILocation *inlinedAt = loc->getInlinedAt())
     result = CallSiteLoc::get(result, translateLoc(inlinedAt));
 

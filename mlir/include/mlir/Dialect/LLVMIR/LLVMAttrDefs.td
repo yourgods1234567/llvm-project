@@ -643,18 +643,18 @@ def LLVM_DILexicalBlockFile : LLVM_Attr<"DILexicalBlockFile", "di_lexical_block_
 }
 
 //===----------------------------------------------------------------------===//
-// DILocAttr
+// DILocationAttr
 //===----------------------------------------------------------------------===//
 
-def LLVM_DILocAttr : LocationAttrDef<LLVM_Dialect, "DILoc"> {
+def LLVM_DILocationAttr : LocationAttrDef<LLVM_Dialect, "DILocation"> {
   let description = [{
     Represents a debug location combining a source position and a debug info
     scope for instruction-level and function-level debug locations.
 
-    Note: Older code represented this with a FusedLoc carrying the debug
+    Note: Older code represents this with a FusedLoc carrying the debug
     scope as its metadata and a convention on how to interpret it.
   }];
-  let mnemonic = "di_loc";
+  let mnemonic = "di_location";
 
   let parameters = (ins
     "FileLineColLoc":$sourceLoc,

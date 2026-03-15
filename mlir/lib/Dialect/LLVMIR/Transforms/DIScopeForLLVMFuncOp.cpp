@@ -25,7 +25,7 @@ using namespace mlir;
 static FileLineColLoc extractFileLoc(Location loc) {
   if (auto fileLoc = dyn_cast<FileLineColLoc>(loc))
     return fileLoc;
-  if (auto diLoc = dyn_cast<LLVM::DILocAttr>(loc))
+  if (auto diLoc = dyn_cast<LLVM::DILocationAttr>(loc))
     return diLoc.getSourceLoc();
   if (auto nameLoc = dyn_cast<NameLoc>(loc))
     return extractFileLoc(nameLoc.getChildLoc());
@@ -49,7 +49,7 @@ static void addScopeToFunction(LLVM::LLVMFuncOp llvmFunc,
                                LLVM::DICompileUnitAttr compileUnitAttr) {
   // Use getLoc() directly so the result is an rvalue; ValueIsPresent<Location>
   // lacks unwrapValue, so dyn_cast_if_present fails on lvalue Locations.
-  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(llvmFunc.getLoc()))
+  if (auto diLoc = dyn_cast_if_present<LLVM::DILocationAttr>(llvmFunc.getLoc()))
     if (isa<LLVM::DISubprogramAttr>(diLoc.getScope()))
       return;
   Location loc = llvmFunc.getLoc();
@@ -96,10 +96,10 @@ static void addScopeToFunction(LLVM::LLVMFuncOp llvmFunc,
   FileLineColLoc fileLoc = extractFileLoc(loc);
   if (!fileLoc)
     fileLoc = FileLineColLoc::get(context, "", line, /*column=*/0);
-  llvmFunc->setLoc(LLVM::DILocAttr::get(fileLoc, subprogramAttr));
+  llvmFunc->setLoc(LLVM::DILocationAttr::get(fileLoc, subprogramAttr));
 }
 
-// Build a DILocAttr for an inlined callee. Each recursion level creates a
+// Build a DILocationAttr for an inlined callee. Each recursion level creates a
 // DILexicalBlockFileAttr whose scope chains back through the caller scopes
 // to the enclosing subprogram. The scope nesting is carried by the
 // DILexicalBlockFileAttr hierarchy, not by nesting locations.
@@ -118,7 +118,7 @@ static Location getNestedLoc(Operation *op, LLVM::DIScopeAttr scopeAttr,
   // Recurse if the callee location is again a call site.
   if (auto callSiteLoc = dyn_cast<CallSiteLoc>(calleeLoc))
     return getNestedLoc(op, lexicalBlockFileAttr, callSiteLoc.getCallee());
-  return LLVM::DILocAttr::get(calleeFileLoc, lexicalBlockFileAttr);
+  return LLVM::DILocationAttr::get(calleeFileLoc, lexicalBlockFileAttr);
 }
 
 /// Adds DILexicalBlockFileAttr for operations with CallSiteLoc and operations
@@ -132,7 +132,7 @@ static void setLexicalBlockFileAttr(Operation *op) {
 
   // Extract the subprogram scope from the function's location.
   LLVM::DISubprogramAttr scopeAttr;
-  if (auto diLoc = dyn_cast_if_present<LLVM::DILocAttr>(funcOp.getLoc())) {
+  if (auto diLoc = dyn_cast_if_present<LLVM::DILocationAttr>(funcOp.getLoc())) {
     scopeAttr = dyn_cast_if_present<LLVM::DISubprogramAttr>(diLoc.getScope());
   } else if (auto funcOpLoc =
                  llvm::dyn_cast_if_present<FusedLoc>(funcOp.getLoc())) {
@@ -170,7 +170,7 @@ static void setLexicalBlockFileAttr(Operation *op) {
     auto lexicalBlockFileAttr =
         LLVM::DILexicalBlockFileAttr::get(context, scopeAttr, opFileAttr, 0);
 
-    op->setLoc(LLVM::DILocAttr::get(opFileLoc, lexicalBlockFileAttr));
+    op->setLoc(LLVM::DILocationAttr::get(opFileLoc, lexicalBlockFileAttr));
   }
 }
 

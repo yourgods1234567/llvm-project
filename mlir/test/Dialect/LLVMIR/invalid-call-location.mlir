@@ -36,7 +36,7 @@ llvm.func @invalid_call_debug_locs() {
 
 // -----
 
-// Test the DILocAttr path of hasSubprogram.
+// Test the DILocationAttr path of hasSubprogram.
 
 #di_file2 = #llvm.di_file<"file.cpp" in "/folder/">
 #di_compile_unit2 = #llvm.di_compile_unit<
@@ -54,8 +54,8 @@ llvm.func @invalid_call_debug_locs() {
   subprogramFlags = "Definition|Optimized"
 >
 #loc_unknown = loc(unknown)
-#loc_callee = #llvm.di_loc<loc("file.cpp":10:0) in #di_sp_callee>
-#loc_caller = #llvm.di_loc<loc("file.cpp":20:0) in #di_sp_caller>
+#loc_callee = #llvm.di_location<loc("file.cpp":10:0) in #di_sp_callee>
+#loc_caller = #llvm.di_location<loc("file.cpp":20:0) in #di_sp_caller>
 
 llvm.func @callee_diloc() {
   llvm.return

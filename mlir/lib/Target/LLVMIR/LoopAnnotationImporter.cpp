@@ -411,16 +411,16 @@ LoopMetadataConversion::convertParallelAccesses() {
 }
 
 /// Convert a translated location to a FusedLoc for loop annotation storage.
-/// translateLoc produces DILocAttr, but LoopAnnotationAttr stores locations as
-/// FusedLoc<scope>[raw_loc]. Extract the source location and scope from the
-/// DILocAttr to build the FusedLoc directly, matching the format expected by
-/// LoopAnnotationTranslation on the export side.
+/// translateLoc produces DILocationAttr, but LoopAnnotationAttr stores
+/// locations as FusedLoc<scope>[raw_loc]. Extract the source location and scope
+/// from the DILocationAttr to build the FusedLoc directly, matching the format
+/// expected by LoopAnnotationTranslation on the export side.
 static FusedLoc toFusedLoc(Location loc) {
   if (auto fused = dyn_cast<FusedLoc>(loc))
     return fused;
   if (isa<UnknownLoc>(loc))
     return {};
-  if (auto diLoc = dyn_cast<LLVM::DILocAttr>(loc))
+  if (auto diLoc = dyn_cast<LLVM::DILocationAttr>(loc))
     return dyn_cast<FusedLoc>(FusedLoc::get(
         {diLoc.getSourceLoc()}, diLoc.getScope(), loc.getContext()));
   return {};

@@ -32,11 +32,11 @@ define i32 @instruction_loc(i32 %arg1) {
 ; CHECK-DAG: #[[RAW_FILE_LOC:.+]] = loc("debug-info.ll":1:2)
 ; CHECK-DAG: #[[SP:.+]] =  #llvm.di_subprogram<id = distinct[{{.*}}]<>, compileUnit = #{{.*}}, scope = #{{.*}}, name = "instruction_loc"
 ; CHECK-DAG: #[[CALLEE:.+]] =  #llvm.di_subprogram<id = distinct[{{.*}}]<>, compileUnit = #{{.*}}, scope = #{{.*}}, name = "callee"
-; CHECK-DAG: #[[FILE_LOC]] = #llvm.di_loc<#[[RAW_FILE_LOC]] in #[[SP]]>
+; CHECK-DAG: #[[FILE_LOC]] = #llvm.di_location<#[[RAW_FILE_LOC]] in #[[SP]]>
 ; CHECK-DAG: #[[RAW_CALLEE_LOC:.+]] = loc("debug-info.ll":7:4)
-; CHECK-DAG: #[[CALLEE_LOC:.+]] = #llvm.di_loc<#[[RAW_CALLEE_LOC]] in #[[CALLEE]]>
+; CHECK-DAG: #[[CALLEE_LOC:.+]] = #llvm.di_location<#[[RAW_CALLEE_LOC]] in #[[CALLEE]]>
 ; CHECK-DAG: #[[RAW_CALLER_LOC:.+]] = loc("debug-info.ll":2:2)
-; CHECK-DAG: #[[CALLER_LOC:.+]] = #llvm.di_loc<#[[RAW_CALLER_LOC]] in #[[SP]]>
+; CHECK-DAG: #[[CALLER_LOC:.+]] = #llvm.di_location<#[[RAW_CALLER_LOC]] in #[[SP]]>
 ; CHECK-DAG: #[[CALLSITE_LOC:.+]] = loc(callsite(#[[CALLEE_LOC]] at #[[CALLER_LOC]]))
 
 !llvm.dbg.cu = !{!1}
@@ -66,8 +66,8 @@ define i32 @lexical_block(i32 %arg1) {
 ; CHECK: #[[SP:.+]] = #llvm.di_subprogram<id = distinct[{{.*}}]<>, compileUnit =
 ; CHECK: #[[LB0:.+]] = #llvm.di_lexical_block<scope = #[[SP]]>
 ; CHECK: #[[LB1:.+]] = #llvm.di_lexical_block<scope = #[[SP]], file = #[[FILE]], line = 2, column = 2>
-; CHECK: #[[LOC0]] = #llvm.di_loc<{{.*}} in #[[LB0]]>
-; CHECK: #[[LOC1]] = #llvm.di_loc<{{.*}} in #[[LB1]]>
+; CHECK: #[[LOC0]] = #llvm.di_location<{{.*}} in #[[LB0]]>
+; CHECK: #[[LOC1]] = #llvm.di_location<{{.*}} in #[[LB1]]>
 
 !llvm.dbg.cu = !{!1}
 !llvm.module.flags = !{!0}
@@ -96,8 +96,8 @@ define i32 @lexical_block_file(i32 %arg1) {
 ; CHECK: #[[SP:.+]] = #llvm.di_subprogram<id = distinct[{{.*}}]<>, compileUnit =
 ; CHECK: #[[LB0:.+]] = #llvm.di_lexical_block_file<scope = #[[SP]], discriminator = 0>
 ; CHECK: #[[LB1:.+]] = #llvm.di_lexical_block_file<scope = #[[SP]], file = #[[FILE]], discriminator = 0>
-; CHECK: #[[LOC0]] = #llvm.di_loc<{{.*}} in #[[LB0]]>
-; CHECK: #[[LOC1]] = #llvm.di_loc<{{.*}} in #[[LB1]]>
+; CHECK: #[[LOC0]] = #llvm.di_location<{{.*}} in #[[LB0]]>
+; CHECK: #[[LOC1]] = #llvm.di_location<{{.*}} in #[[LB1]]>
 
 !llvm.dbg.cu = !{!1}
 !llvm.module.flags = !{!0}
@@ -245,7 +245,7 @@ define void @func_loc() !dbg !3 {
 }
 ; CHECK-DAG: #[[FILE_LOC:.+]] = loc("debug-info.ll":42:0)
 ; CHECK-DAG: #[[SP:.+]] =  #llvm.di_subprogram<id = distinct[{{.*}}]<>, compileUnit = #{{.*}}, scope = #{{.*}}, name = "func_loc", file = #{{.*}}, line = 42, subprogramFlags = Definition>
-; CHECK-DAG: #{{.+}} = #llvm.di_loc<#[[FILE_LOC]] in #[[SP]]>
+; CHECK-DAG: #{{.+}} = #llvm.di_location<#[[FILE_LOC]] in #[[SP]]>
 
 !llvm.dbg.cu = !{!1}
 !llvm.module.flags = !{!0}
@@ -286,8 +286,8 @@ define void @intrinsic(i64 %0, ptr %1) {
   ret void
 }
 
-; CHECK: #[[LOC1]] = #llvm.di_loc<{{.*}} in #[[$SP]]>
-; CHECK: #[[LOC0]] = #llvm.di_loc<{{.*}} in #[[$SP]]>
+; CHECK: #[[LOC1]] = #llvm.di_location<{{.*}} in #[[$SP]]>
+; CHECK: #[[LOC0]] = #llvm.di_location<{{.*}} in #[[$SP]]>
 
 declare void @llvm.dbg.value(metadata, metadata, metadata)
 declare void @llvm.dbg.declare(metadata, metadata, metadata)
@@ -321,7 +321,7 @@ define void @class_method() {
 ; CHECK-DAG: #[[COMP_PTR:.+]] = #llvm.di_derived_type<tag = DW_TAG_pointer_type, baseType = #[[COMP]], sizeInBits = 64, flags = "Artificial|ObjectPointer">
 ; CHECK-DAG: #[[SP_TYPE:.+]] = #llvm.di_subroutine_type<types = #{{.*}}, #[[COMP_PTR]]>
 ; CHECK-DAG: #[[SP:.+]] = #llvm.di_subprogram<recId = [[REC_ID]], id = [[SP_ID:.+]], compileUnit = #{{.*}}, scope = #[[COMP]], name = "class_method", file = #{{.*}}, subprogramFlags = Definition, type = #[[SP_TYPE]]>
-; CHECK-DAG: #[[LOC]] = #llvm.di_loc<{{.*}} in #[[SP]]>
+; CHECK-DAG: #[[LOC]] = #llvm.di_location<{{.*}} in #[[SP]]>
 
 !llvm.dbg.cu = !{!1}
 !llvm.module.flags = !{!0}
@@ -551,7 +551,7 @@ declare void @llvm.dbg.value(metadata, metadata, metadata)
 ; // -----
 
 ; CHECK: #[[SUBPROGRAM:.*]] = #llvm.di_subprogram<id = distinct[{{.*}}]<>, compileUnit = #{{.*}}, scope = #{{.*}}, file = #{{.*}}, subprogramFlags = Definition>
-; CHECK: #[[FUNC_LOC:.*]] = #llvm.di_loc<{{.*}} in #[[SUBPROGRAM]]>
+; CHECK: #[[FUNC_LOC:.*]] = #llvm.di_location<{{.*}} in #[[SUBPROGRAM]]>
 define void @noname_subprogram(ptr %arg) !dbg !8 {
   ret void
 }
@@ -618,7 +618,7 @@ declare !dbg !1 void @declaration()
 ; CHECK-NOT: id = distinct
 ; CHECK-NOT: subprogramFlags =
 ; CHECK-SAME: >
-; CHECK: #{{.+}} = #llvm.di_loc<{{.*}} in #[[SP]]>
+; CHECK: #{{.+}} = #llvm.di_location<{{.*}} in #[[SP]]>
 
 !llvm.module.flags = !{!0}
 !0 = !{i32 2, !"Debug Info Version", i32 3}
