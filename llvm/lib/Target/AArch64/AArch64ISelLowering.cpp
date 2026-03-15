@@ -1508,15 +1508,14 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
                                   MVT::v8i8, Legal);
       }
     }
-
-    if (Subtarget->hasF16F32DOT() || Subtarget->hasFP16FML()) {
+    
+   if (Subtarget->hasF16F32DOT() || Subtarget->hasFP16FML()) {
       setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v2f32,
                                 MVT::v4f16, Legal);
       setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v4f32,
                                 MVT::v8f16, Legal);
     }
-
-    if (Subtarget->hasBF16())
+   if (Subtarget->hasBF16())
       setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v4f32,
                                 MVT::v8bf16, Legal);
 
