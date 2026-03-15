@@ -15475,13 +15475,13 @@ SDValue AArch64TargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
       SDValue DataVec = ISD::isBuildVectorAllZeros(V1.getNode()) ? V2 : V1;
 
       // Bitcast to v1i64 for scalar shift
-      SDValue Vec64 = DAG.getBitcast(MVT::v1i64, DataVec);
+      SDValue Vec64 = DAG.getNode(AArch64ISD::NVCAST, DL, MVT::v1i64, DataVec);;
 
       SDValue ShiftAmt = DAG.getTargetConstant(ShiftAmount, DL, MVT::i32);
       unsigned Opc = IsRightShift ? AArch64ISD::VLSHR : AArch64ISD::VSHL;
       SDValue Shifted = DAG.getNode(Opc, DL, MVT::v1i64, Vec64, ShiftAmt);
 
-      return DAG.getBitcast(VT, Shifted);
+      return DAG.getNode(AArch64ISD::NVCAST, DL, VT, Shifted);
     }
   }
 
