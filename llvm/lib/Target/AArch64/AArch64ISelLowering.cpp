@@ -14613,7 +14613,6 @@ static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1, SDValue &
   if (VT.getSizeInBits() != 64)
     return false;
 
-  errs() << "Hit isSlideWithZerosMask Entry!\n";
   unsigned NumElts = VT.getVectorNumElements();
   unsigned EltSize = VT.getScalarSizeInBits();
 
@@ -14647,7 +14646,6 @@ static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1, SDValue &
 
   ShiftAmount = StartIdx * EltSize;
   IsRightShift = true;
-  errs() << "Hit isSlideWithZerosMask End!\n";
   return ShiftAmount > 0 && ShiftAmount < 64;
 }
 
