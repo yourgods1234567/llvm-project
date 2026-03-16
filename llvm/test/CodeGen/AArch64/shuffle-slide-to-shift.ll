@@ -8,8 +8,7 @@
 define <8 x i8> @slide_left_1(<8 x i8> %v) {
 ; CHECK-LABEL: slide_left_1:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    ext v0.8b, v0.8b, v1.8b, #1
+; CHECK-NEXT:    ushr d0, d0, #8
 ; CHECK-NEXT:    ret
   %r = shufflevector <8 x i8> %v, <8 x i8> zeroinitializer,
        <8 x i32> <i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8>
@@ -20,8 +19,7 @@ define <8 x i8> @slide_left_1(<8 x i8> %v) {
 define <8 x i8> @slide_right_1(<8 x i8> %v) {
 ; CHECK-LABEL: slide_right_1:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    ext v0.8b, v1.8b, v0.8b, #7
+; CHECK-NEXT:    shl d0, d0, #8
 ; CHECK-NEXT:    ret
   %r = shufflevector <8 x i8> zeroinitializer, <8 x i8> %v,
        <8 x i32> <i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14>
@@ -34,8 +32,7 @@ define <8 x i8> @slide_right_1(<8 x i8> %v) {
 define <8 x i8> @slide_left_poison(<8 x i8> %v) {
 ; CHECK-LABEL: slide_left_poison:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    ext v0.8b, v0.8b, v1.8b, #1
+; CHECK-NEXT:    ushr d0, d0, #8
 ; CHECK-NEXT:    ret
   %r = shufflevector <8 x i8> %v, <8 x i8> <i8 0, i8 poison, i8 poison, i8 poison, i8 poison, i8 poison, i8 poison, i8 poison>,
        <8 x i32> <i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8>
@@ -46,8 +43,7 @@ define <8 x i8> @slide_left_poison(<8 x i8> %v) {
 define <8 x i8> @slide_right_poison(<8 x i8> %v) {
 ; CHECK-LABEL: slide_right_poison:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    ext v0.8b, v1.8b, v0.8b, #7
+; CHECK-NEXT:    shl d0, d0, #8
 ; CHECK-NEXT:    ret
   %r = shufflevector <8 x i8> <i8 poison, i8 poison, i8 poison, i8 poison, i8 poison, i8 poison, i8 poison, i8 0>, <8 x i8> %v,
        <8 x i32> <i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14>
@@ -60,8 +56,7 @@ define <8 x i8> @slide_right_poison(<8 x i8> %v) {
 define <4 x i8> @slide_left_v4i8(<4 x i8> %v) {
 ; CHECK-LABEL: slide_left_v4i8:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    ext v0.8b, v0.8b, v1.8b, #2
+; CHECK-NEXT:    ushr d0, d0, #16
 ; CHECK-NEXT:    ret
   %r = shufflevector <4 x i8> %v, <4 x i8> zeroinitializer,
        <4 x i32> <i32 1, i32 2, i32 3, i32 4>
@@ -72,8 +67,7 @@ define <4 x i8> @slide_left_v4i8(<4 x i8> %v) {
 define <4 x i8> @slide_right_v4i8(<4 x i8> %v) {
 ; CHECK-LABEL: slide_right_v4i8:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    ext v0.8b, v1.8b, v0.8b, #6
+; CHECK-NEXT:    shl d0, d0, #16
 ; CHECK-NEXT:    ret
   %r = shufflevector <4 x i8> zeroinitializer, <4 x i8> %v,
        <4 x i32> <i32 3, i32 4, i32 5, i32 6>
@@ -186,8 +180,7 @@ define <16 x i8> @slide_different_amounts(<16 x i8> %v) {
 define <8 x i8> @slide_left_max(<8 x i8> %v) {
 ; CHECK-LABEL: slide_left_max:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    ext v0.8b, v0.8b, v1.8b, #7
+; CHECK-NEXT:    ushr d0, d0, #56
 ; CHECK-NEXT:    ret
   %r = shufflevector <8 x i8> %v, <8 x i8> zeroinitializer,
        <8 x i32> <i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14>
@@ -198,10 +191,7 @@ define <8 x i8> @slide_left_max(<8 x i8> %v) {
 define <8 x i8> @slide_right_max(<8 x i8> %v) {
 ; CHECK-LABEL: slide_right_max:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    // kill: def $d0 killed $d0 def $q0
-; CHECK-NEXT:    mov v1.b[7], v0.b[0]
-; CHECK-NEXT:    fmov d0, d1
+; CHECK-NEXT:    shl d0, d0, #56
 ; CHECK-NEXT:    ret
   %r = shufflevector <8 x i8> zeroinitializer, <8 x i8> %v,
        <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 8>
