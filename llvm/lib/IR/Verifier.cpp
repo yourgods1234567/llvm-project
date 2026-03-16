@@ -5923,19 +5923,8 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   SmallVector<Type *, 4> ArgTys;
   Intrinsic::MatchIntrinsicTypesResult Res =
       Intrinsic::matchIntrinsicSignature(IFTy, TableRef, ArgTys);
-  if (Res == Intrinsic::MatchIntrinsicTypes_NoMatchRet) {
-    std::string Msg = "Intrinsic has incorrect return type!";
-    raw_string_ostream SS(Msg);
-    IntrinsicDiagnosticsProvider::queryReturnTypeMismatch(IF->getName(), IFTy,
-                                                          SS);
-    CheckFailed(Msg, IF);
-    return;
-  }
-  if (Res == Intrinsic::MatchIntrinsicTypes_NoMatchArg) {
-    std::string Msg = "Intrinsic has incorrect argument type!";
-    raw_string_ostream SS(Msg);
-    IntrinsicDiagnosticsProvider::queryArgTypeMismatch(IF->getName(), IFTy, SS);
-    CheckFailed(Msg, IF);
+  if (Res != Intrinsic::MatchIntrinsicTypes_Match) {
+    CheckFailed(Intrinsic::getIntrinsicSignatureMismatch(ID, IFTy), IF);
     return;
   }
 

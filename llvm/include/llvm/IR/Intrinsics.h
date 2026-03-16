@@ -285,7 +285,7 @@ namespace Intrinsic {
   LLVM_ABI bool matchIntrinsicVarArg(bool isVarArg,
                                      ArrayRef<IITDescriptor> &Infos);
 
-  /// Gets the type arguments of an intrinsic call by matching type contraints
+  /// Gets the type arguments of an intrinsic call by matching type constraints
   /// specified by the .td file. The overloaded types are pushed into the
   /// OverloadTys vector.
   ///
@@ -297,6 +297,13 @@ namespace Intrinsic {
   /// Same as previous, but accepts a Function instead of ID and FunctionType.
   LLVM_ABI bool getIntrinsicSignature(Function *F,
                                       SmallVectorImpl<Type *> &OverloadTys);
+
+  /// Returns a human-readable description of a signature mismatch for the
+  /// given intrinsic ID and function type. For non-overloaded intrinsics the
+  /// canonical signature is included; for overloaded intrinsics only the
+  /// declared signature is shown.
+  LLVM_ABI std::string getIntrinsicSignatureMismatch(Intrinsic::ID,
+                                                     FunctionType *FT);
 
   // Checks if the intrinsic name matches with its signature and if not
   // returns the declaration with the same signature and remangled name.
