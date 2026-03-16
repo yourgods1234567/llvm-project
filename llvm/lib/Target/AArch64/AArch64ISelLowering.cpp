@@ -14608,11 +14608,73 @@ static bool isEXTMask(ArrayRef<int> M, EVT VT, bool &ReverseEXT,
 /// Flag slide shuffle patterns where one operand is zeros.
 /// Left slide: shufflevector %v, zeros, <1,2,3,...> -> ushr
 /// Right slide: shufflevector zeros, %v, <N-1,N,N+1,...> -> shl
+/// Check if a single 64-bit lane has a valid slide pattern.
+/// LaneStart: first element index of this lane in the full vector
+/// LaneElts: number of elements in the lane
+/// Returns slide amount in elements, or 0 if not a valid slide.
+static unsigned checkLaneSlide(ArrayRef<int> Mask, unsigned LaneStart,
+                               unsigned LaneElts, unsigned NumElts,
+                               bool &IsLeftSlide) {
+  // Check for left slide: <k, k+1, ..., LaneElts-1, zero, ...>
+  // where k > 0 and elements stay within lane
+  int FirstIdx = Mask[LaneStart];
+  if (FirstIdx > (int)LaneStart && FirstIdx < (int)(LaneStart + LaneElts)) {
+    unsigned SlideAmt = FirstIdx - LaneStart;
+    bool Valid = true;
+    for (unsigned i = 0; i < LaneElts && Valid; ++i) {
+      int M = Mask[LaneStart + i];
+      if (M < 0)
+        continue;
+      if (i < LaneElts - SlideAmt) {
+        // Data element: must be consecutive within lane
+        if (M != (int)(LaneStart + SlideAmt + i))
+          Valid = false;
+      } else {
+        // Zero element: any index >= NumElts is fine (all from V2 which is zeros)
+        if (M < (int)NumElts)
+          Valid = false;
+      }
+    }
+    if (Valid) {
+      IsLeftSlide = true;
+      return SlideAmt;
+    }
+  }
+
+  // Check for right slide: <zero, ..., 0, 1, ...>
+  // where zeros come first, then consecutive from lane start
+  if (Mask[LaneStart] >= (int)NumElts || Mask[LaneStart] < 0) {
+    unsigned ZeroCount = 0;
+    for (unsigned i = 0; i < LaneElts; ++i) {
+      int M = Mask[LaneStart + i];
+      if (M >= 0 && M < (int)NumElts)
+        break;
+      ZeroCount++;
+    }
+    if (ZeroCount > 0 && ZeroCount < LaneElts) {
+      bool Valid = true;
+      for (unsigned i = ZeroCount; i < LaneElts && Valid; ++i) {
+        int M = Mask[LaneStart + i];
+        if (M < 0)
+          continue;
+        if (M != (int)(LaneStart + i - ZeroCount))
+          Valid = false;
+      }
+      if (Valid) {
+        IsLeftSlide = false;
+        return ZeroCount;
+      }
+    }
+  }
+
+  return 0;
+}
+
 static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1,
                                  SDValue &V2, unsigned &ShiftAmount,
                                  bool &IsRightShift) {
-  // Only handle 64-bit vectors
-  if (VT.getSizeInBits() != 64)
+  unsigned VTSize = VT.getSizeInBits();
+  if (VTSize != 64 && VTSize != 128)
     return false;
 
   unsigned NumElts = VT.getVectorNumElements();
@@ -14626,60 +14688,33 @@ static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1,
     return false;
 
   // Canonicalize so V2 is zeros
-  SmallVector<int, 8> Mask(M.begin(), M.end());
+  SmallVector<int, 16> Mask(M.begin(), M.end());
   if (V1IsZeros) {
     ShuffleVectorSDNode::commuteMask(Mask);
     std::swap(V1, V2);
   }
 
-  // After canonicalization, V1 is data, V2 is zeros.
-  // Left slide: <k, k+1, ..., N-1, N, ...> where k > 0, indices >= NumElts are zeros
-  // Right slide: <N+x, 0, 1, ..., N-2> where N+x >= NumElts is zero, rest from V1
+  // For 64-bit vectors, check single lane
+  // For 128-bit vectors, check both 64-bit lanes have same slide
+  unsigned LaneElts = 64 / EltSize;
+  unsigned NumLanes = VTSize / 64;
 
-  // Check for left slide: consecutive starting from positive index
-  int StartIdx = Mask[0];
-  if (StartIdx > 0 && (unsigned)StartIdx < NumElts) {
-    bool Valid = true;
-    for (unsigned i = 0; i < NumElts && Valid; ++i) {
-      if (Mask[i] < 0)
-        continue;
-      if (Mask[i] != StartIdx + (int)i)
-        Valid = false;
-    }
-    if (Valid) {
-      ShiftAmount = StartIdx * EltSize;
-      IsRightShift = true;
-      return ShiftAmount > 0 && ShiftAmount < 64;
-    }
+  bool FirstIsLeftSlide;
+  unsigned FirstSlideAmt = checkLaneSlide(Mask, 0, LaneElts, NumElts, FirstIsLeftSlide);
+  if (FirstSlideAmt == 0)
+    return false;
+
+  // For 128-bit, verify second lane matches
+  if (NumLanes == 2) {
+    bool SecondIsLeftSlide;
+    unsigned SecondSlideAmt = checkLaneSlide(Mask, LaneElts, LaneElts, NumElts, SecondIsLeftSlide);
+    if (SecondSlideAmt != FirstSlideAmt || SecondIsLeftSlide != FirstIsLeftSlide)
+      return false;
   }
 
-  // Check for right slide: first elements are zeros (>= NumElts), rest consecutive from 0
-  if (Mask[0] >= (int)NumElts || Mask[0] < 0) {
-    // Find where V1 elements start
-    unsigned ZeroCount = 0;
-    for (unsigned i = 0; i < NumElts; ++i) {
-      if (Mask[i] >= 0 && (unsigned)Mask[i] < NumElts)
-        break;
-      ZeroCount++;
-    }
-
-    if (ZeroCount > 0 && ZeroCount < NumElts) {
-      bool Valid = true;
-      for (unsigned i = ZeroCount; i < NumElts && Valid; ++i) {
-        if (Mask[i] < 0)
-          continue;
-        if (Mask[i] != (int)(i - ZeroCount))
-          Valid = false;
-      }
-      if (Valid) {
-        ShiftAmount = ZeroCount * EltSize;
-        IsRightShift = false;
-        return ShiftAmount > 0 && ShiftAmount < 64;
-      }
-    }
-  }
-
-  return false;
+  ShiftAmount = FirstSlideAmt * EltSize;
+  IsRightShift = FirstIsLeftSlide;  // left slide = right shift in bits
+  return ShiftAmount > 0 && ShiftAmount < 64;
 }
 
 
@@ -15380,17 +15415,18 @@ SDValue AArch64TargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
   }
 
   // Check for slide-with-zeros pattern before EXT (slide is also valid EXT)
-  if (VT.getSizeInBits() == 64) {
+  {
     unsigned ShiftAmount;
     bool IsRightShift;
     if (isSlideWithZerosMask(ShuffleMask, VT, V1, V2, ShiftAmount,
                              IsRightShift)) {
       // V1 is the data vector (V1/V2 swapped by isSlideWithZerosMask if needed)
-      SDValue Vec64 = DAG.getNode(AArch64ISD::NVCAST, DL, MVT::v1i64, V1);
+      MVT ShiftVT = VT.getSizeInBits() == 64 ? MVT::v1i64 : MVT::v2i64;
+      SDValue Vec = DAG.getNode(AArch64ISD::NVCAST, DL, ShiftVT, V1);
 
       SDValue ShiftAmt = DAG.getTargetConstant(ShiftAmount, DL, MVT::i32);
       unsigned Opc = IsRightShift ? AArch64ISD::VLSHR : AArch64ISD::VSHL;
-      SDValue Shifted = DAG.getNode(Opc, DL, MVT::v1i64, Vec64, ShiftAmt);
+      SDValue Shifted = DAG.getNode(Opc, DL, ShiftVT, Vec, ShiftAmt);
 
       return DAG.getNode(AArch64ISD::NVCAST, DL, VT, Shifted);
     }
