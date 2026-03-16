@@ -14608,13 +14608,12 @@ static bool isEXTMask(ArrayRef<int> M, EVT VT, bool &ReverseEXT,
 /// Flag slide shuffle patterns where one operand is zeros.
 /// Left slide: shufflevector %v, zeros, <1,2,3,...> -> ushr
 /// Right slide: shufflevector zeros, %v, <N-1,N,N+1,...> -> shl
-static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue V1,
-                                 SDValue V2, unsigned &ShiftAmount,
-                                 bool &IsRightShift) {
+static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1, SDValue &V2, unsigned &ShiftAmount, bool &IsRightShift) {
   // Only handle 64-bit vectors
   if (VT.getSizeInBits() != 64)
     return false;
 
+  errs() << "Hit isSlideWithZerosMask Entry!\n";
   unsigned NumElts = VT.getVectorNumElements();
   unsigned EltSize = VT.getScalarSizeInBits();
 
@@ -14625,54 +14624,31 @@ static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue V1,
   if (V1IsZeros == V2IsZeros)
     return false;
 
+  // Canonicalize so V2 is zeros
+  SmallVector<int, 8> Mask(M.begin(), M.end());
+  if (V1IsZeros) {
+    ShuffleVectorSDNode::commuteMask(Mask);
+    std::swap(V1, V2);
+  }
+
   // Left slide pattern: shufflevector %v, zeros, <k, k+1, ..., k+N-1>
   // where some elements come from zeros (indices >= NumElts)
-  if (V2IsZeros) {
-    int StartIdx = M[0];
-    if (StartIdx <= 0)
+  int StartIdx = Mask[0];
+  if (StartIdx <= 0)
+    return false;
+
+  for (unsigned i = 0; i < NumElts; ++i) {
+    if (Mask[i] < 0)
+      continue; // undef OK
+    int Expected = StartIdx + i;
+    if (Mask[i] != Expected)
       return false;
-
-    for (unsigned i = 0; i < NumElts; ++i) {
-      if (M[i] < 0)
-        continue; // undef OK
-      int Expected = StartIdx + i;
-      if (M[i] != Expected)
-        return false;
-    }
-
-    ShiftAmount = StartIdx * EltSize;
-    IsRightShift = true;
-    return ShiftAmount > 0 && ShiftAmount < 64;
   }
 
-  // Right slide pattern: shufflevector zeros, %v, <N-k, N-k+1, ..., 2N-k-1>
-  if (V1IsZeros) {
-    // Find first element from V2 (index >= NumElts)
-    unsigned ZeroCount = 0;
-    for (unsigned i = 0; i < NumElts; ++i) {
-      if (M[i] >= 0 && (unsigned)M[i] >= NumElts) {
-        ZeroCount = i;
-        break;
-      }
-      if (M[i] >= 0 && (unsigned)M[i] < NumElts)
-        ZeroCount = i + 1;
-    }
-
-    // Verify consecutive pattern from V2
-    for (unsigned i = ZeroCount; i < NumElts; ++i) {
-      if (M[i] < 0)
-        continue;
-      int Expected = NumElts + (i - ZeroCount);
-      if (M[i] != Expected)
-        return false;
-    }
-
-    ShiftAmount = ZeroCount * EltSize;
-    IsRightShift = false;
-    return ShiftAmount > 0 && ShiftAmount < 64;
-  }
-
-  return false;
+  ShiftAmount = StartIdx * EltSize;
+  IsRightShift = true;
+  errs() << "Hit isSlideWithZerosMask End!\n";
+  return ShiftAmount > 0 && ShiftAmount < 64;
 }
 
 
@@ -15472,10 +15448,8 @@ SDValue AArch64TargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
     bool IsRightShift;
     if (isSlideWithZerosMask(ShuffleMask, VT, V1, V2, ShiftAmount,
                              IsRightShift)) {
-      SDValue DataVec = ISD::isBuildVectorAllZeros(V1.getNode()) ? V2 : V1;
-
-      // Bitcast to v1i64 for scalar shift
-      SDValue Vec64 = DAG.getNode(AArch64ISD::NVCAST, DL, MVT::v1i64, DataVec);;
+      // V1 is the data vector (V1/V2 swapped by isSlideWithZerosMask if needed)
+      SDValue Vec64 = DAG.getNode(AArch64ISD::NVCAST, DL, MVT::v1i64, V1);
 
       SDValue ShiftAmt = DAG.getTargetConstant(ShiftAmount, DL, MVT::i32);
       unsigned Opc = IsRightShift ? AArch64ISD::VLSHR : AArch64ISD::VSHL;
