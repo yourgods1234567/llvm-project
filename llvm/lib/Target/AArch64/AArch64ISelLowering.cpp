@@ -14608,7 +14608,9 @@ static bool isEXTMask(ArrayRef<int> M, EVT VT, bool &ReverseEXT,
 /// Flag slide shuffle patterns where one operand is zeros.
 /// Left slide: shufflevector %v, zeros, <1,2,3,...> -> ushr
 /// Right slide: shufflevector zeros, %v, <N-1,N,N+1,...> -> shl
-static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1, SDValue &V2, unsigned &ShiftAmount, bool &IsRightShift) {
+static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1,
+                                 SDValue &V2, unsigned &ShiftAmount,
+                                 bool &IsRightShift) {
   // Only handle 64-bit vectors
   if (VT.getSizeInBits() != 64)
     return false;
