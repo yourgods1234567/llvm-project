@@ -14632,23 +14632,54 @@ static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1,
     std::swap(V1, V2);
   }
 
-  // Left slide pattern: shufflevector %v, zeros, <k, k+1, ..., k+N-1>
-  // where some elements come from zeros (indices >= NumElts)
-  int StartIdx = Mask[0];
-  if (StartIdx <= 0)
-    return false;
+  // After canonicalization, V1 is data, V2 is zeros.
+  // Left slide: <k, k+1, ..., N-1, N, ...> where k > 0, indices >= NumElts are zeros
+  // Right slide: <N+x, 0, 1, ..., N-2> where N+x >= NumElts is zero, rest from V1
 
-  for (unsigned i = 0; i < NumElts; ++i) {
-    if (Mask[i] < 0)
-      continue; // undef OK
-    int Expected = StartIdx + i;
-    if (Mask[i] != Expected)
-      return false;
+  // Check for left slide: consecutive starting from positive index
+  int StartIdx = Mask[0];
+  if (StartIdx > 0 && (unsigned)StartIdx < NumElts) {
+    bool Valid = true;
+    for (unsigned i = 0; i < NumElts && Valid; ++i) {
+      if (Mask[i] < 0)
+        continue;
+      if (Mask[i] != StartIdx + (int)i)
+        Valid = false;
+    }
+    if (Valid) {
+      ShiftAmount = StartIdx * EltSize;
+      IsRightShift = true;
+      return ShiftAmount > 0 && ShiftAmount < 64;
+    }
   }
 
-  ShiftAmount = StartIdx * EltSize;
-  IsRightShift = true;
-  return ShiftAmount > 0 && ShiftAmount < 64;
+  // Check for right slide: first elements are zeros (>= NumElts), rest consecutive from 0
+  if (Mask[0] >= (int)NumElts || Mask[0] < 0) {
+    // Find where V1 elements start
+    unsigned ZeroCount = 0;
+    for (unsigned i = 0; i < NumElts; ++i) {
+      if (Mask[i] >= 0 && (unsigned)Mask[i] < NumElts)
+        break;
+      ZeroCount++;
+    }
+
+    if (ZeroCount > 0 && ZeroCount < NumElts) {
+      bool Valid = true;
+      for (unsigned i = ZeroCount; i < NumElts && Valid; ++i) {
+        if (Mask[i] < 0)
+          continue;
+        if (Mask[i] != (int)(i - ZeroCount))
+          Valid = false;
+      }
+      if (Valid) {
+        ShiftAmount = ZeroCount * EltSize;
+        IsRightShift = false;
+        return ShiftAmount > 0 && ShiftAmount < 64;
+      }
+    }
+  }
+
+  return false;
 }
 
 
