@@ -15348,6 +15348,23 @@ SDValue AArch64TargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
                        DAG.getConstant(8, DL, MVT::i32));
   }
 
+  // Check for slide-with-zeros pattern before EXT (slide is also valid EXT)
+  if (VT.getSizeInBits() == 64) {
+    unsigned ShiftAmount;
+    bool IsRightShift;
+    if (isSlideWithZerosMask(ShuffleMask, VT, V1, V2, ShiftAmount,
+                             IsRightShift)) {
+      // V1 is the data vector (V1/V2 swapped by isSlideWithZerosMask if needed)
+      SDValue Vec64 = DAG.getNode(AArch64ISD::NVCAST, DL, MVT::v1i64, V1);
+
+      SDValue ShiftAmt = DAG.getTargetConstant(ShiftAmount, DL, MVT::i32);
+      unsigned Opc = IsRightShift ? AArch64ISD::VLSHR : AArch64ISD::VSHL;
+      SDValue Shifted = DAG.getNode(Opc, DL, MVT::v1i64, Vec64, ShiftAmt);
+
+      return DAG.getNode(AArch64ISD::NVCAST, DL, VT, Shifted);
+    }
+  }
+
   bool ReverseEXT = false;
   unsigned Imm;
   if (isEXTMask(ShuffleMask, VT, ReverseEXT, Imm)) {
@@ -15441,22 +15458,6 @@ SDValue AArch64TargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
     unsigned PFEntry = PerfectShuffleTable[PFTableIndex];
     return GeneratePerfectShuffle(PFTableIndex, V1, V2, PFEntry, V1, V2, DAG,
                                   DL);
-  }
-
-  if (VT.getSizeInBits() == 64) {
-    unsigned ShiftAmount;
-    bool IsRightShift;
-    if (isSlideWithZerosMask(ShuffleMask, VT, V1, V2, ShiftAmount,
-                             IsRightShift)) {
-      // V1 is the data vector (V1/V2 swapped by isSlideWithZerosMask if needed)
-      SDValue Vec64 = DAG.getNode(AArch64ISD::NVCAST, DL, MVT::v1i64, V1);
-
-      SDValue ShiftAmt = DAG.getTargetConstant(ShiftAmount, DL, MVT::i32);
-      unsigned Opc = IsRightShift ? AArch64ISD::VLSHR : AArch64ISD::VSHL;
-      SDValue Shifted = DAG.getNode(Opc, DL, MVT::v1i64, Vec64, ShiftAmt);
-
-      return DAG.getNode(AArch64ISD::NVCAST, DL, VT, Shifted);
-    }
   }
 
   // Check for a "select shuffle", generating a BSL to pick between lanes in
