@@ -108,6 +108,78 @@ define <16 x i8> @slide_right_v16i8(<16 x i8> %v) {
   ret <16 x i8> %r
 }
 
+; 128-bit lane-independent slides (both 64-bit halves slide same amount)
+; These CAN be optimized to ushr/shl on v2i64
+
+; Left slide 128-bit lane-independent: each half slides left by 1
+define <16 x i8> @slide_left_v16i8_lane_independent(<16 x i8> %v) {
+; CHECK-LABEL: slide_left_v16i8_lane_independent:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    adrp x8, .LCPI8_0
+; CHECK-NEXT:    ldr q1, [x8, :lo12:.LCPI8_0]
+; CHECK-NEXT:    tbl v0.16b, { v0.16b }, v1.16b
+; CHECK-NEXT:    ret
+  %r = shufflevector <16 x i8> %v, <16 x i8> zeroinitializer,
+       <16 x i32> <i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 16,
+                   i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 24>
+  ret <16 x i8> %r
+}
+
+; Right slide 128-bit lane-independent: each half slides right by 1
+define <16 x i8> @slide_right_v16i8_lane_independent(<16 x i8> %v) {
+; CHECK-LABEL: slide_right_v16i8_lane_independent:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    adrp x8, .LCPI9_0
+; CHECK-NEXT:    ldr q1, [x8, :lo12:.LCPI9_0]
+; CHECK-NEXT:    tbl v0.16b, { v0.16b }, v1.16b
+; CHECK-NEXT:    ret
+  %r = shufflevector <16 x i8> zeroinitializer, <16 x i8> %v,
+       <16 x i32> <i32 0, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22,
+                   i32 8, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30>
+  ret <16 x i8> %r
+}
+
+; 128-bit i16 lane-independent slide
+define <8 x i16> @slide_left_v8i16_lane_independent(<8 x i16> %v) {
+; CHECK-LABEL: slide_left_v8i16_lane_independent:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    adrp x8, .LCPI10_0
+; CHECK-NEXT:    ldr q1, [x8, :lo12:.LCPI10_0]
+; CHECK-NEXT:    tbl v0.16b, { v0.16b }, v1.16b
+; CHECK-NEXT:    ret
+  %r = shufflevector <8 x i16> %v, <8 x i16> zeroinitializer,
+       <8 x i32> <i32 1, i32 2, i32 3, i32 8,
+                  i32 5, i32 6, i32 7, i32 12>
+  ret <8 x i16> %r
+}
+
+; 128-bit i32 lane-independent slide
+define <4 x i32> @slide_left_v4i32_lane_independent(<4 x i32> %v) {
+; CHECK-LABEL: slide_left_v4i32_lane_independent:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    movi v1.2d, #0000000000000000
+; CHECK-NEXT:    trn1 v1.4s, v0.4s, v1.4s
+; CHECK-NEXT:    trn2 v0.4s, v0.4s, v1.4s
+; CHECK-NEXT:    ret
+  %r = shufflevector <4 x i32> %v, <4 x i32> zeroinitializer,
+       <4 x i32> <i32 1, i32 4, i32 3, i32 6>
+  ret <4 x i32> %r
+}
+
+; Negative: halves slide different amounts (should NOT optimize to shift)
+define <16 x i8> @slide_different_amounts(<16 x i8> %v) {
+; CHECK-LABEL: slide_different_amounts:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    adrp x8, .LCPI12_0
+; CHECK-NEXT:    ldr q1, [x8, :lo12:.LCPI12_0]
+; CHECK-NEXT:    tbl v0.16b, { v0.16b }, v1.16b
+; CHECK-NEXT:    ret
+  %r = shufflevector <16 x i8> %v, <16 x i8> zeroinitializer,
+       <16 x i32> <i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 16,
+                   i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 24, i32 25>
+  ret <16 x i8> %r
+}
+
 ; Slide by max (N-1 elements)
 
 ; Left slide by 7 (max for v8i8)
