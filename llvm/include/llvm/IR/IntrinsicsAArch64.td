@@ -1051,6 +1051,7 @@ def llvm_nxv4i1_ty  : LLVMType<nxv4i1>;
 def llvm_nxv8i1_ty  : LLVMType<nxv8i1>;
 def llvm_nxv16i1_ty : LLVMType<nxv16i1>;
 def llvm_nxv16i8_ty : LLVMType<nxv16i8>;
+def llvm_nxv8i16_ty : LLVMType<nxv8i16>;
 def llvm_nxv4i32_ty : LLVMType<nxv4i32>;
 def llvm_nxv2i64_ty : LLVMType<nxv2i64>;
 def llvm_nxv8f16_ty : LLVMType<nxv8f16>;
@@ -2611,6 +2612,29 @@ def int_aarch64_sve_fmlslt        : SVE2_3VectorArg_Long_Intrinsic;
 def int_aarch64_sve_fmlslt_lane   : SVE2_3VectorArgIndexed_Long_Intrinsic;
 
 //
+// SVE2 - Multi-vector narrowing convert to floating point
+//
+
+class Builtin_SVCVT_UNPRED<LLVMType OUT, LLVMType IN>
+    : DefaultAttrsIntrinsic<[OUT], [IN], [IntrNoMem]>;
+
+def int_aarch64_sve_scvtfb_f16i8: Builtin_SVCVT_UNPRED<llvm_nxv8f16_ty, llvm_nxv16i8_ty>;
+def int_aarch64_sve_scvtfb_f32i16: Builtin_SVCVT_UNPRED<llvm_nxv4f32_ty, llvm_nxv8i16_ty>;
+def int_aarch64_sve_scvtfb_f64i32: Builtin_SVCVT_UNPRED<llvm_nxv2f64_ty, llvm_nxv4i32_ty>;
+
+def int_aarch64_sve_scvtflt_f16i8: Builtin_SVCVT_UNPRED<llvm_nxv8f16_ty, llvm_nxv16i8_ty>;
+def int_aarch64_sve_scvtflt_f32i16: Builtin_SVCVT_UNPRED<llvm_nxv4f32_ty, llvm_nxv8i16_ty>;
+def int_aarch64_sve_scvtflt_f64i32: Builtin_SVCVT_UNPRED<llvm_nxv2f64_ty, llvm_nxv4i32_ty>;
+
+def int_aarch64_sve_ucvtfb_f16i8: Builtin_SVCVT_UNPRED<llvm_nxv8f16_ty, llvm_nxv16i8_ty>;
+def int_aarch64_sve_ucvtfb_f32i16: Builtin_SVCVT_UNPRED<llvm_nxv4f32_ty, llvm_nxv8i16_ty>;
+def int_aarch64_sve_ucvtfb_f64i32: Builtin_SVCVT_UNPRED<llvm_nxv2f64_ty, llvm_nxv4i32_ty>;
+
+def int_aarch64_sve_ucvtflt_f16i8: Builtin_SVCVT_UNPRED<llvm_nxv8f16_ty, llvm_nxv16i8_ty>;
+def int_aarch64_sve_ucvtflt_f32i16: Builtin_SVCVT_UNPRED<llvm_nxv4f32_ty, llvm_nxv8i16_ty>;
+def int_aarch64_sve_ucvtflt_f64i32: Builtin_SVCVT_UNPRED<llvm_nxv2f64_ty, llvm_nxv4i32_ty>;
+
+//
 // SVE2 - Floating-point integer binary logarithm
 //
 
@@ -3526,6 +3550,10 @@ let TargetPrefix = "aarch64" in {
                 [LLVMSubdivide2VectorType<0>, LLVMSubdivide2VectorType<0>],
                 [IntrNoMem]>;
 
+  class SVE2_CVT_VG2_Single_Intrinsic
+    : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+                            [llvm_anyvector_ty, LLVMMatchType<1>],
+                            [IntrNoMem]>;
   //
   // Multi-vector fused multiply-add/subtract
   //
@@ -4052,6 +4080,11 @@ def int_aarch64_sve_famin_u : AdvSIMD_Pred2VectorArg_Intrinsic;
 // Neon absolute maximum and minimum
 def int_aarch64_neon_famax :  AdvSIMD_2VectorArg_Intrinsic;
 def int_aarch64_neon_famin :  AdvSIMD_2VectorArg_Intrinsic;
+
+// SVE2.3/SME2.3 - Multi-vector narrowing convert to floating point
+
+def int_aarch64_sve_fcvtzsn: SVE2_CVT_VG2_Single_Intrinsic;
+def int_aarch64_sve_fcvtzun: SVE2_CVT_VG2_Single_Intrinsic;
 
 //
 // FP8 Intrinsics

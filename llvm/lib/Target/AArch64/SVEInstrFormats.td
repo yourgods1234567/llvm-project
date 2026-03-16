@@ -11423,10 +11423,17 @@ class sve2_fp_to_int_downcvt<string asm, ZPRRegOp ZdRC, RegisterOperand ZSrcOp, 
   let Inst{4-0}   = Zd;
 }
 
-multiclass sve2_fp_to_int_downcvt<string asm, bit U> {
+multiclass sve2_fp_to_int_downcvt<string asm, bit U, SDPatternOperator op> {
   def _HtoB : sve2_fp_to_int_downcvt<asm, ZPR8,  ZZ_h_mul_r, 0b01, U>;
   def _StoH : sve2_fp_to_int_downcvt<asm, ZPR16, ZZ_s_mul_r, 0b10, U>;
   def _DtoS : sve2_fp_to_int_downcvt<asm, ZPR32, ZZ_d_mul_r, 0b11, U>;
+
+  def : Pat<(nxv16i8 (op  nxv8f16:$Zn1, nxv8f16:$Zn2)),
+            (!cast<Instruction>(NAME # _HtoB) (REG_SEQUENCE ZPR2Mul2, $Zn1, zsub0, $Zn2, zsub1))>;
+  def : Pat<(nxv8i16 (op  nxv4f32:$Zn1, nxv4f32:$Zn2)),
+            (!cast<Instruction>(NAME # _StoH) (REG_SEQUENCE ZPR2Mul2, $Zn1, zsub0, $Zn2, zsub1))>;
+  def : Pat<(nxv4i32 (op  nxv2f64:$Zn1, nxv2f64:$Zn2)),
+            (!cast<Instruction>(NAME # _DtoS) (REG_SEQUENCE ZPR2Mul2, $Zn1, zsub0, $Zn2, zsub1))>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -11446,8 +11453,12 @@ class sve2_int_to_fp_upcvt<string asm, ZPRRegOp ZdRC, ZPRRegOp ZnRC,
   let Inst{4-0}   = Zd;
 }
 
-multiclass sve2_int_to_fp_upcvt<string asm, bits<2> U> {
+multiclass sve2_int_to_fp_upcvt<string asm, bits<2> U, string op> {
   def _BtoH : sve2_int_to_fp_upcvt<asm, ZPR16, ZPR8,  0b01, U>;
   def _HtoS : sve2_int_to_fp_upcvt<asm, ZPR32, ZPR16, 0b10, U>;
   def _StoD : sve2_int_to_fp_upcvt<asm, ZPR64, ZPR32, 0b11, U>;
+
+  def : SVE_1_Op_Pat<nxv8f16, !cast<SDPatternOperator>(op # "_f16i8"), nxv16i8, !cast<Instruction>(NAME # _BtoH)>;
+  def : SVE_1_Op_Pat<nxv4f32, !cast<SDPatternOperator>(op # "_f32i16"), nxv8i16, !cast<Instruction>(NAME # _HtoS)>;
+  def : SVE_1_Op_Pat<nxv2f64, !cast<SDPatternOperator>(op # "_f64i32"), nxv4i32, !cast<Instruction>(NAME # _StoD)>;
 }
