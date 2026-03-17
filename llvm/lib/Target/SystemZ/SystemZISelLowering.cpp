@@ -1470,8 +1470,10 @@ bool SystemZTargetLowering::findOptimalMemOpLowering(
       return false; // Memset zero: Use XC
   }
 
+  // Don't use overlapping accesses.
   return TargetLowering::findOptimalMemOpLowering(
-      Context, MemOps, Limit, Op, DstAS, SrcAS, FuncAttributes, LargestVT);
+      Context, MemOps, Limit, Op.getWithoutOverlap(), DstAS, SrcAS,
+      FuncAttributes, LargestVT);
 }
 
 EVT SystemZTargetLowering::getOptimalMemOpType(

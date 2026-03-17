@@ -30,10 +30,8 @@ define void @reg18(ptr %Dst, i8 %val) {
 define void @reg19(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg19:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vstef %v0, 15(%r2), 0
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(18,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 19, i1 false)
   ret void
@@ -54,10 +52,8 @@ define void @reg20(ptr %Dst, i8 %val) {
 define void @reg21(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg21:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vsteg %v0, 13(%r2), 0
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(20,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 21, i1 false)
   ret void
@@ -66,10 +62,8 @@ define void @reg21(ptr %Dst, i8 %val) {
 define void @reg22(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg22:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vsteg %v0, 14(%r2), 0
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(21,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 22, i1 false)
   ret void
@@ -78,10 +72,8 @@ define void @reg22(ptr %Dst, i8 %val) {
 define void @reg23(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg23:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vsteg %v0, 15(%r2), 0
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(22,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 23, i1 false)
   ret void
@@ -102,10 +94,8 @@ define void @reg24(ptr %Dst, i8 %val) {
 define void @reg25(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg25:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vst %v0, 9(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(24,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 25, i1 false)
   ret void
@@ -114,10 +104,8 @@ define void @reg25(ptr %Dst, i8 %val) {
 define void @reg26(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg26:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vst %v0, 10(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(25,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 26, i1 false)
   ret void
@@ -126,10 +114,8 @@ define void @reg26(ptr %Dst, i8 %val) {
 define void @reg27(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg27:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vst %v0, 11(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(26,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 27, i1 false)
   ret void
@@ -138,10 +124,8 @@ define void @reg27(ptr %Dst, i8 %val) {
 define void @reg28(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg28:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vst %v0, 12(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(27,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 28, i1 false)
   ret void
@@ -150,10 +134,8 @@ define void @reg28(ptr %Dst, i8 %val) {
 define void @reg29(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg29:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vst %v0, 13(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(28,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 29, i1 false)
   ret void
@@ -162,10 +144,8 @@ define void @reg29(ptr %Dst, i8 %val) {
 define void @reg30(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg30:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vst %v0, 14(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(29,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 30, i1 false)
   ret void
@@ -174,10 +154,8 @@ define void @reg30(ptr %Dst, i8 %val) {
 define void @reg31(ptr %Dst, i8 %val) {
 ; CHECK-LABEL: reg31:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vlvgp %v0, %r3, %r3
-; CHECK-NEXT:    vrepb %v0, %v0, 7
-; CHECK-NEXT:    vst %v0, 15(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    stc %r3, 0(%r2)
+; CHECK-NEXT:    mvc 1(30,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 %val, i64 31, i1 false)
   ret void
@@ -240,9 +218,8 @@ define void @zero18(ptr %Dst) {
 define void @imm19(ptr %Dst) {
 ; CHECK-LABEL: imm19:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vrepib %v0, 1
-; CHECK-NEXT:    vstef %v0, 15(%r2), 0
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 1
+; CHECK-NEXT:    mvc 1(18,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 1, i64 19, i1 false)
   ret void
@@ -262,9 +239,8 @@ define void @imm20(ptr %Dst) {
 define void @imm21(ptr %Dst) {
 ; CHECK-LABEL: imm21:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vrepib %v0, 1
-; CHECK-NEXT:    vsteg %v0, 13(%r2), 0
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 1
+; CHECK-NEXT:    mvc 1(20,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 1, i64 21, i1 false)
   ret void
@@ -273,9 +249,8 @@ define void @imm21(ptr %Dst) {
 define void @imm22(ptr %Dst) {
 ; CHECK-LABEL: imm22:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vgbm %v0, 65535
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
-; CHECK-NEXT:    mvghi 14(%r2), -1
+; CHECK-NEXT:    mvi 0(%r2), 255
+; CHECK-NEXT:    mvc 1(21,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 -1, i64 22, i1 false)
   ret void
@@ -284,9 +259,8 @@ define void @imm22(ptr %Dst) {
 define void @imm23(ptr %Dst) {
 ; CHECK-LABEL: imm23:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vrepib %v0, 1
-; CHECK-NEXT:    vsteg %v0, 15(%r2), 0
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 1
+; CHECK-NEXT:    mvc 1(22,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 1, i64 23, i1 false)
   ret void
@@ -306,9 +280,8 @@ define void @imm24(ptr %Dst) {
 define void @imm25(ptr %Dst) {
 ; CHECK-LABEL: imm25:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vrepib %v0, 1
-; CHECK-NEXT:    vst %v0, 9(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 1
+; CHECK-NEXT:    mvc 1(24,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 1, i64 25, i1 false)
   ret void
@@ -317,9 +290,8 @@ define void @imm25(ptr %Dst) {
 define void @imm26(ptr %Dst) {
 ; CHECK-LABEL: imm26:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vgbm %v0, 65535
-; CHECK-NEXT:    vst %v0, 10(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 255
+; CHECK-NEXT:    mvc 1(25,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 -1, i64 26, i1 false)
   ret void
@@ -337,9 +309,8 @@ define void @zero26(ptr %Dst) {
 define void @imm27(ptr %Dst) {
 ; CHECK-LABEL: imm27:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vrepib %v0, 1
-; CHECK-NEXT:    vst %v0, 11(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 1
+; CHECK-NEXT:    mvc 1(26,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 1, i64 27, i1 false)
   ret void
@@ -348,9 +319,8 @@ define void @imm27(ptr %Dst) {
 define void @imm28(ptr %Dst) {
 ; CHECK-LABEL: imm28:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vgbm %v0, 65535
-; CHECK-NEXT:    vst %v0, 12(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 255
+; CHECK-NEXT:    mvc 1(27,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 -1, i64 28, i1 false)
   ret void
@@ -359,9 +329,8 @@ define void @imm28(ptr %Dst) {
 define void @imm29(ptr %Dst) {
 ; CHECK-LABEL: imm29:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vrepib %v0, 1
-; CHECK-NEXT:    vst %v0, 13(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 1
+; CHECK-NEXT:    mvc 1(28,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 1, i64 29, i1 false)
   ret void
@@ -370,9 +339,8 @@ define void @imm29(ptr %Dst) {
 define void @imm30(ptr %Dst) {
 ; CHECK-LABEL: imm30:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vgbm %v0, 65535
-; CHECK-NEXT:    vst %v0, 14(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 255
+; CHECK-NEXT:    mvc 1(29,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 -1, i64 30, i1 false)
   ret void
@@ -381,9 +349,8 @@ define void @imm30(ptr %Dst) {
 define void @imm31(ptr %Dst) {
 ; CHECK-LABEL: imm31:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vrepib %v0, 1
-; CHECK-NEXT:    vst %v0, 15(%r2)
-; CHECK-NEXT:    vst %v0, 0(%r2), 4
+; CHECK-NEXT:    mvi 0(%r2), 1
+; CHECK-NEXT:    mvc 1(30,%r2), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memset.p0.i64(ptr align 16 %Dst, i8 1, i64 31, i1 false)
   ret void

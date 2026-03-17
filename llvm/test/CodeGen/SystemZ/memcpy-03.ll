@@ -41,10 +41,7 @@ define void @fun18(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun19(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun19:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    l %r0, 15(%r2)
-; CHECK-NEXT:    st %r0, 15(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(19,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 19, i1 false)
   ret void
@@ -65,10 +62,7 @@ define void @fun20(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun21(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun21:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    lg %r0, 13(%r2)
-; CHECK-NEXT:    stg %r0, 13(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(21,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 21, i1 false)
   ret void
@@ -77,10 +71,7 @@ define void @fun21(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun22(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun22:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    lg %r0, 14(%r2)
-; CHECK-NEXT:    stg %r0, 14(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(22,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 22, i1 false)
   ret void
@@ -89,10 +80,7 @@ define void @fun22(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun23(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun23:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    lg %r0, 15(%r2)
-; CHECK-NEXT:    stg %r0, 15(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(23,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 23, i1 false)
   ret void
@@ -113,10 +101,7 @@ define void @fun24(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun25(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun25:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vl %v0, 9(%r2)
-; CHECK-NEXT:    vst %v0, 9(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(25,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 25, i1 false)
   ret void
@@ -125,10 +110,7 @@ define void @fun25(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun26(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun26:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vl %v0, 10(%r2)
-; CHECK-NEXT:    vst %v0, 10(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(26,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 26, i1 false)
   ret void
@@ -137,10 +119,7 @@ define void @fun26(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun27(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun27:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vl %v0, 11(%r2)
-; CHECK-NEXT:    vst %v0, 11(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(27,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 27, i1 false)
   ret void
@@ -149,10 +128,7 @@ define void @fun27(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun28(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun28:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vl %v0, 12(%r2)
-; CHECK-NEXT:    vst %v0, 12(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(28,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 28, i1 false)
   ret void
@@ -161,10 +137,7 @@ define void @fun28(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun29(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun29:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vl %v0, 13(%r2)
-; CHECK-NEXT:    vst %v0, 13(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(29,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 29, i1 false)
   ret void
@@ -173,10 +146,7 @@ define void @fun29(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun30(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun30:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vl %v0, 14(%r2)
-; CHECK-NEXT:    vst %v0, 14(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(30,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 30, i1 false)
   ret void
@@ -185,10 +155,7 @@ define void @fun30(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun31(ptr %Src, ptr %Dst, i8 %val) {
 ; CHECK-LABEL: fun31:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vl %v0, 15(%r2)
-; CHECK-NEXT:    vst %v0, 15(%r3)
-; CHECK-NEXT:    vl %v0, 0(%r2), 4
-; CHECK-NEXT:    vst %v0, 0(%r3), 4
+; CHECK-NEXT:    mvc 0(31,%r3), 0(%r2)
 ; CHECK-NEXT:    br %r14
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 31, i1 false)
   ret void
@@ -214,4 +181,3 @@ define void @fun33(ptr %Src, ptr %Dst, i8 %val) {
   call void @llvm.memcpy.p0.p0.i64(ptr align 16 %Dst, ptr align 16 %Src, i64 33, i1 false)
   ret void
 }
-

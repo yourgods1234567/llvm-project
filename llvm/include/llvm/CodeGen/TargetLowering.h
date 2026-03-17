@@ -192,6 +192,11 @@ public:
   bool isAligned(Align AlignCheck) const {
     return isSrcAligned(AlignCheck) && isDstAligned(AlignCheck);
   }
+  MemOp getWithoutOverlap() const {
+    MemOp NewOp = *this;
+    NewOp.AllowOverlap = false;
+    return NewOp;
+  }
 };
 
 /// This base class for TargetLowering contains the SelectionDAG-independent
