@@ -317,6 +317,46 @@ func.func @masked_transfer_read_dynamic_rank_reducing_scalable_unit_dim(
 //   CHECK-NOT: memref.subview
 //       CHECK: vector.transfer_read {{.*}} vector<[16]x[1]xi8>
 
+/// Memref has unit dims but vector has no unit dims (all scalable). The mask
+/// does not need reduction — only the memref rank should be reduced.
+func.func @masked_transfer_read_memref_only_unit_dims(
+      %arg : memref<1x1x?x?xf32, strided<[?, ?, ?, ?], offset: ?>>,
+      %mask_dim0 : index, %mask_dim1 : index) -> vector<[4]x[4]xf32> {
+    %c0 = arith.constant 0 : index
+    %pad = arith.constant 0.0 : f32
+    %mask = vector.create_mask %mask_dim0, %mask_dim1 : vector<[4]x[4]xi1>
+    %v = vector.transfer_read %arg[%c0, %c0, %c0, %c0], %pad, %mask {in_bounds = [true, true]} :
+      memref<1x1x?x?xf32, strided<[?, ?, ?, ?], offset: ?>>, vector<[4]x[4]xf32>
+    return %v : vector<[4]x[4]xf32>
+}
+// CHECK-LABEL: func @masked_transfer_read_memref_only_unit_dims
+//  CHECK-SAME:     %[[ARG:.+]]: memref<1x1x?x?xf32
+//       CHECK:   %[[MASK:.+]] = vector.create_mask {{.*}} : vector<[4]x[4]xi1>
+//       CHECK:   %[[SUBVIEW:.+]] = memref.subview %[[ARG]][0, 0, 0, 0]
+//  CHECK-SAME:     memref<1x1x?x?xf32, {{.*}}> to memref<?x?xf32, {{.*}}>
+//       CHECK:   vector.transfer_read %[[SUBVIEW]]{{.*}}, %[[MASK]]
+//  CHECK-SAME:     memref<?x?xf32, {{.*}}>, vector<[4]x[4]xf32>
+
+func.func @masked_transfer_write_memref_only_unit_dims(
+      %arg : memref<1x1x?x?xf32, strided<[?, ?, ?, ?], offset: ?>>,
+      %vec : vector<[4]x[4]xf32>,
+      %mask_dim0 : index, %mask_dim1 : index) {
+    %c0 = arith.constant 0 : index
+    %mask = vector.create_mask %mask_dim0, %mask_dim1 : vector<[4]x[4]xi1>
+    vector.transfer_write %vec, %arg[%c0, %c0, %c0, %c0], %mask {in_bounds = [true, true]} :
+      vector<[4]x[4]xf32>, memref<1x1x?x?xf32, strided<[?, ?, ?, ?], offset: ?>>
+    return
+}
+// CHECK-LABEL: func @masked_transfer_write_memref_only_unit_dims
+//  CHECK-SAME:     %[[ARG:.+]]: memref<1x1x?x?xf32
+//  CHECK-SAME:     %[[VEC:.+]]: vector<[4]x[4]xf32>
+//       CHECK:   %[[MASK:.+]] = vector.create_mask {{.*}} : vector<[4]x[4]xi1>
+//       CHECK:   %[[SUBVIEW:.+]] = memref.subview %[[ARG]][0, 0, 0, 0]
+//  CHECK-SAME:     memref<1x1x?x?xf32, {{.*}}> to memref<?x?xf32, {{.*}}>
+//       CHECK:   vector.transfer_write %[[VEC]], %[[SUBVIEW]]{{.*}}, %[[MASK]]
+//  CHECK-SAME:     vector<[4]x[4]xf32>, memref<?x?xf32, {{.*}}>
+
+
 module attributes {transform.with_named_sequence} {
   transform.named_sequence @__transform_main(%root : !transform.any_op {transform.readonly}) {
     %func_op = transform.structured.match ops{["func.func"]} in %root : (!transform.any_op) -> !transform.op<"func.func">
