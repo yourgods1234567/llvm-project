@@ -23,7 +23,7 @@ define i32 @test_const_on_left(i32 %a, i32 %b) {
 ; CHECK-LABEL: @test_const_on_left(
 ; CHECK-NEXT:    [[MUL1:%.*]] = mul i32 [[B:%.*]], 7
 ; CHECK-NEXT:    [[REASS_MUL:%.*]] = mul i32 [[A:%.*]], 107
-; CHECK-NEXT:    [[ADD2:%.*]] = add i32 [[MUL1]], [[REASS_MUL]]
+; CHECK-NEXT:    [[ADD2:%.*]] = add i32 [[REASS_MUL]], [[MUL1]]
 ; CHECK-NEXT:    ret i32 [[ADD2]]
 ;
   %mul  = mul nsw i32 %a, 100
@@ -68,7 +68,7 @@ define i16 @test_i16(i16 %x, i16 %y) {
 ; CHECK-LABEL: @test_i16(
 ; CHECK-NEXT:    [[MUL1:%.*]] = mul i16 [[Y:%.*]], 20
 ; CHECK-NEXT:    [[REASS_MUL:%.*]] = mul i16 [[X:%.*]], 30
-; CHECK-NEXT:    [[ADD2:%.*]] = add i16 [[MUL1]], [[REASS_MUL]]
+; CHECK-NEXT:    [[ADD2:%.*]] = add i16 [[REASS_MUL]], [[MUL1]]
 ; CHECK-NEXT:    ret i16 [[ADD2]]
 ;
   %mul1 = mul nsw i16 %x, 10
@@ -84,7 +84,7 @@ define i16 @test_nsw_dropped(i16 %x, i16 %y) {
 ; CHECK-LABEL: @test_nsw_dropped(
 ; CHECK-NEXT:    [[MUL1:%.*]] = mul i16 [[Y:%.*]], 25
 ; CHECK-NEXT:    [[REASS_MUL:%.*]] = mul i16 [[X:%.*]], 40
-; CHECK-NEXT:    [[ADD2:%.*]] = add i16 [[MUL1]], [[REASS_MUL]]
+; CHECK-NEXT:    [[ADD2:%.*]] = add i16 [[REASS_MUL]], [[MUL1]]
 ; CHECK-NEXT:    ret i16 [[ADD2]]
 ;
   %mul1 = mul nsw i16 %x, 15
@@ -105,7 +105,7 @@ define i32 @test_no_match(i32 %a, i32 %b) {
 ; CHECK-NOT:     Mul1
 ; CHECK-NOT:     Mul2
 ; CHECK-NOT:     DistAdd
-; CHECK-NOT:     DistSub;
+; CHECK-NOT:     DistSub
 ;
   %add = add nsw i32 %a, %b
   %mul = mul nsw i32 %add, 999

@@ -963,6 +963,10 @@ static BinaryOperator *convertOrWithNoCommonBitsToAdd(Instruction *Or) {
   return New;
 }
 
+/// Return true if Mul is of the form (X+Y)*C or (X-Y)*C where C is a
+/// constant, and there exists a sibling instruction of the form X*C' or Y*C'
+/// in the same expression — indicating that distribution followed by
+/// factoring will reduce the instruction count.
 static bool ShouldBreakUpDistribution(Instruction *Mul) {
   int ConstSide = isa<Constant>(Mul->getOperand(0)) ? 0 : 1;
   Value *MulConst   = Mul->getOperand(ConstSide);
@@ -979,17 +983,20 @@ static bool ShouldBreakUpDistribution(Instruction *Mul) {
       !isReassociableOp(AddSubVal, Instruction::Sub, Instruction::FSub))
     return false;
 
-  User *AddSubInst = cast<User>(AddSubVal);
+  Instruction *AddSubInst = cast<Instruction>(AddSubVal);
 
   for (Value *Operand : AddSubInst->operands()) {
+    if (isa<Constant>(Operand))
+      continue;
     for (User *U : Operand->users()) {
       Instruction *I = dyn_cast<Instruction>(U);
-      if (!I || I == Mul)
+      if (!I || I == AddSubInst)
         continue;
-      if ((I->getOpcode() == Instruction::Mul ||
-          I->getOpcode() == Instruction::FMul) &&
-          (isa<Constant>(I->getOperand(0)) ||
-          isa<Constant>(I->getOperand(1)))){ 
+      if ((I->getOpcode() == Instruction::Mul) && !(I->use_empty()) &&
+          (isa<Constant>(I->getOperand(0)) || isa<Constant>(I->getOperand(1)))){ 
+        int SibConstSide = isa<Constant>(I->getOperand(0)) ? 0 : 1;
+        if (I->getOperand(SibConstSide) == Mul->getOperand(ConstSide))
+            continue;
         return true; 
       }
    }
@@ -997,20 +1004,23 @@ static bool ShouldBreakUpDistribution(Instruction *Mul) {
   return false;
 }
 
+/// Distribute Mul of the form (X+Y)*C into X*C + Y*C.
+/// For the sub case (X-Y)*C, the second term uses -C to avoid
+/// introducing a negation instruction.
 static BinaryOperator *BreakUpDistribute(Instruction *Mul,
                                        ReassociatePass::OrderedSet &ToRedo) {
 
   int ConstSide = isa<Constant>(Mul->getOperand(0)) ? 0 : 1;
   Instruction *AddSub = cast<Instruction>(Mul->getOperand(1-ConstSide));
+  Constant *C = cast<Constant>(Mul->getOperand(ConstSide));
+  Constant *C2 = (AddSub->getOpcode() == Instruction::Sub)
+                    ? cast<Constant>(ConstantExpr::getNeg(C))
+                    : C;
 
-  BinaryOperator *M1 = CreateMul(AddSub->getOperand(0), Mul->getOperand(ConstSide), "Mul1", Mul->getIterator(), Mul);
-  BinaryOperator *M2 = CreateMul(AddSub->getOperand(1), Mul->getOperand(ConstSide), "Mul2", Mul->getIterator(), Mul);
+  BinaryOperator *M1 = CreateMul(AddSub->getOperand(0), C, "Mul1", Mul->getIterator(), Mul);
+  BinaryOperator *M2 = CreateMul(AddSub->getOperand(1), C2, "Mul2", Mul->getIterator(), Mul);
   BinaryOperator *Result;
-  if (isReassociableOp(AddSub, Instruction::Add, Instruction::FAdd))
-      Result = CreateAdd(M1, M2, "DistAdd", Mul->getIterator(), Mul);
-  else {
-      Result = BinaryOperator::CreateSub(M1, M2, "DistSub", Mul->getIterator());
-  }
+  Result = CreateAdd(M1, M2, "DistAdd", Mul->getIterator(), Mul);
 
   Mul->replaceAllUsesWith(Result);
   Result->setDebugLoc(Mul->getDebugLoc());
@@ -2265,8 +2275,10 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
       ShouldBreakUpDistribution(I)){
     BinaryOperator *Result = BreakUpDistribute(I, RedoInsts);
     RedoInsts.insert(I);
+    RedoInsts.insert(Result);
     MadeChange = true;
     I = Result;
+    return;
   }
 
   // If this is a subtract instruction which is not already in negate form,
