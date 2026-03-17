@@ -372,3 +372,17 @@ void testGenericLambdaIssue177354() {
     T x(*p);
   };
 }
+
+template <typename T>
+struct DependentCtor {
+  DependentCtor(int *p);
+};
+
+void dependentInitInGenericLambda() {
+  auto lambda = []<typename T>(int *p) {
+    DependentCtor<T> s(p);
+  };
+
+  int x = 0;
+  lambda.operator()<int>(&x);
+}
