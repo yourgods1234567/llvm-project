@@ -7,13 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "src/stdlib/setenv.h"
-#include "../environ_internal.h"
-#include "hdr/func/free.h"
-#include "hdr/func/malloc.h"
+#include "src/stdlib/environ_internal.h"
+#include "src/__support/CPP/new.h"
 #include "src/__support/CPP/string_view.h"
+#include "src/__support/alloc-checker.h"
 #include "src/__support/common.h"
 #include "src/__support/libc_errno.h"
 #include "src/__support/macros/config.h"
+#include "src/__support/macros/null_check.h"
 #include "src/string/memory_utils/inline_memcpy.h"
 #include "src/string/string_utils.h"
 
@@ -22,10 +23,11 @@ namespace LIBC_NAMESPACE_DECL {
 LLVM_LIBC_FUNCTION(int, setenv,
                    (const char *name, const char *value, int overwrite)) {
   // Validate inputs
-  if (name == nullptr || value == nullptr) {
+  if (name == nullptr) {
     libc_errno = EINVAL;
     return -1;
   }
+  LIBC_CRASH_ON_NULLPTR(value);
 
   cpp::string_view name_view(name);
   if (name_view.empty()) {
@@ -65,26 +67,27 @@ LLVM_LIBC_FUNCTION(int, setenv,
 
   // Calculate size for "name=value" string
   size_t name_len = name_view.size();
-  size_t value_len = LIBC_NAMESPACE::internal::string_length(value);
+  size_t value_len = internal::string_length(value);
   size_t total_len = name_len + 1 + value_len + 1; // name + '=' + value + '\0'
 
-  char *new_string = static_cast<char *>(malloc(total_len));
-  if (!new_string) {
+  AllocChecker ac;
+  char *new_string = new (ac) char[total_len];
+  if (!ac) {
     libc_errno = ENOMEM;
     return -1;
   }
 
   // Build "name=value" string
-  LIBC_NAMESPACE::inline_memcpy(new_string, name, name_len);
+  inline_memcpy(new_string, name, name_len);
   new_string[name_len] = '=';
-  LIBC_NAMESPACE::inline_memcpy(new_string + name_len + 1, value, value_len);
+  inline_memcpy(new_string + name_len + 1, value, value_len);
   new_string[name_len + 1 + value_len] = '\0';
 
   char **env_array = env_mgr.get_array();
   if (index >= 0) {
     // Replace existing variable
     if (env_mgr.get_ownership()[index].can_free())
-      free(env_array[index]);
+      delete[] env_array[index];
 
     env_array[index] = new_string;
     env_mgr.get_ownership()[index].allocated_by_us = true;

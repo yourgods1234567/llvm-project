@@ -43,8 +43,8 @@ class EnvironmentManager {
   // Our allocated environ array (nullptr if using startup environ)
   char **storage = nullptr;
 
-  // Parallel array tracking ownership of each environ string
-  // Same size/capacity as storage
+  // Parallel array tracking ownership of each environ string.
+  // Same capacity as storage (not necessarily same size as the live entries).
   EnvStringOwnership *ownership = nullptr;
 
   // Allocated capacity of storage
@@ -100,6 +100,15 @@ public:
   // Initialize environ management from the startup environment.
   // This must be called before any setenv/unsetenv operations.
   void init();
+
+private:
+  // Helper: allocate new storage and ownership arrays of the given capacity,
+  // copy the first `copy_count` entries from old_storage/old_ownership, and
+  // initialize the remaining ownership slots to default (not-owned).
+  // Returns false on allocation failure.
+  bool alloc_and_copy(size_t new_capacity, char **old_storage,
+                      EnvStringOwnership *old_ownership, size_t copy_count,
+                      char **&out_storage, EnvStringOwnership *&out_ownership);
 };
 
 } // namespace internal

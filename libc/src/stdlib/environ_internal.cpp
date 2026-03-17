@@ -8,9 +8,9 @@
 
 #include "environ_internal.h"
 #include "config/app.h"
-#include "hdr/func/free.h"
-#include "hdr/func/malloc.h"
+#include "src/__support/CPP/new.h"
 #include "src/__support/CPP/string_view.h"
+#include "src/__support/alloc-checker.h"
 #include "src/__support/macros/config.h"
 
 namespace LIBC_NAMESPACE_DECL {
@@ -62,6 +62,37 @@ int EnvironmentManager::find_var(cpp::string_view name) {
   return -1;
 }
 
+// Helper: allocate new storage and ownership arrays of the given capacity,
+// copy the first `copy_count` entries from old_storage/old_ownership, and
+// initialize the remaining ownership slots to default (not-owned).
+// Returns false on allocation failure; on failure the old arrays are untouched.
+bool EnvironmentManager::alloc_and_copy(size_t new_capacity, char **old_storage,
+                                        EnvStringOwnership *old_ownership,
+                                        size_t copy_count,
+                                        char **&out_storage,
+                                        EnvStringOwnership *&out_ownership) {
+  AllocChecker ac;
+  char **new_storage = new (ac) char *[new_capacity + 1];
+  if (!ac)
+    return false;
+
+  EnvStringOwnership *new_ownership = new (ac) EnvStringOwnership[new_capacity + 1];
+  if (!ac) {
+    delete[] new_storage;
+    return false;
+  }
+
+  for (size_t i = 0; i < copy_count; i++) {
+    new_storage[i] = old_storage ? old_storage[i] : nullptr;
+    new_ownership[i] = old_ownership ? old_ownership[i] : EnvStringOwnership();
+  }
+  new_storage[copy_count] = nullptr;
+
+  out_storage = new_storage;
+  out_ownership = new_ownership;
+  return true;
+}
+
 bool EnvironmentManager::ensure_capacity(size_t needed) {
   // If we're still using the startup environ (pointed to by app.env_ptr),
   // we must transition to our own managed storage. This allows us to
@@ -73,31 +104,12 @@ bool EnvironmentManager::ensure_capacity(size_t needed) {
     size_t new_capacity = needed < MIN_ENVIRON_CAPACITY
                               ? MIN_ENVIRON_CAPACITY
                               : needed * ENVIRON_GROWTH_FACTOR;
-    char **new_storage =
-        static_cast<char **>(malloc(sizeof(char *) * (new_capacity + 1)));
-    if (!new_storage)
-      return false;
 
-    // Allocate ownership tracking array. We use a parallel array to keep
-    // the environ array compatible with the standard char** format.
-    EnvStringOwnership *new_ownership = static_cast<EnvStringOwnership *>(
-        malloc(sizeof(EnvStringOwnership) * (new_capacity + 1)));
-    if (!new_ownership) {
-      free(new_storage);
+    char **new_storage = nullptr;
+    EnvStringOwnership *new_ownership = nullptr;
+    if (!alloc_and_copy(new_capacity, old_env, nullptr, size, new_storage,
+                        new_ownership))
       return false;
-    }
-
-    // Copy existing pointers from the startup environment.
-    // We don't own these strings, so we mark them as not-ours.
-    if (old_env) {
-      for (size_t i = 0; i < size; i++) {
-        new_storage[i] = old_env[i];
-        new_ownership[i] = EnvStringOwnership();
-      }
-    }
-    for (size_t i = size; i < new_capacity; i++)
-      new_ownership[i] = EnvStringOwnership();
-    new_storage[size] = nullptr;
 
     storage = new_storage;
     ownership = new_ownership;
@@ -114,33 +126,18 @@ bool EnvironmentManager::ensure_capacity(size_t needed) {
   if (needed <= capacity)
     return true;
 
-  // Grow capacity.
+  // Grow capacity. We avoid realloc to ensure that failures don't leave the
+  // manager in an inconsistent state.
   size_t new_capacity = needed * ENVIRON_GROWTH_FACTOR;
 
-  // Allocate new arrays and copy. We avoid realloc to ensure that
-  // failures don't leave the manager in an inconsistent state.
-  char **new_storage =
-      static_cast<char **>(malloc(sizeof(char *) * (new_capacity + 1)));
-  if (!new_storage)
+  char **new_storage = nullptr;
+  EnvStringOwnership *new_ownership = nullptr;
+  if (!alloc_and_copy(new_capacity, storage, ownership, size, new_storage,
+                      new_ownership))
     return false;
 
-  EnvStringOwnership *new_ownership = static_cast<EnvStringOwnership *>(
-      malloc(sizeof(EnvStringOwnership) * (new_capacity + 1)));
-  if (!new_ownership) {
-    free(new_storage);
-    return false;
-  }
-
-  for (size_t i = 0; i < size; i++) {
-    new_storage[i] = storage[i];
-    new_ownership[i] = ownership[i];
-  }
-  for (size_t i = size; i < new_capacity; i++)
-    new_ownership[i] = EnvStringOwnership();
-  new_storage[size] = nullptr;
-
-  free(storage);
-  free(ownership);
+  delete[] storage;
+  delete[] ownership;
 
   storage = new_storage;
   ownership = new_ownership;

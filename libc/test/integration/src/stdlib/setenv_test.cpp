@@ -79,12 +79,6 @@ TEST_MAIN([[maybe_unused]] int argc, [[maybe_unused]] char **argv,
     ASSERT_ERRNO_EQ(EINVAL);
   }
 
-  // Test: NullValue
-  {
-    errno = 0;
-    ASSERT_EQ(LIBC_NAMESPACE::setenv("NULL_VALUE_VAR", nullptr, 1), -1);
-    ASSERT_ERRNO_EQ(EINVAL);
-  }
 
   // Test: EmptyName
   {
