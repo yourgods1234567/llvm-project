@@ -4989,13 +4989,13 @@ void Parser::ParseStructUnionBody(SourceLocation RecordLoc,
   // If attributes exist after struct contents, parse them.
   MaybeParseGNUAttributes(attrs, &LateFieldAttrs);
 
-  // Late parse field attributes if necessary.
-  ParseLexedCAttributeList(LateFieldAttrs, /*EnterScope=*/false);
-
   SmallVector<Decl *, 32> FieldDecls(TagDecl->fields());
 
   Actions.ActOnFields(getCurScope(), RecordLoc, TagDecl, FieldDecls,
                       T.getOpenLocation(), T.getCloseLocation(), attrs);
+
+  // Late parse field attributes if necessary.
+  ParseLexedCAttributeList(LateFieldAttrs, /*EnterScope=*/false);
   StructScope.Exit();
   Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, T.getRange());
 }
