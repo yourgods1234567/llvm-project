@@ -1458,22 +1458,21 @@ bool SystemZTargetLowering::findOptimalMemOpLowering(
     LLVMContext &Context, std::vector<EVT> &MemOps, unsigned Limit,
     const MemOp &Op, unsigned DstAS, unsigned SrcAS,
     const AttributeList &FuncAttributes, EVT *LargestVT) const {
-  const int MVCFastLen = 16;
 
-  if (Limit != ~unsigned(0)) {
-    // Don't expand Op into scalar loads/stores in these cases:
-    if (Op.isMemcpy() && Op.allowOverlap() && Op.size() <= MVCFastLen)
-      return false; // Small memcpy: Use MVC
-    if (Op.isMemset() && Op.size() - 1 <= MVCFastLen)
-      return false; // Small memset (first byte with STC/MVI): Use MVC
-    if (Op.isZeroMemset())
-      return false; // Memset zero: Use XC
+  if (Op.isZeroMemset())
+    return false; // Memset zero: Use XC.
+
+  // Use VL/VST with a pair of scalar accesses in cases that do not require
+  // overlap.
+  if ((Op.isMemset() ? Op.size() - 1 : Op.size()) > 16 && Op.size() <= 32) {
+    unsigned RemLen = Op.size() - 16;
+    if (isPowerOf2_32(RemLen))
+      return TargetLowering::findOptimalMemOpLowering(
+         Context, MemOps, Limit, Op, DstAS, SrcAS, FuncAttributes, LargestVT);
   }
 
-  // Don't use overlapping accesses.
-  return TargetLowering::findOptimalMemOpLowering(
-      Context, MemOps, Limit, Op.getWithoutOverlap(), DstAS, SrcAS,
-      FuncAttributes, LargestVT);
+  // Use MVC.
+  return false;
 }
 
 EVT SystemZTargetLowering::getOptimalMemOpType(
