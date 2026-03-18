@@ -3550,7 +3550,7 @@ let TargetPrefix = "aarch64" in {
                 [LLVMSubdivide2VectorType<0>, LLVMSubdivide2VectorType<0>],
                 [IntrNoMem]>;
 
-  class SVE2_CVT_VG2_Single_Intrinsic
+  class SVE2_CVT_VG2_Narrowing_Intrinsic
     : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
                             [llvm_anyvector_ty, LLVMMatchType<1>],
                             [IntrNoMem]>;
@@ -4038,6 +4038,12 @@ let TargetPrefix = "aarch64" in {
                              LLVMVectorOfBitcastsToInt<0>, LLVMVectorOfBitcastsToInt<0>, LLVMVectorOfBitcastsToInt<0>, LLVMVectorOfBitcastsToInt<0>],
                             [IntrNoMem]>;
 
+
+   //
+   // SVE2.3/SME2.3 - Multi-vector narrowing convert to floating point
+   //
+   def int_aarch64_sve_fcvtzsn_x2: SVE2_CVT_VG2_Narrowing_Intrinsic;
+   def int_aarch64_sve_fcvtzun_x2: SVE2_CVT_VG2_Narrowing_Intrinsic;
 }
 
 // SVE2.1 - ZIPQ1, ZIPQ2, UZPQ1, UZPQ2
@@ -4080,11 +4086,6 @@ def int_aarch64_sve_famin_u : AdvSIMD_Pred2VectorArg_Intrinsic;
 // Neon absolute maximum and minimum
 def int_aarch64_neon_famax :  AdvSIMD_2VectorArg_Intrinsic;
 def int_aarch64_neon_famin :  AdvSIMD_2VectorArg_Intrinsic;
-
-// SVE2.3/SME2.3 - Multi-vector narrowing convert to floating point
-
-def int_aarch64_sve_fcvtzsn: SVE2_CVT_VG2_Single_Intrinsic;
-def int_aarch64_sve_fcvtzun: SVE2_CVT_VG2_Single_Intrinsic;
 
 //
 // FP8 Intrinsics

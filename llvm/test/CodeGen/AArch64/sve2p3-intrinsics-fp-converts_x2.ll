@@ -25,7 +25,7 @@ define <vscale x 16 x i8> @fcvtzsn_i8_f16(<vscale x 8 x half> %zn1, <vscale x 8 
 ; STR:       // %bb.0:
 ; STR-NEXT:    fcvtzsn z0.b, { z0.h, z1.h }
 ; STR-NEXT:    ret
-  %res = call <vscale x 16 x i8> @llvm.aarch64.sve.fcvtzsn.i8f16(<vscale x 8 x half> %zn1, <vscale x 8 x half> %zn2)
+  %res = call <vscale x 16 x i8> @llvm.aarch64.sve.fcvtzsn.x2.i8f16(<vscale x 8 x half> %zn1, <vscale x 8 x half> %zn2)
   ret <vscale x 16 x i8> %res
 }
 
@@ -48,7 +48,7 @@ define <vscale x 8 x i16> @fcvtzsn_i16_f32(<vscale x 4 x float> %zn1, <vscale x 
 ; STR:       // %bb.0:
 ; STR-NEXT:    fcvtzsn z0.h, { z0.s, z1.s }
 ; STR-NEXT:    ret
-  %res = call <vscale x 8 x i16> @llvm.aarch64.sve.fcvtzsn.i16f32(<vscale x 4 x float> %zn1, <vscale x 4 x float> %zn2)
+  %res = call <vscale x 8 x i16> @llvm.aarch64.sve.fcvtzsn.x2.i16f32(<vscale x 4 x float> %zn1, <vscale x 4 x float> %zn2)
   ret <vscale x 8 x i16> %res
 }
 
@@ -71,7 +71,7 @@ define <vscale x 4 x i32> @fcvtzsn_i32_f64(<vscale x 2 x double> %zn1, <vscale x
 ; STR:       // %bb.0:
 ; STR-NEXT:    fcvtzsn z0.s, { z0.d, z1.d }
 ; STR-NEXT:    ret
-  %res = call <vscale x 4 x i32> @llvm.aarch64.sve.fcvtzsn.i32f64(<vscale x 2 x double> %zn1, <vscale x 2 x double> %zn2)
+  %res = call <vscale x 4 x i32> @llvm.aarch64.sve.fcvtzsn.x2.i32f64(<vscale x 2 x double> %zn1, <vscale x 2 x double> %zn2)
   ret <vscale x 4 x i32> %res
 }
 
@@ -98,7 +98,7 @@ define <vscale x 16 x i8> @fcvtzun_i8_f16(<vscale x 8 x half> %zn1, <vscale x 8 
 ; STR:       // %bb.0:
 ; STR-NEXT:    fcvtzun z0.b, { z0.h, z1.h }
 ; STR-NEXT:    ret
-  %res = call <vscale x 16 x i8> @llvm.aarch64.sve.fcvtzun.i8f16(<vscale x 8 x half> %zn1, <vscale x 8 x half> %zn2)
+  %res = call <vscale x 16 x i8> @llvm.aarch64.sve.fcvtzun.x2.i8f16(<vscale x 8 x half> %zn1, <vscale x 8 x half> %zn2)
   ret <vscale x 16 x i8> %res
 }
 
@@ -121,7 +121,7 @@ define <vscale x 8 x i16> @fcvtzun_i16_f32(<vscale x 4 x float> %zn1, <vscale x 
 ; STR:       // %bb.0:
 ; STR-NEXT:    fcvtzun z0.h, { z0.s, z1.s }
 ; STR-NEXT:    ret
-  %res = call <vscale x 8 x i16> @llvm.aarch64.sve.fcvtzun.i16f32(<vscale x 4 x float> %zn1, <vscale x 4 x float> %zn2)
+  %res = call <vscale x 8 x i16> @llvm.aarch64.sve.fcvtzun.x2.i16f32(<vscale x 4 x float> %zn1, <vscale x 4 x float> %zn2)
   ret <vscale x 8 x i16> %res
 }
 
@@ -144,14 +144,7 @@ define <vscale x 4 x i32> @fcvtzun_i32_f64(<vscale x 2 x double> %zn1, <vscale x
 ; STR:       // %bb.0:
 ; STR-NEXT:    fcvtzun z0.s, { z0.d, z1.d }
 ; STR-NEXT:    ret
-  %res = call <vscale x 4 x i32> @llvm.aarch64.sve.fcvtzun.i32f64(<vscale x 2 x double> %zn1, <vscale x 2 x double> %zn2)
+  %res = call <vscale x 4 x i32> @llvm.aarch64.sve.fcvtzun.x2.i32f64(<vscale x 2 x double> %zn1, <vscale x 2 x double> %zn2)
   ret <vscale x 4 x i32> %res
 }
 
-declare <vscale x 16 x i8> @llvm.aarch64.sve.fcvtzsn.i8f16(<vscale x 8 x half>, <vscale x 8 x half>)
-declare <vscale x 8 x i16> @llvm.aarch64.sve.fcvtzsn.i16f32(<vscale x 4 x float>, <vscale x 4 x float>)
-declare <vscale x 4 x i32> @llvm.aarch64.sve.fcvtzsn.i32f64(<vscale x 2 x double>, <vscale x 2 x double>)
-
-declare <vscale x 16 x i8> @llvm.aarch64.sve.fcvtzun.i8f16(<vscale x 8 x half>, <vscale x 8 x half>)
-declare <vscale x 8 x i16> @llvm.aarch64.sve.fcvtzun.i16f32(<vscale x 4 x float>, <vscale x 4 x float>)
-declare <vscale x 4 x i32> @llvm.aarch64.sve.fcvtzun.i32f64(<vscale x 2 x double>, <vscale x 2 x double>)

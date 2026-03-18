@@ -999,29 +999,29 @@ def SVCVTLT_Z_F64_F32  : SInst<"svcvtlt_f64[_f32]", "dPh", "d", MergeZeroExp, "a
 }
 
 let SVETargetGuard = "sve2p3|sme2p3", SMETargetGuard = "sve2p3|sme2p3" in {
-def SVCVT_S8_F16  : SInst<"svcvt_s8[_f16_x2]",  "d2.O", "c", MergeNone, "aarch64_sve_fcvtzsn", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
-def SVCVT_S16_F32  : SInst<"svcvt_s16[_f32_x2]",  "d2.M", "s", MergeNone, "aarch64_sve_fcvtzsn", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
-def SVCVT_S32_F64  : SInst<"svcvt_s32[_f64_x2]",  "d2.N", "i", MergeNone, "aarch64_sve_fcvtzsn", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
+def SVCVT_S8_F16  : SInst<"svcvt_s8[_f16_x2]",  "d2.O", "c", MergeNone, "aarch64_sve_fcvtzsn_x2", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
+def SVCVT_S16_F32  : SInst<"svcvt_s16[_f32_x2]",  "d2.M", "s", MergeNone, "aarch64_sve_fcvtzsn_x2", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
+def SVCVT_S32_F64  : SInst<"svcvt_s32[_f64_x2]",  "d2.N", "i", MergeNone, "aarch64_sve_fcvtzsn_x2", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
 
-def SVCVT_U8_F16  : SInst<"svcvt_u8[_f16_x2]",  "d2.O", "Uc", MergeNone, "aarch64_sve_fcvtzun", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
-def SVCVT_U16_F32  : SInst<"svcvt_u16[_f32_x2]",  "d2.M", "Us", MergeNone, "aarch64_sve_fcvtzun", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
-def SVCVT_U32_F64  : SInst<"svcvt_u32[_f64_x2]",  "d2.N", "Ui", MergeNone, "aarch64_sve_fcvtzun", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
+def SVCVT_U8_F16  : SInst<"svcvt_u8[_f16_x2]",  "d2.O", "Uc", MergeNone, "aarch64_sve_fcvtzun_x2", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
+def SVCVT_U16_F32  : SInst<"svcvt_u16[_f32_x2]",  "d2.M", "Us", MergeNone, "aarch64_sve_fcvtzun_x2", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
+def SVCVT_U32_F64  : SInst<"svcvt_u32[_f64_x2]",  "d2.N", "Ui", MergeNone, "aarch64_sve_fcvtzun_x2", [IsOverloadWhileOrMultiVecCvt, VerifyRuntimeMode]>;
 
-def SVCVTT_F16_S8  : SInst<"svcvtt_f16[_s8]",  "Od", "c", MergeNone, "aarch64_sve_scvtflt_f16i8", [IsOverloadNone, VerifyRuntimeMode]>;
-def SVCVTT_F32_S16  : SInst<"svcvtt_f32[_s16]",  "Md", "s", MergeNone, "aarch64_sve_scvtflt_f32i16", [IsOverloadNone, VerifyRuntimeMode]>;
-def SVCVTT_F64_S32  : SInst<"svcvtt_f64[_s32]",  "Nd", "i", MergeNone, "aarch64_sve_scvtflt_f64i32", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTT_F16_S8  : SInst<"svcvtt_f16_s8",  "Od", "c", MergeNone, "aarch64_sve_scvtflt_f16i8", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTT_F32_S16  : SInst<"svcvtt_f32_s16",  "Md", "s", MergeNone, "aarch64_sve_scvtflt_f32i16", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTT_F64_S32  : SInst<"svcvtt_f64_s32",  "Nd", "i", MergeNone, "aarch64_sve_scvtflt_f64i32", [IsOverloadNone, VerifyRuntimeMode]>;
 
-def SVCVTT_F16_U8  : SInst<"svcvtt_f16[_u8]",  "Od", "Uc", MergeNone, "aarch64_sve_ucvtflt_f16i8", [IsOverloadNone, VerifyRuntimeMode]>;
-def SVCVTT_F32_U16  : SInst<"svcvtt_f32[_u16]",  "Md", "Us", MergeNone, "aarch64_sve_ucvtflt_f32i16", [IsOverloadNone, VerifyRuntimeMode]>;
-def SVCVTT_F64_U32  : SInst<"svcvtt_f64[_u32]",  "Nd", "Ui", MergeNone, "aarch64_sve_ucvtflt_f64i32", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTT_F16_U8  : SInst<"svcvtt_f16_u8",  "Od", "Uc", MergeNone, "aarch64_sve_ucvtflt_f16i8", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTT_F32_U16  : SInst<"svcvtt_f32_u16",  "Md", "Us", MergeNone, "aarch64_sve_ucvtflt_f32i16", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTT_F64_U32  : SInst<"svcvtt_f64_u32",  "Nd", "Ui", MergeNone, "aarch64_sve_ucvtflt_f64i32", [IsOverloadNone, VerifyRuntimeMode]>;
 
-def SVCVTB_F16_S8  : SInst<"svcvtb_f16[_s8]",  "Od", "c", MergeNone, "aarch64_sve_scvtfb_f16i8", [IsOverloadNone, VerifyRuntimeMode]>;
-def SVCVTB_F32_S16  : SInst<"svcvtb_f32[_s16]",  "Md", "s", MergeNone, "aarch64_sve_scvtfb_f32i16", [IsOverloadNone, VerifyRuntimeMode]>;
-def SVCVTB_F64_S32  : SInst<"svcvtb_f64[_s32]",  "Nd", "i", MergeNone, "aarch64_sve_scvtfb_f64i32", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTB_F16_S8  : SInst<"svcvtb_f16_s8",  "Od", "c", MergeNone, "aarch64_sve_scvtfb_f16i8", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTB_F32_S16  : SInst<"svcvtb_f32_s16",  "Md", "s", MergeNone, "aarch64_sve_scvtfb_f32i16", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTB_F64_S32  : SInst<"svcvtb_f64_s32",  "Nd", "i", MergeNone, "aarch64_sve_scvtfb_f64i32", [IsOverloadNone, VerifyRuntimeMode]>;
 
-def SVCVTB_F16_U8  : SInst<"svcvtb_f16[_u8]",  "Od", "Uc", MergeNone, "aarch64_sve_ucvtfb_f16i8", [IsOverloadNone, VerifyRuntimeMode]>;
-def SVCVTB_F32_U16  : SInst<"svcvtb_f32[_u16]",  "Md", "Us", MergeNone, "aarch64_sve_ucvtfb_f32i16", [IsOverloadNone, VerifyRuntimeMode]>;
-def SVCVTB_F64_U32  : SInst<"svcvtb_f64[_u32]",  "Nd", "Ui", MergeNone, "aarch64_sve_ucvtfb_f64i32", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTB_F16_U8  : SInst<"svcvtb_f16_u8",  "Od", "Uc", MergeNone, "aarch64_sve_ucvtfb_f16i8", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTB_F32_U16  : SInst<"svcvtb_f32_u16",  "Md", "Us", MergeNone, "aarch64_sve_ucvtfb_f32i16", [IsOverloadNone, VerifyRuntimeMode]>;
+def SVCVTB_F64_U32  : SInst<"svcvtb_f64_u32",  "Nd", "Ui", MergeNone, "aarch64_sve_ucvtfb_f64i32", [IsOverloadNone, VerifyRuntimeMode]>;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
