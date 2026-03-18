@@ -12,9 +12,11 @@ define void @fmin32(ptr noundef readonly captures(none) %input1, ptr noundef rea
 ; CHECK-NEXT:    br label %[[VECTOR_MEMCHECK:.*]]
 ; CHECK:       [[VECTOR_MEMCHECK]]:
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 [[OUTPUT1]], [[INPUT12]]
-; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP0]], 32
+; CHECK-NEXT:    [[TMP6:%.*]] = sub i64 [[TMP0]], 1
+; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP6]], 31
 ; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[OUTPUT1]], [[INPUT23]]
-; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP1]], 32
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP1]], 1
+; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP3]], 31
 ; CHECK-NEXT:    [[CONFLICT_RDX:%.*]] = or i1 [[DIFF_CHECK]], [[DIFF_CHECK4]]
 ; CHECK-NEXT:    br i1 [[CONFLICT_RDX]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
@@ -89,9 +91,11 @@ define void @fmax32(ptr noundef readonly captures(none) %input1, ptr noundef rea
 ; CHECK-NEXT:    br label %[[VECTOR_MEMCHECK:.*]]
 ; CHECK:       [[VECTOR_MEMCHECK]]:
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 [[OUTPUT1]], [[INPUT12]]
-; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP0]], 32
+; CHECK-NEXT:    [[TMP6:%.*]] = sub i64 [[TMP0]], 1
+; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP6]], 31
 ; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[OUTPUT1]], [[INPUT23]]
-; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP1]], 32
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP1]], 1
+; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP3]], 31
 ; CHECK-NEXT:    [[CONFLICT_RDX:%.*]] = or i1 [[DIFF_CHECK]], [[DIFF_CHECK4]]
 ; CHECK-NEXT:    br i1 [[CONFLICT_RDX]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
@@ -166,9 +170,11 @@ define void @fmin64(ptr noundef readonly captures(none) %input1, ptr noundef rea
 ; CHECK-NEXT:    br label %[[VECTOR_MEMCHECK:.*]]
 ; CHECK:       [[VECTOR_MEMCHECK]]:
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 [[OUTPUT1]], [[INPUT12]]
-; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP0]], 32
+; CHECK-NEXT:    [[TMP6:%.*]] = sub i64 [[TMP0]], 1
+; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP6]], 31
 ; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[OUTPUT1]], [[INPUT23]]
-; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP1]], 32
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP1]], 1
+; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP3]], 31
 ; CHECK-NEXT:    [[CONFLICT_RDX:%.*]] = or i1 [[DIFF_CHECK]], [[DIFF_CHECK4]]
 ; CHECK-NEXT:    br i1 [[CONFLICT_RDX]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
@@ -243,9 +249,11 @@ define void @fmax64(ptr noundef readonly captures(none) %input1, ptr noundef rea
 ; CHECK-NEXT:    br label %[[VECTOR_MEMCHECK:.*]]
 ; CHECK:       [[VECTOR_MEMCHECK]]:
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 [[OUTPUT1]], [[INPUT12]]
-; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP0]], 32
+; CHECK-NEXT:    [[TMP6:%.*]] = sub i64 [[TMP0]], 1
+; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP6]], 31
 ; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[OUTPUT1]], [[INPUT23]]
-; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP1]], 32
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP1]], 1
+; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP3]], 31
 ; CHECK-NEXT:    [[CONFLICT_RDX:%.*]] = or i1 [[DIFF_CHECK]], [[DIFF_CHECK4]]
 ; CHECK-NEXT:    br i1 [[CONFLICT_RDX]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
@@ -320,9 +328,11 @@ define void @fmin16(ptr noundef readonly captures(none) %input1, ptr noundef rea
 ; CHECK-NEXT:    br label %[[VECTOR_MEMCHECK:.*]]
 ; CHECK:       [[VECTOR_MEMCHECK]]:
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 [[OUTPUT1]], [[INPUT12]]
-; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP0]], 16
+; CHECK-NEXT:    [[TMP5:%.*]] = sub i64 [[TMP0]], 1
+; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP5]], 15
 ; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[OUTPUT1]], [[INPUT23]]
-; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP1]], 16
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP1]], 1
+; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP3]], 15
 ; CHECK-NEXT:    [[CONFLICT_RDX:%.*]] = or i1 [[DIFF_CHECK]], [[DIFF_CHECK4]]
 ; CHECK-NEXT:    br i1 [[CONFLICT_RDX]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
@@ -390,9 +400,11 @@ define void @fmax16(ptr noundef readonly captures(none) %input1, ptr noundef rea
 ; CHECK-NEXT:    br label %[[VECTOR_MEMCHECK:.*]]
 ; CHECK:       [[VECTOR_MEMCHECK]]:
 ; CHECK-NEXT:    [[TMP0:%.*]] = sub i64 [[OUTPUT1]], [[INPUT12]]
-; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP0]], 16
+; CHECK-NEXT:    [[TMP5:%.*]] = sub i64 [[TMP0]], 1
+; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP5]], 15
 ; CHECK-NEXT:    [[TMP1:%.*]] = sub i64 [[OUTPUT1]], [[INPUT23]]
-; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP1]], 16
+; CHECK-NEXT:    [[TMP3:%.*]] = sub i64 [[TMP1]], 1
+; CHECK-NEXT:    [[DIFF_CHECK4:%.*]] = icmp ult i64 [[TMP3]], 15
 ; CHECK-NEXT:    [[CONFLICT_RDX:%.*]] = or i1 [[DIFF_CHECK]], [[DIFF_CHECK4]]
 ; CHECK-NEXT:    br i1 [[CONFLICT_RDX]], label %[[SCALAR_PH:.*]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
