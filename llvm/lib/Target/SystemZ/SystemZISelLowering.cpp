@@ -1468,7 +1468,7 @@ bool SystemZTargetLowering::findOptimalMemOpLowering(
     unsigned RemLen = Op.size() - 16;
     if (isPowerOf2_32(RemLen))
       return TargetLowering::findOptimalMemOpLowering(
-         Context, MemOps, Limit, Op, DstAS, SrcAS, FuncAttributes, LargestVT);
+          Context, MemOps, Limit, Op, DstAS, SrcAS, FuncAttributes, LargestVT);
   }
 
   // Use MVC.
