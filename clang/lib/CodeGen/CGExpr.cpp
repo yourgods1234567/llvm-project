@@ -4006,6 +4006,16 @@ llvm::Constant *CodeGenFunction::EmitCheckSourceLocation(SourceLocation Loc) {
   if (PLoc.isValid()) {
     StringRef FilenameString = PLoc.getFilename();
 
+    // Apply sanitize prefix map.
+    std::string RemappedFilename;
+    for (const auto &[Old, New] : CGM.getCodeGenOpts().SanitizePrefixMap) {
+      if (FilenameString.starts_with(Old)) {
+        RemappedFilename = (New + FilenameString.substr(Old.size())).str();
+        FilenameString = RemappedFilename;
+        break;
+      }
+    }
+
     int PathComponentsToStrip =
         CGM.getCodeGenOpts().EmitCheckPathComponentsToStrip;
     if (PathComponentsToStrip < 0) {

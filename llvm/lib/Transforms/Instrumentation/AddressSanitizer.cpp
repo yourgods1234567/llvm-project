@@ -928,11 +928,13 @@ private:
 
 class ModuleAddressSanitizer {
 public:
-  ModuleAddressSanitizer(Module &M, bool InsertVersionCheck,
-                         bool CompileKernel = false, bool Recover = false,
-                         bool UseGlobalsGC = true, bool UseOdrIndicator = true,
-                         AsanDtorKind DestructorKind = AsanDtorKind::Global,
-                         AsanCtorKind ConstructorKind = AsanCtorKind::Global)
+  ModuleAddressSanitizer(
+      Module &M, bool InsertVersionCheck, bool CompileKernel = false,
+      bool Recover = false, bool UseGlobalsGC = true,
+      bool UseOdrIndicator = true,
+      AsanDtorKind DestructorKind = AsanDtorKind::Global,
+      AsanCtorKind ConstructorKind = AsanCtorKind::Global,
+      std::vector<std::pair<std::string, std::string>> PrefixMap = {})
       : M(M),
         CompileKernel(ClEnableKasan.getNumOccurrences() > 0 ? ClEnableKasan
                                                             : CompileKernel),
@@ -959,7 +961,8 @@ public:
         DestructorKind(DestructorKind),
         ConstructorKind(ClConstructorKind.getNumOccurrences() > 0
                             ? ClConstructorKind
-                            : ConstructorKind) {
+                            : ConstructorKind),
+        PrefixMap(std::move(PrefixMap)) {
     C = &(M.getContext());
     int LongSize = M.getDataLayout().getPointerSizeInBits();
     IntptrTy = Type::getIntNTy(*C, LongSize);
@@ -1022,6 +1025,7 @@ private:
   bool UseCtorComdat;
   AsanDtorKind DestructorKind;
   AsanCtorKind ConstructorKind;
+  std::vector<std::pair<std::string, std::string>> PrefixMap;
   Type *IntptrTy;
   PointerType *PtrTy;
   LLVMContext *C;
@@ -1309,7 +1313,8 @@ PreservedAnalyses AddressSanitizerPass::run(Module &M,
 
   ModuleAddressSanitizer ModuleSanitizer(
       M, Options.InsertVersionCheck, Options.CompileKernel, Options.Recover,
-      UseGlobalGC, UseOdrIndicator, DestructorKind, ConstructorKind);
+      UseGlobalGC, UseOdrIndicator, DestructorKind, ConstructorKind,
+      Options.PrefixMap);
   bool Modified = false;
   auto &FAM = MAM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   const StackSafetyGlobalInfo *const SSGI =
@@ -2802,8 +2807,18 @@ GlobalVariable *ModuleAddressSanitizer::getOrCreateModuleName() {
   if (!ModuleName) {
     // We shouldn't merge same module names, as this string serves as unique
     // module ID in runtime.
+    std::string ModuleNameStr = M.getModuleIdentifier();
+
+    // Apply prefix map remapping.
+    for (const auto &[Old, New] : PrefixMap) {
+      if (StringRef(ModuleNameStr).starts_with(Old)) {
+        ModuleNameStr = New + ModuleNameStr.substr(Old.size());
+        break;
+      }
+    }
+
     ModuleName =
-        createPrivateGlobalForString(M, M.getModuleIdentifier(),
+        createPrivateGlobalForString(M, ModuleNameStr,
                                      /*AllowMerging*/ false, genName("module"));
   }
   return ModuleName;
