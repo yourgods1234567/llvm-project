@@ -53,8 +53,17 @@ static void addScopeToFunction(LLVM::LLVMFuncOp llvmFunc,
     if (isa<LLVM::DISubprogramAttr>(diLoc.getScope()))
       return;
   Location loc = llvmFunc.getLoc();
-  if (loc->findInstanceOf<FusedLocWith<LLVM::DISubprogramAttr>>())
+  // Convert legacy FusedLoc<DISubprogramAttr> to DILocationAttr so that
+  // all function locations use a uniform representation after this pass.
+  if (auto fusedLoc =
+          loc->findInstanceOf<FusedLocWith<LLVM::DISubprogramAttr>>()) {
+    auto subprogram = fusedLoc.getMetadata();
+    FileLineColLoc fileLoc = extractFileLoc(loc);
+    if (!fileLoc)
+      fileLoc = FileLineColLoc::get(llvmFunc->getContext(), "", 0, 0);
+    llvmFunc->setLoc(LLVM::DILocationAttr::get(fileLoc, subprogram));
     return;
+  }
 
   MLIRContext *context = llvmFunc->getContext();
 
@@ -130,14 +139,14 @@ static void setLexicalBlockFileAttr(Operation *op) {
   if (!funcOp)
     return;
 
-  // Extract the subprogram scope from the function's location.
-  LLVM::DISubprogramAttr scopeAttr;
-  if (auto diLoc = dyn_cast_if_present<LLVM::DILocationAttr>(funcOp.getLoc())) {
-    scopeAttr = dyn_cast_if_present<LLVM::DISubprogramAttr>(diLoc.getScope());
-  } else if (auto funcOpLoc =
-                 llvm::dyn_cast_if_present<FusedLoc>(funcOp.getLoc())) {
-    scopeAttr = dyn_cast<LLVM::DISubprogramAttr>(funcOpLoc.getMetadata());
-  }
+  // Extract the subprogram scope from the function's DILocationAttr.
+  // addScopeToFunction guarantees that all function locations are
+  // DILocationAttr by the time this runs (PreOrder walk).
+  auto diLoc = dyn_cast_if_present<LLVM::DILocationAttr>(funcOp.getLoc());
+  if (!diLoc)
+    return;
+  auto scopeAttr =
+      dyn_cast_if_present<LLVM::DISubprogramAttr>(diLoc.getScope());
   if (!scopeAttr)
     return;
 

@@ -31,7 +31,7 @@ module {
 // CHECK: loc(#loc[[LOC:[0-9]+]])
 // CHECK: #di_file = #llvm.di_file<"<unknown>" in "">
 // CHECK: #di_subprogram = #llvm.di_subprogram<id = distinct[{{.*}}]<>, compileUnit = #di_compile_unit, scope = #di_file, name = "func_with_debug", linkageName = "func_with_debug", file = #di_file, line = 42, scopeLine = 42, subprogramFlags = "Definition|Optimized", type = #di_subroutine_type>
-// CHECK: #loc[[LOC]] = loc(fused<#di_subprogram>[
+// CHECK: #loc[[LOC]] = #llvm.di_location<{{.*}} in #di_subprogram>
 // CHECK_OTHER_KIND: emissionKind = DebugDirectivesOnly
 module {
   llvm.func @func_with_debug() {
