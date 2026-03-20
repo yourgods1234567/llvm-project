@@ -1462,11 +1462,11 @@ bool SystemZTargetLowering::findOptimalMemOpLowering(
   if (Op.isZeroMemset())
     return false; // Memset zero: Use XC.
 
-  // Use VL/VST with a pair of scalar accesses in cases that do not require
-  // overlap.
+  // Use VL/VST with a pair of scalar accesses in cases with proper alignment
+  // that do not require overlap.
   if ((Op.isMemset() ? Op.size() - 1 : Op.size()) > 16 && Op.size() <= 32) {
     unsigned RemLen = Op.size() - 16;
-    if (isPowerOf2_32(RemLen))
+    if (isPowerOf2_32(RemLen) && Op.isFixedDstAlign() && Op.isAligned(Align(8)))
       return TargetLowering::findOptimalMemOpLowering(
           Context, MemOps, Limit, Op, DstAS, SrcAS, FuncAttributes, LargestVT);
   }
