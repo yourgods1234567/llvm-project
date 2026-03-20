@@ -1203,8 +1203,11 @@ AMDGPULegalizerInfo::AMDGPULegalizerInfo(const GCNSubtarget &ST_,
   auto &FPToISat = getActionDefinitionsBuilder({G_FPTOSI_SAT, G_FPTOUI_SAT})
     .legalFor({{S32, S32}, {S32, S64}})
     .narrowScalarFor({{S64, S16}}, changeTo(0, S32));
-  if (ST.has16BitInsts())
-    FPToISat.legalFor({{S16, S16}});
+  if (ST.has16BitInsts()) {
+    FPToISat.legalFor({{S16, S16}})
+    // Widen i1 and i8 to i16, intead of i32 so v_cvt_i16/u16_f16 can be used.
+    .widenScalarFor({{S1, S16}, {S8, S16}}, changeTo(0, S16));
+  }
 
   FPToISat.minScalar(1, S32);
   FPToISat.minScalar(0, S32)
