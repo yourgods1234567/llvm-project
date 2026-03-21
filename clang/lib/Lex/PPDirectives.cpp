@@ -4405,21 +4405,6 @@ void Preprocessor::HandleCXXModuleDirective(Token ModuleTok) {
     break;
   }
 
-  // Consume the pp-import-suffix and expand any macros in it now, if we're not
-  // at the semicolon already.
-  std::optional<Token> NextPPTok = DirToks.back();
-  if (DirToks.back().is(tok::eod)) {
-    NextPPTok = peekNextPPToken();
-    if (NextPPTok && NextPPTok->is(tok::raw_identifier))
-      LookUpIdentifierInfo(*NextPPTok);
-  }
-
-  // Only ';' and '[' are allowed after module name.
-  // We also check 'private' because the previous is not a module name.
-  if (!NextPPTok->isOneOf(tok::semi, tok::eod, tok::l_square, tok::kw_private))
-    Diag(*NextPPTok, diag::err_pp_unexpected_tok_after_module_name)
-        << getSpelling(*NextPPTok);
-
   if (!DirToks.back().isOneOf(tok::semi, tok::eod)) {
     // Consume the pp-import-suffix and expand any macros in it now. We'll add
     // it back into the token stream later.
