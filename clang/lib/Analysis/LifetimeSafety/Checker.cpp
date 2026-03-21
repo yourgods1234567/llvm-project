@@ -113,6 +113,10 @@ public:
           NoescapeWarningsMap.try_emplace(PVD, FieldEsc->getFieldDecl());
         if (auto *GlobalEsc = dyn_cast<GlobalEscapeFact>(OEF))
           NoescapeWarningsMap.try_emplace(PVD, GlobalEsc->getGlobal());
+        if (auto *CallEsc = dyn_cast<CallEscapeFact>(OEF))
+          // Currently this triggers the wrong reporting. Will fix with next
+          // commit!
+          NoescapeWarningsMap.try_emplace(PVD, CallEsc->getArgument());
         return;
       }
       // Suggest lifetimebound for parameter escaping through return.
