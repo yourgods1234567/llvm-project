@@ -5310,6 +5310,12 @@ RewriteInstance::getOutputSections(ELFObjectFile<ELFT> *File,
     BinarySection *BinSec = BC->getSectionForSectionRef(SecRef);
     assert(BinSec && "Matching BinarySection should exist.");
 
+
+    // Skip anonymous and backup sections
+    if (BinSec->isAnonymous() || BinSec->getName().starts_with(".bolt.org")) {
+      continue;
+    }
+
     // Exclude anonymous sections.
     if (BinSec->isAnonymous())
       continue;
