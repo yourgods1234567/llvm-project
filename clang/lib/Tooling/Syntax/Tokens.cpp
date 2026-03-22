@@ -681,8 +681,18 @@ private:
 TokenCollector::TokenCollector(Preprocessor &PP) : PP(PP) {
   // Collect the expanded token stream during preprocessing.
   PP.setTokenWatcher([this](const clang::Token &T) {
-    if (T.isAnnotation())
+    if (T.is(tok::annot_module_name)) {
+      auto &SM = this->PP.getSourceManager();
+      StringRef Text = Lexer::getSourceText(
+          CharSourceRange::getTokenRange(T.getAnnotationRange()), SM,
+          this->PP.getLangOpts());
+      Expanded.push_back(
+          syntax::Token(T.getLocation(), Text.size(), tok::annot_module_name));
+    } else if (T.isAnnotation()) {
       return;
+    } else {
+      Expanded.push_back(syntax::Token(T));
+    }
     DEBUG_WITH_TYPE("collect-tokens", llvm::dbgs()
                                           << "Token: "
                                           << syntax::Token(T).dumpForTests(
@@ -690,7 +700,6 @@ TokenCollector::TokenCollector(Preprocessor &PP) : PP(PP) {
                                           << "\n"
 
     );
-    Expanded.push_back(syntax::Token(T));
   });
   // And locations of macro calls, to properly recover boundaries of those in
   // case of empty expansions.
@@ -893,6 +902,16 @@ private:
 TokenBuffer TokenCollector::consume() && {
   PP.setTokenWatcher(nullptr);
   Collector->disable();
+
+  /// If the parser hit an module load fatal error, the TokenCollector will not
+  /// receive an EOF token; we need to add an EOF token to the end of the token
+  /// sequence.
+  if (PP.hadModuleLoaderFatalFailure() &&
+      (Expanded.empty() || Expanded.back().kind() != tok::eof)) {
+    auto &SM = PP.getSourceManager();
+    Expanded.push_back(
+        syntax::Token(SM.getLocForEndOfFile(SM.getMainFileID()), 0, tok::eof));
+  }
   return Builder(std::move(Expanded), std::move(Expansions),
                  PP.getSourceManager(), PP.getLangOpts())
       .build();

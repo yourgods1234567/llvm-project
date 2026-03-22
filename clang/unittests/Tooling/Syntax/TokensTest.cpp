@@ -123,8 +123,8 @@ public:
     // Prepare to run a compiler.
     if (!Diags->getClient())
       Diags->setClient(new IgnoringDiagConsumer);
-    std::vector<const char *> Args = {"tok-test", "-std=c++03", "-fsyntax-only",
-                                      FileName};
+    std::vector<const char *> Args = {"tok-test", LangStandard.c_str(),
+                                      "-fsyntax-only", FileName};
     CreateInvocationOptions CIOpts;
     CIOpts.Diags = Diags;
     CIOpts.VFS = FS;
@@ -141,8 +141,11 @@ public:
 
     this->Buffer = TokenBuffer(*SourceMgr);
     RecordTokens Recorder(this->Buffer);
-    ASSERT_TRUE(Compiler.ExecuteAction(Recorder))
-        << "failed to run the frontend";
+    if (AllowErrors)
+      Compiler.ExecuteAction(Recorder);
+    else
+      ASSERT_TRUE(Compiler.ExecuteAction(Recorder))
+          << "failed to run the frontend";
   }
 
   /// Record the tokens and return a test dump of the resulting buffer.
@@ -250,6 +253,8 @@ public:
   }
 
   // Data fields.
+  std::string LangStandard = "-std=c++03";
+  bool AllowErrors = false;
   DiagnosticOptions DiagOpts;
   llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
       llvm::makeIntrusiveRefCnt<DiagnosticsEngine>(DiagnosticIDs::create(),
@@ -1147,5 +1152,28 @@ TEST_F(TokenCollectorTest, Pragmas) {
       for(int i=0;i<4;++i);
     }
   )cpp");
+}
+
+TEST_F(TokenCollectorTest, CXX20ModuleImportModule) {
+  LangStandard = "-std=c++20";
+  AllowErrors = true;
+
+  recordTokens("import Non.Existent;\n");
+  EXPECT_THAT(Buffer.expandedTokens(),
+              ElementsAre(Kind(tok::kw_import), Kind(tok::annot_module_name),
+                          Kind(tok::semi), Kind(tok::eof)));
+}
+
+TEST_F(TokenCollectorTest, CXX20ModuleImportPartition) {
+  LangStandard = "-std=c++20";
+  AllowErrors = true;
+
+  recordTokens("export module M.N;\nimport :Non.Existent;\n");
+  EXPECT_THAT(Buffer.expandedTokens(),
+              ElementsAre(Kind(tok::kw_export), Kind(tok::kw_module),
+                          Kind(tok::annot_module_name), Kind(tok::semi),
+                          Kind(tok::kw_import), Kind(tok::colon),
+                          Kind(tok::annot_module_name), Kind(tok::semi),
+                          Kind(tok::eof)));
 }
 } // namespace
