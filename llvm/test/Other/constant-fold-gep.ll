@@ -298,28 +298,28 @@ define ptr @hoo1() nounwind {
 ; TO: }
 ; SCEV-LABEL: Classifying expressions for: @fb
 ; SCEV:  %t = bitcast i64 ptrtoint (ptr getelementptr ({ i1, [13 x double] }, ptr null, i64 0, i32 1) to i64) to i64
-; SCEV:   -->  8
+; SCEV:   -->  ptrtoint (ptr getelementptr ({ i1, [13 x double] }, ptr null, i64 0, i32 1) to i64) U: [8,9) S: [8,9)
 ; SCEV-LABEL: Classifying expressions for: @fc
 ; SCEV:  %t = bitcast i64 ptrtoint (ptr getelementptr ({ double, double, double, double }, ptr null, i64 0, i32 2) to i64) to i64
-; SCEV:   -->  16
+; SCEV:   -->  ptrtoint (ptr getelementptr ({ double, double, double, double }, ptr null, i64 0, i32 2) to i64) U: [16,17) S: [16,17)
 ; SCEV-LABEL: Classifying expressions for: @fd
 ; SCEV:   %t = bitcast i64 ptrtoint (ptr getelementptr ([13 x double], ptr null, i64 0, i32 11) to i64) to i64
-; SCEV:   -->  88
+; SCEV:   -->  ptrtoint (ptr getelementptr ([13 x double], ptr null, i64 0, i32 11) to i64) U: [88,89) S: [88,89)
 ; SCEV-LABEL: Classifying expressions for: @fe
 ; SCEV:   %t = bitcast i64 ptrtoint (ptr getelementptr ({ double, float, double, double }, ptr null, i64 0, i32 2) to i64) to i64
-; SCEV:   -->  16
+; SCEV:   -->  ptrtoint (ptr getelementptr ({ double, float, double, double }, ptr null, i64 0, i32 2) to i64) U: [16,17) S: [16,17)
 ; SCEV-LABEL: Classifying expressions for: @ff
 ; SCEV:   %t = bitcast i64 ptrtoint (ptr getelementptr ({ i1, <{ i16, i128 }> }, ptr null, i64 0, i32 1) to i64) to i64
-; SCEV:   -->  1
+; SCEV:   -->  ptrtoint (ptr getelementptr ({ i1, <{ i16, i128 }> }, ptr null, i64 0, i32 1) to i64) U: [1,2) S: [1,2)
 ; SCEV-LABEL: Classifying expressions for: @fg
 ; SCEV:   %t = bitcast i64 ptrtoint (ptr getelementptr ({ i1, { double, double } }, ptr null, i64 0, i32 1) to i64) to i64
-; SCEV:   -->  8
+; SCEV:   -->  ptrtoint (ptr getelementptr ({ i1, { double, double } }, ptr null, i64 0, i32 1) to i64) U: [8,9) S: [8,9)
 ; SCEV-LABEL: Classifying expressions for: @fh
 ; SCEV:   %t = bitcast i64 ptrtoint (ptr getelementptr (ptr, ptr null, i32 1) to i64) to i64
-; SCEV:   --> 8
+; SCEV:   --> ptrtoint (ptr getelementptr (ptr, ptr null, i32 1) to i64) U: [8,9) S: [8,9)
 ; SCEV-LABEL: Classifying expressions for: @fi
 ; SCEV:   %t = bitcast i64 ptrtoint (ptr getelementptr ({ i1, ptr }, ptr null, i64 0, i32 1) to i64) to i64
-; SCEV:   --> 8
+; SCEV:   --> ptrtoint (ptr getelementptr ({ i1, ptr }, ptr null, i64 0, i32 1) to i64) U: [8,9) S: [8,9)
 
 define i64 @fb() nounwind {
   %t = bitcast i64 ptrtoint (ptr getelementptr ({i1, [13 x double]}, ptr null, i64 0, i32 1) to i64) to i64
