@@ -200,6 +200,9 @@ public:
 
   ~ReusablePrerequisiteModules() override = default;
 
+  bool hasFailures() const { return HasBuildFailure; }
+  void setHasFailures() { HasBuildFailure = true; }
+
   void adjustHeaderSearchOptions(HeaderSearchOptions &Options) const override {
     // Appending all built module files.
     for (const auto &RequiredModule : RequiredModules)
@@ -234,6 +237,7 @@ private:
   llvm::SmallVector<std::shared_ptr<const ModuleFile>, 8> RequiredModules;
   // A helper class to speedup the query if a module is built.
   llvm::StringSet<> BuiltModuleNames;
+  bool HasBuildFailure = false;
 };
 
 bool IsModuleFileUpToDate(PathRef ModuleFilePath,
@@ -386,6 +390,8 @@ buildModuleFile(llvm::StringRef ModuleName, PathRef ModuleUnitFileName,
 bool ReusablePrerequisiteModules::canReuse(
     const CompilerInvocation &CI,
     llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) const {
+  if (hasFailures())
+    return false;
   if (RequiredModules.empty())
     return true;
 
@@ -668,12 +674,11 @@ ModulesBuilder::buildPrerequisiteModulesFor(PathRef File,
 
   auto RequiredModules = std::make_unique<ReusablePrerequisiteModules>();
   for (llvm::StringRef RequiredModuleName : RequiredModuleNames) {
-    // Return early if there is any error.
     if (llvm::Error Err = Impl->getOrBuildModuleFile(
             File, RequiredModuleName, TFS, CachedMDB, *RequiredModules.get())) {
       elog("Failed to build module {0}; due to {1}", RequiredModuleName,
            toString(std::move(Err)));
-      return std::make_unique<FailedPrerequisiteModules>();
+      RequiredModules->setHasFailures();
     }
   }
 
