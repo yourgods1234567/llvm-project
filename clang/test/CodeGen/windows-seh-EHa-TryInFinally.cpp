@@ -43,11 +43,11 @@ int main() {
 }
 
 // CHECK-LABEL:@"?foo@@YAXXZ"()
-// CHECK: invoke.cont:
 // CHECK: invoke void @llvm.seh.try.begin()
+// CHECK: invoke.cont:
 // CHECK: store volatile i32 1, ptr %cleanup.dest.slot
 // CHECK: invoke void @llvm.seh.try.end()
-// CHECK: invoke.cont2:
+// CHECK: invoke.cont1:
 // CHECK: %cleanup.dest = load i32, ptr %cleanup.dest.slot
 // CHECK: %1 = icmp ne i32 %cleanup.dest, 0
 // CHECK: %2 = zext i1 %1 to i8
@@ -69,14 +69,13 @@ void foo()
 }
 
 // CHECK-LABEL:@"?bar@@YAHXZ"()
-// CHECK: invoke.cont:
 // CHECK: invoke void @llvm.seh.try.begin()
-// CHECK: invoke.cont1:
+// CHECK: invoke.cont:
 // CHECK: store volatile i32 1, ptr %cleanup.dest.slot
 // CHECK: invoke void @llvm.seh.try.end()
-// CHECK: invoke.cont2:
+// CHECK: invoke.cont1:
 // CHECK: call void @"?fin$0@0@bar@@"
-// CHECK: %cleanup.dest3 = load i32, ptr %cleanup.dest.slot
+// CHECK: %cleanup.dest2 = load i32, ptr %cleanup.dest.slot
 // CHECK: return:
 // CHECK: ret i32 11
 int bar()
@@ -89,4 +88,35 @@ int bar()
       x = 9;
     }
   }
+}
+
+// CHECK-LABEL: @"?foo1@@YAXXZ"()
+// CHECK-NOT: invoke void @llvm.seh.scope.begin()
+// CHECK:     invoke void @llvm.seh.try.begin()
+// CHECK:     invoke.cont:
+// CHECK:     invoke void @llvm.seh.scope.begin()
+// CHECK:     store volatile ptr %call, ptr %a, align 8
+// CHECK:     invoke void @llvm.seh.scope.begin()
+// CHECK:     invoke void @"??1A@@QEAA@XZ"
+// CHECK:     invoke void @llvm.seh.scope.end()
+// CHECK-NOT: invoke void @llvm.seh.try.end()
+// CHECK:     br label %delete.end
+// CHECK:     invoke void @llvm.seh.try.end()
+// CHECK:     call void @"?fin$0@0@foo1@@"(i8 noundef 0
+// CHECK:     cleanupret
+// CHECK:     call void @"?fin$0@0@foo1@@"(i8 noundef 1
+// CHECK-NOT: @llvm.seh.scope.end
+// CHECK:     cleanupret
+struct A {
+	A();
+	~A();
+};
+
+void foo1() {
+	__try {
+		A* a = new A;
+		delete a;
+	}
+	__finally {
+	}
 }

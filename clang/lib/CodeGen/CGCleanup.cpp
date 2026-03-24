@@ -159,6 +159,7 @@ void *EHScopeStack::pushCleanup(CleanupKind Kind, size_t Size) {
   bool IsEHCleanup = Kind & EHCleanup;
   bool IsLifetimeMarker = Kind & LifetimeMarker;
   bool IsFakeUse = Kind & FakeUse;
+  bool IsSEHFinallyCleanup = Kind & SEHFinallyCleanup;
 
   // Per C++ [except.terminate], it is implementation-defined whether none,
   // some, or all cleanups are called before std::terminate. Thus, when
@@ -183,6 +184,8 @@ void *EHScopeStack::pushCleanup(CleanupKind Kind, size_t Size) {
     Scope->setLifetimeMarker();
   if (IsFakeUse)
     Scope->setFakeUse();
+  if (IsSEHFinallyCleanup)
+    Scope->setSEHFinallyCleanup();
 
   // With Windows -EHa, Invoke llvm.seh.scope.begin() for EHCleanup
   // If exceptions are disabled/ignored and SEH is not in use, then there is no
@@ -191,7 +194,8 @@ void *EHScopeStack::pushCleanup(CleanupKind Kind, size_t Size) {
   // consistent with MSVC's behavior, except in the presence of -EHa.
   // Check getInvokeDest() to generate llvm.seh.scope.begin() as needed.
   if (CGF->getLangOpts().EHAsynch && IsEHCleanup && !IsLifetimeMarker &&
-      CGF->getTarget().getCXXABI().isMicrosoft() && CGF->getInvokeDest())
+      !IsSEHFinallyCleanup && CGF->getTarget().getCXXABI().isMicrosoft() &&
+      CGF->getInvokeDest())
     CGF->EmitSehCppScopeBegin();
 
   return Scope->getCleanupBuffer();
@@ -785,6 +789,8 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
 
   // Under -EHa, invoke seh.scope.end() to mark scope end before dtor
   bool IsEHa = getLangOpts().EHAsynch && !Scope.isLifetimeMarker();
+  // Save IsSEHFinallyCleanup before any popCleanup() invalidates Scope.
+  bool IsSEHFinallyCleanup = Scope.isSEHFinallyCleanup();
   const EHPersonality &Personality = EHPersonality::get(*this);
   if (!RequiresNormalCleanup) {
     // Mark CPP scope end for passed-by-value Arg temp
@@ -811,10 +817,10 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
 
       // mark SEH scope end for fall-through flow
       if (IsEHa && getInvokeDest()) {
-        if (Personality.isMSVCXXPersonality())
-          EmitSehCppScopeEnd();
-        else
+        if (Scope.isSEHFinallyCleanup())
           EmitSehTryScopeEnd();
+        else if (Personality.isMSVCPersonality())
+          EmitSehCppScopeEnd();
       }
 
       destroyOptimisticNormalEntry(*this, Scope);
@@ -853,10 +859,10 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
 
       // intercept normal cleanup to mark SEH scope end
       if (IsEHa && getInvokeDest()) {
-        if (Personality.isMSVCXXPersonality())
-          EmitSehCppScopeEnd();
-        else
+        if (Scope.isSEHFinallyCleanup())
           EmitSehTryScopeEnd();
+        else if (Personality.isMSVCPersonality())
+          EmitSehCppScopeEnd();
       }
 
       // III.  Figure out where we're going and build the cleanup
@@ -1056,7 +1062,8 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
       EHStack.pushTerminate();
       PushedTerminate = true;
     } else if (IsEHa && getInvokeDest()) {
-      EmitSehCppScopeEnd();
+      if (!IsSEHFinallyCleanup)
+        EmitSehCppScopeEnd();
     }
 
     // We only actually emit the cleanup code if the cleanup is either
