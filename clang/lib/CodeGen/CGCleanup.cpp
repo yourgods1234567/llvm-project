@@ -789,7 +789,6 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
 
   // Under -EHa, invoke seh.scope.end() to mark scope end before dtor
   bool IsEHa = getLangOpts().EHAsynch && !Scope.isLifetimeMarker();
-  // Save IsSEHFinallyCleanup before any popCleanup() invalidates Scope.
   bool IsSEHFinallyCleanup = Scope.isSEHFinallyCleanup();
   const EHPersonality &Personality = EHPersonality::get(*this);
   if (!RequiresNormalCleanup) {
@@ -801,7 +800,8 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
       // block.
       if (NormalDeactivateOrigIP.isSet())
         Builder.restoreIP(NormalDeactivateOrigIP);
-      if (Personality.isMSVCXXPersonality() && Builder.GetInsertBlock())
+      if (Personality.isMSVCPersonality() && Builder.GetInsertBlock() &&
+          !IsSEHFinallyCleanup)
         EmitSehCppScopeEnd();
       if (NormalDeactivateOrigIP.isSet())
         NormalDeactivateOrigIP = Builder.saveAndClearIP();

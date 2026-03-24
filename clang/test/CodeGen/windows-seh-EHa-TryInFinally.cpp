@@ -95,7 +95,8 @@ int bar()
 // CHECK:     invoke void @llvm.seh.try.begin()
 // CHECK:     invoke.cont:
 // CHECK:     invoke void @llvm.seh.scope.begin()
-// CHECK:     store volatile ptr %call, ptr %a, align 8
+// CHECK:     invoke noundef ptr @"??0A@@QEAA@XZ"
+// CHECK:     invoke void @llvm.seh.scope.end()
 // CHECK:     invoke void @llvm.seh.scope.begin()
 // CHECK:     invoke void @"??1A@@QEAA@XZ"
 // CHECK:     invoke void @llvm.seh.scope.end()
