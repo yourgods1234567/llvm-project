@@ -347,3 +347,217 @@ define float @test_select_fcmp_uitofp_min(i8 %x) {
   %sel = select i1 %cmp, float 2.550000e+02, float %f
   ret float %sel
 }
+
+define i1 @fold_fcmp_clamp_oeq_hi(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_oeq_hi(
+; CHECK-NEXT:    [[CMP:%.*]] =  
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  %min_cmp = fcmp ogt double %x, 5.0
+  %min = select i1 %min_cmp, double 5.0, double %x
+  %max_cmp = fcmp ogt double %min, 2.0
+  %clamp = select i1 %max_cmp, double %min, double 2.0
+  %cmp = fcmp oeq double %clamp, 5.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_ueq_hi(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_ueq_hi(
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oge double [[X:%.*]], 1.000000e+00
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  %min_cmp = fcmp ogt double %x, 1.0
+  %min = select i1 %min_cmp, double 1.0, double %x
+  %max_cmp = fcmp ogt double %min, 0.0
+  %clamp = select i1 %max_cmp, double %min, double 0.0
+  %cmp = fcmp ueq double %clamp, 1.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_oeq_lo(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_oeq_lo(
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ule double [[X:%.*]], 2.000000e+00
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  %min_cmp = fcmp ogt double %x, 4.0
+  %min = select i1 %min_cmp, double 4.0, double %x
+  %max_cmp = fcmp ogt double %min, 2.0
+  %clamp = select i1 %max_cmp, double %min, double 2.0
+  %cmp = fcmp oeq double %clamp, 2.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_ueq_lo(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_ueq_lo(
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ule double [[X:%.*]], 2.000000e+00
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  %min_cmp = fcmp ogt double %x, 5.0
+  %min = select i1 %min_cmp, double 5.0, double %x
+  %max_cmp = fcmp ogt double %min, 2.0
+  %clamp = select i1 %max_cmp, double %min, double 2.0
+  %cmp = fcmp ueq double %clamp, 2.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_minmax_alt_oeq_hi(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_minmax_alt_oeq_hi(
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oge double [[X:%.*]], 5.000000e+00
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  ; clamp as min(max(X, 2), 5) instead of max(min(X, 5), 2) pattern
+  %max_cmp = fcmp ogt double %x, 2.0
+  %max = select i1 %max_cmp, double %x, double 2.0
+  %min_cmp = fcmp ogt double %max, 5.0
+  %clamp = select i1 %min_cmp, double 5.0, double %max
+  %cmp = fcmp oeq double %clamp, 5.0
+  ret i1 %cmp
+}
+
+define i1 @fold_two_clamp_hi(float %arg0, float %arg1) {
+; CHECK-LABEL: @fold_two_clamp_hi(
+; CHECK-NEXT:   [[V8:%.*]] = fcmp oge float [[ARG0:%.*]], 1.000000e+00
+; CHECK-NEXT:   [[V9:%.*]] = fcmp oge float [[ARG1:%.*]], 1.000000e+00
+; CHECK-NEXT:   [[V10:%.*]] = and i1 [[V8]], [[V9]]
+; CHECK-NEXT:  ret i1 [[V10]]
+;
+  %v0 = fcmp ogt float %arg1, 1.000000e+00
+  %v1 = select i1 %v0, float 1.000000e+00, float %arg1
+  %v2 = fcmp ogt float %v1, 0.000000e+00
+  %v3 = select i1 %v2, float %v1, float 0.000000e+00
+  %v4 = fcmp ogt float %arg0, 1.000000e+00
+  %v5 = select i1 %v4, float 1.000000e+00, float %arg0
+  %v6 = fcmp ogt float %v5, 0.000000e+00
+  %v7 = select i1 %v6, float %v5, float 0.000000e+00
+  %v8 = fcmp oeq float %v3, 1.000000e+00
+  %v9 = fcmp oeq float %v7, 1.000000e+00
+  %v10 = and i1 %v8, %v9
+  ret i1 %v10
+}
+
+; Negative tests
+
+define i1 @fold_fcmp_clamp_oeq_mid(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_oeq_mid(
+; CHECK-NEXT:    [[MIN_CMP:%.*]] = fcmp ogt double [[X:%.*]], 5.000000e+00
+; CHECK-NEXT:    [[MIN:%.*]] = select i1 [[MIN_CMP]], double 5.000000e+00, double [[X]]
+; CHECK-NEXT:    [[MAX_CMP:%.*]] = fcmp ogt double [[MIN]], 2.000000e+00
+; CHECK-NEXT:    [[CLAMP:%.*]] = select i1 [[MAX_CMP]], double [[MIN]], double 2.000000e+00
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq double [[CLAMP]], 3.000000e+00
+; CHECK-NEXT: ret i1 [[CMP]]
+;
+  %min_cmp = fcmp ogt double %x, 5.0
+  %min = select i1 %min_cmp, double 5.0, double %x
+  %max_cmp = fcmp ogt double %min, 2.0
+  %clamp = select i1 %max_cmp, double %min, double 2.0
+  %cmp = fcmp oeq double %clamp, 3.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_non_ogt(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_non_ogt(
+; CHECK-NEXT:    [[MIN_CMP:%.*]] = fcmp oge double [[X:%.*]], 5.000000e+00
+; CHECK-NEXT:    [[MIN:%.*]] = select i1 [[MIN_CMP]], double 5.000000e+00, double [[X]]
+; CHECK-NEXT:    [[MAX_CMP:%.*]] = fcmp ogt double [[MIN]], 2.000000e+00
+; CHECK-NEXT:    [[CLAMP:%.*]] = select i1 [[MAX_CMP]], double [[MIN]], double 2.000000e+00
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq double [[CLAMP]], 5.000000e+00
+; CHECK-NEXT: ret i1 [[CMP]]
+;
+  %min_cmp = fcmp oge double %x, 5.0
+  %min = select i1 %min_cmp, double 5.0, double %x
+  %max_cmp = fcmp ogt double %min, 2.0
+  %clamp = select i1 %max_cmp, double %min, double 2.0
+  %cmp = fcmp oeq double %clamp, 5.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_unsupported_pred_one(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_unsupported_pred_one(
+; CHECK-NEXT:    [[MIN_CMP:%.*]] = fcmp ogt double [[X:%.*]], 5.000000e+00
+; CHECK-NEXT:    [[MIN:%.*]] = select i1 [[MIN_CMP]], double 5.000000e+00, double [[X]]
+; CHECK-NEXT:    [[MAX_CMP:%.*]] = fcmp ogt double [[MIN]], 2.000000e+00
+; CHECK-NEXT:    [[CLAMP:%.*]] = select i1 [[MAX_CMP]], double [[MIN]], double 2.000000e+00
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp one double [[CLAMP]], 5.000000e+00
+; CHECK-NEXT: ret i1 [[CMP]]
+;
+  %min_cmp = fcmp ogt double %x, 5.0
+  %min = select i1 %min_cmp, double 5.0, double %x
+  %max_cmp = fcmp ogt double %min, 2.0
+  %clamp = select i1 %max_cmp, double %min, double 2.0
+  %cmp = fcmp one double %clamp, 5.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_minmin(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_minmin(
+; CHECK-NEXT:    [[INNER_CMP:%.*]] = fcmp ogt double [[X:%.*]], 5.000000e+00
+; CHECK-NEXT:    [[INNER_MIN:%.*]] = select i1 [[INNER_CMP]], double 5.000000e+00, double [[X]]
+; CHECK-NEXT:    [[OUTER_CMP:%.*]] = fcmp ogt double [[INNER_MIN]], 2.000000e+00
+; CHECK-NEXT:    [[MINMIN:%.*]] = select i1 [[OUTER_CMP]], double 2.000000e+00, double [[INNER_MIN]]
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq double [[MINMIN]], 5.000000e+00
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  ; Looks like a clamp shape but computes min(min(x, 5), 2).
+  %inner_cmp = fcmp ogt double %x, 5.0
+  %inner_min = select i1 %inner_cmp, double 5.0, double %x
+  %outer_cmp = fcmp ogt double %inner_min, 2.0
+  %minmin = select i1 %outer_cmp, double 2.0, double %inner_min
+  %cmp = fcmp oeq double %minmin, 5.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_no_clamp(double %x, double %y) {
+; CHECK-LABEL: @fold_fcmp_no_clamp(
+; CHECK-NEXT:    [[OUTER_CMP:%.*]] = fcmp ogt double [[X:%.*]], 5.000000e+00
+; CHECK-NEXT:    [[OUTER:%.*]] = select i1 [[OUTER_CMP]], double [[X]], double [[Y:%.*]]
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq double [[OUTER]], 5.000000e+00
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  ; Outer min/max is present but not of the form min/max(inner_select, constant).
+  %outer_cmp = fcmp ogt double %x, 5.0
+  %outer = select i1 %outer_cmp, double %x, double %y
+  %cmp = fcmp oeq double %outer, 5.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_inner_bound_non_constant(double %x, double %b) {
+; CHECK-LABEL: @fold_fcmp_clamp_inner_bound_non_constant(
+; CHECK-NEXT:    [[INNER_CMP:%.*]] = fcmp ogt double [[X:%.*]], [[B:%.*]]
+; CHECK-NEXT:    [[INNER:%.*]] = select i1 [[INNER_CMP]], double [[B]], double [[X]]
+; CHECK-NEXT:    [[OUTER_CMP:%.*]] = fcmp ogt double [[INNER]], 2.000000e+00
+; CHECK-NEXT:    [[CLAMP:%.*]] = select i1 [[OUTER_CMP]], double [[INNER]], double 2.000000e+00
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq double [[CLAMP]], 2.000000e+00
+; CHECK-NEXT:    ret i1 [[CMP]]
+;
+  %inner_cmp = fcmp ogt double %x, %b
+  %inner = select i1 %inner_cmp, double %b, double %x
+  %outer_cmp = fcmp ogt double %inner, 2.0
+  %clamp = select i1 %outer_cmp, double %inner, double 2.0
+  %cmp = fcmp oeq double %clamp, 2.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_inner_both_constants(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_inner_both_constants(
+; CHECK-NEXT:    [[INNER_CMP:%.*]] = fcmp ogt double [[X:%.*]], 5.000000e+00
+; CHECK-NEXT:    ret i1 [[INNER_CMP]]
+;
+  %inner_cmp = fcmp ogt double %x, 5.0
+  %inner = select i1 %inner_cmp, double 5.0, double 4.0
+  %outer_cmp = fcmp ogt double %inner, 2.0
+  %clamp = select i1 %outer_cmp, double %inner, double 2.0
+  %cmp = fcmp oeq double %clamp, 5.0
+  ret i1 %cmp
+}
+
+define i1 @fold_fcmp_clamp_equal_bounds(double %x) {
+; CHECK-LABEL: @fold_fcmp_clamp_equal_bounds(
+; CHECK-NEXT:    ret i1 true
+;
+  %inner_cmp = fcmp ogt double %x, 2.0
+  %inner = select i1 %inner_cmp, double 2.0, double %x
+  %outer_cmp = fcmp ogt double %inner, 2.0
+  %clamp = select i1 %outer_cmp, double %inner, double 2.0
+  %cmp = fcmp oeq double %clamp, 2.0
+  ret i1 %cmp
+}
