@@ -1,0 +1,27 @@
+# RUN: llc -mtriple=amdgcn -mcpu=gfx1200 -mattr=+real-true16 -global-isel=1 -amdgpu-enable-delay-alu=0 -start-before=instruction-select -stop-after=instruction-select -verify-machineinstrs -o - %s | FileCheck %s
+
+---
+name: globalisel-sgpr-unmerge-fpext-f16
+legalized:       true
+regBankSelected: true
+isSSA:           true
+body:             |
+  ; CHECK-LABEL: name: globalisel-sgpr-unmerge-fpext-f16
+  ; CHECK: bb.0
+  ; CHECK-NEXT: liveins: $sgpr0
+  ; CHECK-NEXT: {{  $}} 
+  ; CHECK-NEXT: %0:sreg_32 = COPY $sgpr0
+  ; CHECK-NEXT: %3:sreg_32 = nofpexcept S_CVT_F32_F16 %0, implicit $mode
+  ; CHECK-NEXT: %4:sreg_32 = S_CVT_HI_F32_F16 %0, implicit $mode
+  ; CHECK-NEXT: $vgpr0 = COPY %3
+  ; CHECK-NEXT: $vgpr1 = COPY %4
+  ; CHECK-NEXT: SI_RETURN implicit $vgpr0, implicit $vgpr1
+  bb.0:
+    liveins: $sgpr0
+    %0:sgpr(<2 x s16>) = COPY $sgpr0
+    %1:sgpr(s16), %2:sgpr(s16) = G_UNMERGE_VALUES %0(<2 x s16>)
+    %3:sgpr(s32) = G_FPEXT %1(s16)
+    %4:sgpr(s32) = G_FPEXT %2(s16)
+    $vgpr0 = COPY %3
+    $vgpr1 = COPY %4
+    SI_RETURN implicit $vgpr0, implicit $vgpr1
