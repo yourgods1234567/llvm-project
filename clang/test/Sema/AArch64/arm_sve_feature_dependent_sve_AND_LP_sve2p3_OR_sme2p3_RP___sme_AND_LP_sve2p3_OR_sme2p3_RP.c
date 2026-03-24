@@ -20,18 +20,6 @@ void test(void) {
   svuint16_t svuint16_t_val;
   svuint32_t svuint32_t_val;
 
-  svcvt_s8(svfloat16x2_t_val);
-  svcvt_s8_f16_x2(svfloat16x2_t_val);
-  svcvt_s16(svfloat32x2_t_val);
-  svcvt_s16_f32_x2(svfloat32x2_t_val);
-  svcvt_s32(svfloat64x2_t_val);
-  svcvt_s32_f64_x2(svfloat64x2_t_val);
-  svcvt_u8(svfloat16x2_t_val);
-  svcvt_u8_f16_x2(svfloat16x2_t_val);
-  svcvt_u16(svfloat32x2_t_val);
-  svcvt_u16_f32_x2(svfloat32x2_t_val);
-  svcvt_u32(svfloat64x2_t_val);
-  svcvt_u32_f64_x2(svfloat64x2_t_val);
   svcvtb_f16(svint8_t_val);
   svcvtb_f16(svuint8_t_val);
   svcvtb_f16_s8(svint8_t_val);
@@ -56,6 +44,18 @@ void test(void) {
   svcvtt_f64(svuint32_t_val);
   svcvtt_f64_s32(svint32_t_val);
   svcvtt_f64_u32(svuint32_t_val);
+  svcvtzn_s8(svfloat16x2_t_val);
+  svcvtzn_s8_f16_x2(svfloat16x2_t_val);
+  svcvtzn_s16(svfloat32x2_t_val);
+  svcvtzn_s16_f32_x2(svfloat32x2_t_val);
+  svcvtzn_s32(svfloat64x2_t_val);
+  svcvtzn_s32_f64_x2(svfloat64x2_t_val);
+  svcvtzn_u8(svfloat16x2_t_val);
+  svcvtzn_u8_f16_x2(svfloat16x2_t_val);
+  svcvtzn_u16(svfloat32x2_t_val);
+  svcvtzn_u16_f32_x2(svfloat32x2_t_val);
+  svcvtzn_u32(svfloat64x2_t_val);
+  svcvtzn_u32_f64_x2(svfloat64x2_t_val);
 }
 
 void test_streaming(void) __arm_streaming{
@@ -69,18 +69,6 @@ void test_streaming(void) __arm_streaming{
   svuint16_t svuint16_t_val;
   svuint32_t svuint32_t_val;
 
-  svcvt_s8(svfloat16x2_t_val);
-  svcvt_s8_f16_x2(svfloat16x2_t_val);
-  svcvt_s16(svfloat32x2_t_val);
-  svcvt_s16_f32_x2(svfloat32x2_t_val);
-  svcvt_s32(svfloat64x2_t_val);
-  svcvt_s32_f64_x2(svfloat64x2_t_val);
-  svcvt_u8(svfloat16x2_t_val);
-  svcvt_u8_f16_x2(svfloat16x2_t_val);
-  svcvt_u16(svfloat32x2_t_val);
-  svcvt_u16_f32_x2(svfloat32x2_t_val);
-  svcvt_u32(svfloat64x2_t_val);
-  svcvt_u32_f64_x2(svfloat64x2_t_val);
   svcvtb_f16(svint8_t_val);
   svcvtb_f16(svuint8_t_val);
   svcvtb_f16_s8(svint8_t_val);
@@ -105,6 +93,18 @@ void test_streaming(void) __arm_streaming{
   svcvtt_f64(svuint32_t_val);
   svcvtt_f64_s32(svint32_t_val);
   svcvtt_f64_u32(svuint32_t_val);
+  svcvtzn_s8(svfloat16x2_t_val);
+  svcvtzn_s8_f16_x2(svfloat16x2_t_val);
+  svcvtzn_s16(svfloat32x2_t_val);
+  svcvtzn_s16_f32_x2(svfloat32x2_t_val);
+  svcvtzn_s32(svfloat64x2_t_val);
+  svcvtzn_s32_f64_x2(svfloat64x2_t_val);
+  svcvtzn_u8(svfloat16x2_t_val);
+  svcvtzn_u8_f16_x2(svfloat16x2_t_val);
+  svcvtzn_u16(svfloat32x2_t_val);
+  svcvtzn_u16_f32_x2(svfloat32x2_t_val);
+  svcvtzn_u32(svfloat64x2_t_val);
+  svcvtzn_u32_f64_x2(svfloat64x2_t_val);
 }
 
 void test_streaming_compatible(void) __arm_streaming_compatible{
@@ -118,18 +118,6 @@ void test_streaming_compatible(void) __arm_streaming_compatible{
   svuint16_t svuint16_t_val;
   svuint32_t svuint32_t_val;
 
-  svcvt_s8(svfloat16x2_t_val);
-  svcvt_s8_f16_x2(svfloat16x2_t_val);
-  svcvt_s16(svfloat32x2_t_val);
-  svcvt_s16_f32_x2(svfloat32x2_t_val);
-  svcvt_s32(svfloat64x2_t_val);
-  svcvt_s32_f64_x2(svfloat64x2_t_val);
-  svcvt_u8(svfloat16x2_t_val);
-  svcvt_u8_f16_x2(svfloat16x2_t_val);
-  svcvt_u16(svfloat32x2_t_val);
-  svcvt_u16_f32_x2(svfloat32x2_t_val);
-  svcvt_u32(svfloat64x2_t_val);
-  svcvt_u32_f64_x2(svfloat64x2_t_val);
   svcvtb_f16(svint8_t_val);
   svcvtb_f16(svuint8_t_val);
   svcvtb_f16_s8(svint8_t_val);
@@ -154,4 +142,16 @@ void test_streaming_compatible(void) __arm_streaming_compatible{
   svcvtt_f64(svuint32_t_val);
   svcvtt_f64_s32(svint32_t_val);
   svcvtt_f64_u32(svuint32_t_val);
+  svcvtzn_s8(svfloat16x2_t_val);
+  svcvtzn_s8_f16_x2(svfloat16x2_t_val);
+  svcvtzn_s16(svfloat32x2_t_val);
+  svcvtzn_s16_f32_x2(svfloat32x2_t_val);
+  svcvtzn_s32(svfloat64x2_t_val);
+  svcvtzn_s32_f64_x2(svfloat64x2_t_val);
+  svcvtzn_u8(svfloat16x2_t_val);
+  svcvtzn_u8_f16_x2(svfloat16x2_t_val);
+  svcvtzn_u16(svfloat32x2_t_val);
+  svcvtzn_u16_f32_x2(svfloat32x2_t_val);
+  svcvtzn_u32(svfloat64x2_t_val);
+  svcvtzn_u32_f64_x2(svfloat64x2_t_val);
 }
