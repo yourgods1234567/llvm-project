@@ -2839,13 +2839,15 @@ static bool isExtractHiElt(MachineRegisterInfo &MRI, Register In,
   //
   // First we check that the G_UNMERGE_VALUES is in the form specified above
   // and then return true if the requested operand is the one mapped to higher
-  // 16 bits.
+  // 16 bits. Also set the Out to be the source of G_UNMERGE_VALUES directly.
   MachineInstr *Unmerge = MRI.getVRegDef(In);
-  if (Unmerge->getOpcode() == AMDGPU::G_UNMERGE_VALUES) {
-    return Unmerge->getNumOperands() == 3 &&
-           MRI.getType(Unmerge->getOperand(2).getReg()) ==
-               LLT::fixed_vector(2, 16) &&
-           Unmerge->getOperand(1).getReg() == In;
+  if (Unmerge->getOpcode() == AMDGPU::G_UNMERGE_VALUES &&
+      Unmerge->getNumOperands() == 3 &&
+      MRI.getType(Unmerge->getOperand(2).getReg()) ==
+          LLT::fixed_vector(2, 16) &&
+      Unmerge->getOperand(1).getReg() == In) {
+    Out = Unmerge->getOperand(2).getReg();
+    return true;
   }
 
   Register Trunc;
