@@ -16,9 +16,9 @@
   ],
   "results": [
     {
-      "analysis_name": "CountsAnalysisResult",
+      "analysis_name": "PairsAnalysisResult",
       "result": {
-        "counts": [
+        "pair_counts": [
           {
             "count": 100,
             "entity_id": {
