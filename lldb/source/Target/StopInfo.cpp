@@ -1476,7 +1476,12 @@ public:
 
   ~StopInfoFork() override = default;
 
-  bool ShouldStop(Event *event_ptr) override { return false; }
+  bool ShouldStop(Event *event_ptr) override {
+    ThreadSP thread_sp(m_thread_wp.lock());
+    if (thread_sp)
+      return thread_sp->GetProcess()->GetStopOnFork();
+    return false;
+  }
 
   StopReason GetStopReason() const override { return eStopReasonFork; }
 
@@ -1518,7 +1523,12 @@ public:
 
   ~StopInfoVFork() override = default;
 
-  bool ShouldStop(Event *event_ptr) override { return false; }
+  bool ShouldStop(Event *event_ptr) override {
+    ThreadSP thread_sp(m_thread_wp.lock());
+    if (thread_sp)
+      return thread_sp->GetProcess()->GetStopOnVFork();
+    return false;
+  }
 
   StopReason GetStopReason() const override { return eStopReasonVFork; }
 
