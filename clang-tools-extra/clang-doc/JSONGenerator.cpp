@@ -133,8 +133,11 @@ json::Object JSONGenerator::serializeLocation(const Location &Loc) {
 ///
 /// \param Comment Either an Object or Array, depending on the comment type
 /// \param Key     The type (Brief, Code, etc.) of comment to be inserted
+/// \param FlattenArray If true and Comment is an array, merge its elements
+///                     instead of nesting. Used for BriefComments and
+///                     ReturnComments to avoid double-nested arrays.
 static void insertComment(Object &Description, json::Value &Comment,
-                          StringRef Key) {
+                          StringRef Key, bool FlattenArray = false) {
   // The comment has a Children array for the actual text, with meta attributes
   // alongside it in the Object.
   if (auto *Obj = Comment.getAsObject()) {
@@ -150,11 +153,26 @@ static void insertComment(Object &Description, json::Value &Comment,
   auto DescriptionIt = Description.find(Key);
 
   if (DescriptionIt == Description.end()) {
-    auto CommentsArray = json::Array();
-    CommentsArray.push_back(Comment);
-    Description[Key] = std::move(CommentsArray);
+    // For FlattenArray mode, if Comment is an array, use it directly
+    if (FlattenArray && Comment.getAsArray()) {
+      Description[Key] = Comment;
+    } else {
+      auto CommentsArray = json::Array();
+      CommentsArray.push_back(Comment);
+      Description[Key] = std::move(CommentsArray);
+    }
     Description["Has" + Key.str()] = true;
   } else {
+    // For FlattenArray mode, if Comment is an array, merge its elements
+    if (FlattenArray) {
+      if (auto *CommentArray = Comment.getAsArray()) {
+        auto *DestArray = DescriptionIt->getSecond().getAsArray();
+        for (auto &Element : *CommentArray) {
+          DestArray->push_back(Element);
+        }
+        return;
+      }
+    }
     DescriptionIt->getSecond().getAsArray()->push_back(Comment);
   }
 }
@@ -217,10 +235,10 @@ static Object serializeComment(const CommentInfo &I, Object &Description) {
 
   case CommentKind::CK_BlockCommandComment: {
     auto TextCommentsArray = extractTextComments(CARef.front().getAsObject());
-    if (I.Name == "brief")
-      insertComment(Description, TextCommentsArray, "BriefComments");
-    else if (I.Name == "return")
-      insertComment(Description, TextCommentsArray, "ReturnComments");
+    if (I.Name == "brief" || I.Name == "short")
+      insertComment(Description, TextCommentsArray, "BriefComments", true);
+    else if (I.Name == "return" || I.Name == "returns" || I.Name == "result")
+      insertComment(Description, TextCommentsArray, "ReturnComments", true);
     else if (I.Name == "throws" || I.Name == "throw") {
       json::Value ThrowsVal = Object();
       auto &ThrowsObj = *ThrowsVal.getAsObject();
