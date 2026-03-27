@@ -14619,16 +14619,16 @@ static unsigned checkLaneSlide(ArrayRef<int> Mask, unsigned LaneStart,
   if (FirstIdx > (int)LaneStart && FirstIdx < (int)(LaneStart + LaneElts)) {
     unsigned SlideAmt = FirstIdx - LaneStart;
     for (unsigned i = 0; i < LaneElts; ++i) {
-      int M = Mask[LaneStart + i];
-      if (M < 0)
+      int MaskIdx = Mask[LaneStart + i];
+      if (MaskIdx < 0)
         continue;
       if (i < LaneElts - SlideAmt) {
         // Data element: must be consecutive within lane
-        if (M != (int)(LaneStart + SlideAmt + i))
+        if (MaskIdx != (int)(LaneStart + SlideAmt + i))
           return 0;
       } else {
         // Zero element: any index >= NumElts is fine (all from V2 which is zeros)
-        if (M < (int)NumElts)
+        if (MaskIdx < (int)NumElts)
           return 0;
       }
     }
@@ -14641,24 +14641,21 @@ static unsigned checkLaneSlide(ArrayRef<int> Mask, unsigned LaneStart,
   if (Mask[LaneStart] >= (int)NumElts || Mask[LaneStart] < 0) {
     unsigned ZeroCount = 0;
     for (unsigned i = 0; i < LaneElts; ++i) {
-      int M = Mask[LaneStart + i];
-      if (M >= 0 && M < (int)NumElts)
+      int MaskIdx = Mask[LaneStart + i];
+      if (MaskIdx >= 0 && MaskIdx < (int)NumElts)
         break;
       ZeroCount++;
     }
     if (ZeroCount > 0 && ZeroCount < LaneElts) {
-      bool Valid = true;
-      for (unsigned i = ZeroCount; i < LaneElts && Valid; ++i) {
-        int M = Mask[LaneStart + i];
-        if (M < 0)
+      for (unsigned i = ZeroCount; i < LaneElts; ++i) {
+        int MaskIdx = Mask[LaneStart + i];
+        if (MaskIdx < 0)
           continue;
-        if (M != (int)(LaneStart + i - ZeroCount))
-          Valid = false;
+        if (MaskIdx != (int)(LaneStart + i - ZeroCount))
+          return 0;
       }
-      if (Valid) {
-        IsLeftSlide = false;
-        return ZeroCount;
-      }
+      IsLeftSlide = false;
+      return ZeroCount;
     }
   }
 
