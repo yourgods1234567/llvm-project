@@ -126,7 +126,7 @@ define <16 x i8> @slide_right_v16i8(<16 x i8> %v) {
 ; CHECK-LABEL: slide_right_v16i8:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    movi v1.2d, #0000000000000000
-; CHECK-NEXT:    ext v0.16b, v0.16b, v1.16b, #15
+; CHECK-NEXT:    ext v0.16b, v1.16b, v0.16b, #15
 ; CHECK-NEXT:    ret
   %r = shufflevector <16 x i8> zeroinitializer, <16 x i8> %v,
        <16 x i32> <i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22,
@@ -188,8 +188,8 @@ define <4 x i32> @slide_left_v4i32_lane_independent(<4 x i32> %v) {
 define <16 x i8> @slide_different_amounts(<16 x i8> %v) {
 ; CHECK-LABEL: slide_different_amounts:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    adrp x8, .LCPI12_0
-; CHECK-NEXT:    ldr q1, [x8, :lo12:.LCPI12_0]
+; CHECK-NEXT:    adrp x8, .LCPI15_0
+; CHECK-NEXT:    ldr q1, [x8, :lo12:.LCPI15_0]
 ; CHECK-NEXT:    tbl v0.16b, { v0.16b }, v1.16b
 ; CHECK-NEXT:    ret
   %r = shufflevector <16 x i8> %v, <16 x i8> zeroinitializer,
