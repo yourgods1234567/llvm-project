@@ -1507,7 +1507,8 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
         setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_SUMLA, MVT::v2i32,
                                   MVT::v8i8, Legal);
       }
-    }  
+    }
+
     if (Subtarget->hasF16F32DOT() || Subtarget->hasFP16FML()) {
       setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v2f32,
                                 MVT::v4f16, Legal);
@@ -1515,7 +1516,7 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
                                 MVT::v8f16, Legal);
     }
 
-   if (Subtarget->hasBF16())
+    if (Subtarget->hasBF16())
       setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v4f32,
                                 MVT::v8bf16, Legal);
 
@@ -2044,6 +2045,8 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
       // We can use SVE2p1 fdot to emulate the fixed-length variant.
       setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v4f32,
                                 MVT::v8f16, Custom);
+      setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v2f32,
+                                MVT::v4f16, Custom);
     }
 
     if (Subtarget->hasBF16())
@@ -14602,7 +14605,6 @@ static bool isEXTMask(ArrayRef<int> M, EVT VT, bool &ReverseEXT,
   return true;
 }
 
-
 /// Flag slide shuffle patterns where one operand is zeros.
 /// Left slide: shufflevector %v, zeros, <1,2,3,...> -> ushr
 /// Right slide: shufflevector zeros, %v, <N-1,N,N+1,...> -> shl
@@ -14627,7 +14629,8 @@ static unsigned checkLaneSlide(ArrayRef<int> Mask, unsigned LaneStart,
         if (MaskIdx != (int)(LaneStart + SlideAmt + i))
           return 0;
       } else {
-        // Zero element: any index >= NumElts is fine (all from V2 which is zeros)
+        // Zero element: any index >= NumElts is fine (all from V2 which is
+        // zeros)
         if (MaskIdx < (int)NumElts)
           return 0;
       }
@@ -14693,20 +14696,23 @@ static SDValue isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue V1,
   unsigned NumLanes = VTSize / 64;
 
   bool FirstIsLeftSlide;
-  unsigned FirstSlideAmt = checkLaneSlide(Mask, 0, LaneElts, NumElts, FirstIsLeftSlide);
+  unsigned FirstSlideAmt =
+      checkLaneSlide(Mask, 0, LaneElts, NumElts, FirstIsLeftSlide);
   if (FirstSlideAmt == 0)
     return SDValue();
 
   // For 128-bit, verify second lane matches
   if (NumLanes == 2) {
     bool SecondIsLeftSlide;
-    unsigned SecondSlideAmt = checkLaneSlide(Mask, LaneElts, LaneElts, NumElts, SecondIsLeftSlide);
-    if (SecondSlideAmt != FirstSlideAmt || SecondIsLeftSlide != FirstIsLeftSlide)
+    unsigned SecondSlideAmt =
+        checkLaneSlide(Mask, LaneElts, LaneElts, NumElts, SecondIsLeftSlide);
+    if (SecondSlideAmt != FirstSlideAmt ||
+        SecondIsLeftSlide != FirstIsLeftSlide)
       return SDValue();
   }
 
   ShiftAmount = FirstSlideAmt * EltSize;
-  IsRightShift = FirstIsLeftSlide;  // left slide = right shift in bits
+  IsRightShift = FirstIsLeftSlide; // left slide = right shift in bits
   if (ShiftAmount > 0 && ShiftAmount < 64)
     return DataVec;
   return SDValue();
@@ -15412,8 +15418,8 @@ SDValue AArch64TargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
   {
     unsigned ShiftAmount;
     bool IsRightShift;
-    if (SDValue DataVec = isSlideWithZerosMask(ShuffleMask, VT, V1, V2, ShiftAmount,
-                                              IsRightShift)) {
+    if (SDValue DataVec = isSlideWithZerosMask(ShuffleMask, VT, V1, V2,
+                                               ShiftAmount, IsRightShift)) {
       MVT ShiftVT = VT.getSizeInBits() == 64 ? MVT::v1i64 : MVT::v2i64;
       SDValue Vec = DAG.getNode(AArch64ISD::NVCAST, DL, ShiftVT, DataVec);
 
