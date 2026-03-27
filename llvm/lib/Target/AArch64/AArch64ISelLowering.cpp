@@ -2044,8 +2044,6 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
       // We can use SVE2p1 fdot to emulate the fixed-length variant.
       setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v4f32,
                                 MVT::v8f16, Custom);
-      setPartialReduceMLAAction(ISD::PARTIAL_REDUCE_FMLA, MVT::v2f32,
-                                MVT::v4f16, Custom);
     }
 
     if (Subtarget->hasBF16())
@@ -14620,25 +14618,22 @@ static unsigned checkLaneSlide(ArrayRef<int> Mask, unsigned LaneStart,
   int FirstIdx = Mask[LaneStart];
   if (FirstIdx > (int)LaneStart && FirstIdx < (int)(LaneStart + LaneElts)) {
     unsigned SlideAmt = FirstIdx - LaneStart;
-    bool Valid = true;
-    for (unsigned i = 0; i < LaneElts && Valid; ++i) {
+    for (unsigned i = 0; i < LaneElts; ++i) {
       int M = Mask[LaneStart + i];
       if (M < 0)
         continue;
       if (i < LaneElts - SlideAmt) {
         // Data element: must be consecutive within lane
         if (M != (int)(LaneStart + SlideAmt + i))
-          Valid = false;
+          return 0;
       } else {
         // Zero element: any index >= NumElts is fine (all from V2 which is zeros)
         if (M < (int)NumElts)
-          Valid = false;
+          return 0;
       }
     }
-    if (Valid) {
-      IsLeftSlide = true;
-      return SlideAmt;
-    }
+    IsLeftSlide = true;
+    return SlideAmt;
   }
 
   // Check for right slide: <zero, ..., 0, 1, ...>
@@ -14716,7 +14711,6 @@ static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1,
   IsRightShift = FirstIsLeftSlide;  // left slide = right shift in bits
   return ShiftAmount > 0 && ShiftAmount < 64;
 }
-
 
 /// isZIP_v_undef_Mask - Special case of isZIPMask for canonical form of
 /// "vector_shuffle v, v", i.e., "vector_shuffle v, undef".
