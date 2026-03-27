@@ -1376,8 +1376,7 @@
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
 // RUN:   | %{filecheck} --check-prefix=CHECK-RELOCATABLE-LINK-ASAN-UBSAN-RTLIB
 //
-// CHECK-RELOCATABLE-LINK-ASAN-UBSAN-RTLIB-NOT: libclang_rt.asan
-// CHECK-RELOCATABLE-LINK-ASAN-UBSAN-RTLIB-NOT: libclang_rt.ubsan
+// CHECK-RELOCATABLE-LINK-ASAN-UBSAN-RTLIB-NOT: "{{.*}}(asan|ubsan){{.*}}"
 
 // RUN: %clang -fsanitize=address -r -fsanitize-link-runtime -### %s 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -fuse-ld=ld \
@@ -1385,7 +1384,7 @@
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
 // RUN:   | FileCheck %s --check-prefix=CHECK-RELOCATABLE-LINK-FORCE-LINK-ASAN
 //
-// CHECK-RELOCATABLE-LINK-FORCE-LINK-ASAN: libclang_rt.asan
+// CHECK-RELOCATABLE-LINK-FORCE-LINK-ASAN: "{{.*}}asan{{.*}}"
 
 // RUN: %clang -fsanitize=thread -r -### %s 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -fuse-ld=ld \
@@ -1393,7 +1392,7 @@
 // RUN:     --sysroot=%S/Inputs/basic_linux_tree \
 // RUN:   | %{filecheck} --check-prefix=CHECK-RELOCATABLE-LINK-TSAN-RTLIB
 //
-// CHECK-RELOCATABLE-LINK-TSAN-RTLIB-NOT: libclang_rt.tsan
+// CHECK-RELOCATABLE-LINK-TSAN-RTLIB-NOT: "{{.*}}tsan{{.*}}"
 
 // RUN: %clang -fsanitize=fuzzer,address -shared-libsan -### %s 2>&1 \
 // RUN:     --target=x86_64-unknown-linux -fuse-ld=ld \
