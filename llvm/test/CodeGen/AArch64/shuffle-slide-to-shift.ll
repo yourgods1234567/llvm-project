@@ -24,6 +24,28 @@ define <8 x i8> @slide_right_1(<8 x i8> %v) {
   ret <8 x i8> %r
 }
 
+ ; Commuted left slide: zeros first, then data
+  define <8 x i8> @slide_left_1_commuted(<8 x i8> %v) {
+  ; CHECK-LABEL: slide_left_1_commuted:
+  ; CHECK:       // %bb.0:
+  ; CHECK-NEXT:    ushr d0, d0, #8
+  ; CHECK-NEXT:    ret
+    %r = shufflevector <8 x i8> zeroinitializer, <8 x i8> %v,
+         <8 x i32> <i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 0>
+    ret <8 x i8> %r
+  }
+
+  ; Commuted right slide: data first, then zeros
+  define <8 x i8> @slide_right_1_commuted(<8 x i8> %v) {
+  ; CHECK-LABEL: slide_right_1_commuted:
+  ; CHECK:       // %bb.0:
+  ; CHECK-NEXT:    shl d0, d0, #8
+  ; CHECK-NEXT:    ret
+    %r = shufflevector <8 x i8> %v, <8 x i8> zeroinitializer,
+         <8 x i32> <i32 15, i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6>
+    ret <8 x i8> %r
+  }
+
 ; 64 bit test (with poison)
 
 ; Left slide with poison (from issue's Alive2 proof)
