@@ -14665,12 +14665,12 @@ static unsigned checkLaneSlide(ArrayRef<int> Mask, unsigned LaneStart,
   return 0;
 }
 
-static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1,
-                                 SDValue &V2, unsigned &ShiftAmount,
-                                 bool &IsRightShift) {
+static SDValue isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue V1,
+                                    SDValue V2, unsigned &ShiftAmount,
+                                    bool &IsRightShift) {
   unsigned VTSize = VT.getSizeInBits();
   if (VTSize != 64 && VTSize != 128)
-    return false;
+    return SDValue();
 
   unsigned NumElts = VT.getVectorNumElements();
   unsigned EltSize = VT.getScalarSizeInBits();
@@ -14680,13 +14680,14 @@ static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1,
 
   // Exactly one operand must be zeros
   if (V1IsZeros == V2IsZeros)
-    return false;
+    return SDValue();
 
   // Canonicalize so V2 is zeros
   SmallVector<int, 16> Mask(M.begin(), M.end());
+  SDValue DataVec = V1;
   if (V1IsZeros) {
     ShuffleVectorSDNode::commuteMask(Mask);
-    std::swap(V1, V2);
+    DataVec = V2;
   }
 
   // For 64-bit vectors, check single lane
@@ -14697,19 +14698,21 @@ static bool isSlideWithZerosMask(ArrayRef<int> M, EVT VT, SDValue &V1,
   bool FirstIsLeftSlide;
   unsigned FirstSlideAmt = checkLaneSlide(Mask, 0, LaneElts, NumElts, FirstIsLeftSlide);
   if (FirstSlideAmt == 0)
-    return false;
+    return SDValue();
 
   // For 128-bit, verify second lane matches
   if (NumLanes == 2) {
     bool SecondIsLeftSlide;
     unsigned SecondSlideAmt = checkLaneSlide(Mask, LaneElts, LaneElts, NumElts, SecondIsLeftSlide);
     if (SecondSlideAmt != FirstSlideAmt || SecondIsLeftSlide != FirstIsLeftSlide)
-      return false;
+      return SDValue();
   }
 
   ShiftAmount = FirstSlideAmt * EltSize;
   IsRightShift = FirstIsLeftSlide;  // left slide = right shift in bits
-  return ShiftAmount > 0 && ShiftAmount < 64;
+  if (ShiftAmount > 0 && ShiftAmount < 64)
+    return DataVec;
+  return SDValue();
 }
 
 /// isZIP_v_undef_Mask - Special case of isZIPMask for canonical form of
@@ -15412,11 +15415,10 @@ SDValue AArch64TargetLowering::LowerVECTOR_SHUFFLE(SDValue Op,
   {
     unsigned ShiftAmount;
     bool IsRightShift;
-    if (isSlideWithZerosMask(ShuffleMask, VT, V1, V2, ShiftAmount,
-                             IsRightShift)) {
-      // V1 is the data vector (V1/V2 swapped by isSlideWithZerosMask if needed)
+    if (SDValue DataVec = isSlideWithZerosMask(ShuffleMask, VT, V1, V2, ShiftAmount,
+                                              IsRightShift)) {
       MVT ShiftVT = VT.getSizeInBits() == 64 ? MVT::v1i64 : MVT::v2i64;
-      SDValue Vec = DAG.getNode(AArch64ISD::NVCAST, DL, ShiftVT, V1);
+      SDValue Vec = DAG.getNode(AArch64ISD::NVCAST, DL, ShiftVT, DataVec);
 
       SDValue ShiftAmt = DAG.getTargetConstant(ShiftAmount, DL, MVT::i32);
       unsigned Opc = IsRightShift ? AArch64ISD::VLSHR : AArch64ISD::VSHL;
