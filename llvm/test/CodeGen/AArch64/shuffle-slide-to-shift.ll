@@ -2,8 +2,6 @@
 ; RUN: llc -mtriple=aarch64 < %s | FileCheck %s
 
 
-; repro  of gh issue
-
 ; Left slide: {v[0]..v[7]} => {v[1]..v[7], 0}
 define <8 x i8> @slide_left_1(<8 x i8> %v) {
 ; CHECK-LABEL: slide_left_1:
