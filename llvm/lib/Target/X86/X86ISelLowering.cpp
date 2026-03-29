@@ -30617,9 +30617,10 @@ SDValue X86TargetLowering::LowerWin64_i128OP(SDValue Op, SelectionDAG &DAG) cons
   TargetLowering::CallLoweringInfo CLI(DAG);
   CLI.setDebugLoc(dl)
       .setChain(InChain)
-      .setLibCallee(DAG.getLibcalls().getLibcallImplCallingConv(LCImpl),
-                    EVT(MVT::v2i64).getTypeForEVT(*DAG.getContext()), Callee,
-                    std::move(Args))
+      .setLibCallee(
+          DAG.getLibcalls().getLibcallImplCallingConv(LCImpl),
+          EVT(MVT::v2i64).getTypeForEVT(*DAG.getContext()), Callee,
+          std::move(Args))
       .setInRegister()
       .setSExtResult(isSigned)
       .setZExtResult(!isSigned);
@@ -30682,7 +30683,7 @@ void X86TargetLowering::LowerWin64_i128DIVREM(SDNode *N, SelectionDAG &DAG,
       .setChain(InChain)
       .setLibCallee(
           DAG.getLibcalls().getLibcallImplCallingConv(LCImpl),
-          static_cast<EVT>(MVT::v2i64).getTypeForEVT(*DAG.getContext()), Callee,
+          EVT(MVT::v2i64).getTypeForEVT(*DAG.getContext()), Callee,
           std::move(Args))
       .setInRegister()
       .setSExtResult(isSigned)
