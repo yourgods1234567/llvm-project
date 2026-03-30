@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "VPlanUtils.h"
+#include "LoopVectorizationPlanner.h"
 #include "VPlanAnalysis.h"
 #include "VPlanCFG.h"
 #include "VPlanDominatorTree.h"
@@ -698,4 +699,30 @@ VPInstruction *vputils::findComputeReductionResult(VPReductionPHIRecipe *PhiR) {
     return nullptr;
   return vputils::findUserOf<VPInstruction::ComputeReductionResult>(
       cast<VPSingleDefRecipe>(SelR));
+}
+
+VPValue *VPSCEVExpander::expand(const SCEV *S) {
+  if (auto *C = dyn_cast<SCEVConstant>(S))
+    return Plan.getOrAddLiveIn(C->getValue());
+  if (auto *U = dyn_cast<SCEVUnknown>(S))
+    return Plan.getOrAddLiveIn(U->getValue());
+  if (isa<SCEVVScale>(S))
+    return Builder.createNaryOp(VPInstruction::VScale, {}, S->getType());
+  if (auto *Mul = dyn_cast<SCEVMulExpr>(S)) {
+    VPIRFlags::WrapFlagsTy WrapFlags(Mul->hasNoUnsignedWrap(),
+                                     Mul->hasNoSignedWrap());
+    // Chain the operands with Mul, matching SCEVExpander behavior of applying
+    // wrap flags to all chained multiplies.
+    VPValue *Result = expand(Mul->getOperand(0));
+    for (const SCEVUse &Op : drop_begin(Mul->operands()))
+      Result = Builder.createOverflowingOp(Instruction::Mul,
+                                           {Result, expand(Op)}, WrapFlags, DL);
+    return Result;
+  }
+  // Unsupported SCEV kind; fall back to VPExpandSCEVRecipe. This is only
+  // valid when the builder's insertion point is in the entry block, as
+  // expandSCEVs only processes VPExpandSCEVRecipes there.
+  assert(Builder.getInsertBlock() == Plan.getEntry() &&
+         "VPExpandSCEVRecipe fallback requires insertion in the entry block");
+  return Builder.createExpandSCEV(S);
 }
