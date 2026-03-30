@@ -60,6 +60,12 @@ def clamp_i64_to_i16 : GICombineRule<
       [{ return matchClampI64ToI16(*${clamp_i64_to_i16}, MRI, MF, ${matchinfo}); }]),
   (apply [{ applyClampI64ToI16(*${clamp_i64_to_i16}, ${matchinfo}); }])>;
 
+def intrinsic_impdef : GICombineRule<
+  (defs root:$intrinsic, register_matchinfo:$matchinfo),
+  (match (wip_match_opcode G_INTRINSIC):$intrinsic,
+         [{ return matchIntrinsicImpDef(*${intrinsic}, ${matchinfo}); }]),
+  (apply [{ Helper.replaceSingleDefInstWithReg(*${intrinsic}, ${matchinfo}); }])>;
+
 def med3_matchdata : GIDefMatchData<"Med3MatchInfo">;
 
 def int_minmax_to_med3 : GICombineRule<
@@ -218,7 +224,7 @@ def gfx8_combines : GICombineGroup<[expand_promoted_fmed3]>;
 def AMDGPUPreLegalizerCombiner: GICombiner<
   "AMDGPUPreLegalizerCombinerImpl",
   [all_combines, combine_fmul_with_select_to_fldexp, clamp_i64_to_i16,
-   foldable_fneg, combine_shuffle_vector_to_build_vector,
+   foldable_fneg, intrinsic_impdef, combine_shuffle_vector_to_build_vector,
    binop_s64_with_s32_mask_combines, combine_or_s64_s32]> {
   let CombineAllMethodName = "tryCombineAllImpl";
 }

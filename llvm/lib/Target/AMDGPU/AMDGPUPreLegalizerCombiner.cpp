@@ -22,9 +22,11 @@
 #include "llvm/CodeGen/GlobalISel/CombinerInfo.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
+#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/Target/TargetMachine.h"
 
 #define GET_GICOMBINER_DEPS
@@ -72,6 +74,8 @@ public:
 
   void applyClampI64ToI16(MachineInstr &MI,
                           const ClampI64ToI16MatchInfo &MatchInfo) const;
+
+  bool matchIntrinsicImpDef(MachineInstr &MI, Register &MatchInfo) const;
 
 private:
 #define GET_GICOMBINER_CLASS_MEMBERS
@@ -204,6 +208,44 @@ void AMDGPUPreLegalizerCombinerImpl::applyClampI64ToI16(
   B.buildTrunc(MI.getOperand(0).getReg(), Med3);
 
   MI.eraseFromParent();
+}
+
+// Match G_INTRINSIC instructions with a G_IMPLICIT_DEF (poison) operand.
+// For certain intrinsics like amdgcn.rsq, amdgcn.sqrt, amdgcn.tanh,
+// if the operand is poison/undef, we can replace the whole intrinsic
+// with poison.
+bool AMDGPUPreLegalizerCombinerImpl::matchIntrinsicImpDef(
+    MachineInstr &MI, Register &MatchInfo) const {
+  if (MI.getOpcode() != TargetOpcode::G_INTRINSIC)
+    return false;
+
+  // Get the intrinsic ID
+  Intrinsic::ID IID = cast<GIntrinsic>(MI).getIntrinsicID();
+
+  // Check if this is one of the intrinsics that propagates poison
+  switch (IID) {
+  case Intrinsic::amdgcn_sqrt:
+  case Intrinsic::amdgcn_rsq:
+  case Intrinsic::amdgcn_tanh:
+    break;
+  default:
+    return false;
+  }
+
+  // For G_INTRINSIC: operand 0 is dest, operand 1 is intrinsic ID,
+  // operand 2+ are the actual arguments.
+  // Check if the first argument (operand 2) is G_IMPLICIT_DEF
+  if (MI.getNumOperands() < 3)
+    return false;
+
+  Register SrcReg = MI.getOperand(2).getReg();
+  MachineInstr *SrcMI = MRI.getVRegDef(SrcReg);
+  if (!SrcMI || SrcMI->getOpcode() != TargetOpcode::G_IMPLICIT_DEF)
+    return false;
+
+  // Return the poison value to replace with
+  MatchInfo = SrcReg;
+  return true;
 }
 
 // Pass boilerplate
