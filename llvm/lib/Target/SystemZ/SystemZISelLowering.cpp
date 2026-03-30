@@ -1463,22 +1463,32 @@ bool SystemZTargetLowering::findOptimalMemOpLowering(
     const MemOp &Op, unsigned DstAS, unsigned SrcAS,
     const AttributeList &FuncAttributes, EVT *LargestVT) const {
 
+  assert(Limit != ~0U &&
+         "Expected EmitTargetCodeForMemXXX() to handle AlwaysInline cases.");
+
   if (Op.isZeroMemset())
     return false; // Memset zero: Use XC.
 
-  // Use VL/VST with a pair of scalar accesses in cases with proper alignment
-  // that do not require overlap.
-  if ((Op.isMemset() ? Op.size() - 1 : Op.size()) > 16 && Op.size() <= 32) {
-    unsigned RemLen = Op.size() - 16;
-    if (isPowerOf2_32(RemLen) && Op.isFixedDstAlign() && Op.isAligned(Align(8)))
-      return TargetLowering::findOptimalMemOpLowering(
-          Context, MemOps, Limit, Op, DstAS, SrcAS, FuncAttributes, LargestVT);
-  }
+  // Don't lower unaligned operations.
+  unsigned ReqAlign = Op.size() >= 8 ? 8 : (Op.size() >= 4 ? 4 : 2);
+  if (!Op.isFixedDstAlign() || !Op.isAligned(Align(ReqAlign)))
+    return false;
 
-  assert(Limit == MaxStoresPerMemcpy &&
-         "Expected EmitTargetCodeForMemXXX() to handle AlwaysInline case.");
+  // Try to lower Op with target instructions if those instructions will not
+  // be overlapping.
+  bool TryMemOpLowering = !Op.allowOverlap();
+  if (Op.allowOverlap())
+    // Small memset uses STC/MVI for first byte.
+    if ((Op.isMemset() ? Op.size() - 1 : Op.size()) > 16 && Op.size() <= 32) {
+      unsigned RemLen = Op.size() - 16;
+      if (isPowerOf2_32(RemLen))
+        TryMemOpLowering = true;
+    }
 
-  // Use MVC.
+  if (TryMemOpLowering)
+    return TargetLowering::findOptimalMemOpLowering(
+        Context, MemOps, Limit, Op, DstAS, SrcAS, FuncAttributes, LargestVT);
+
   return false;
 }
 
