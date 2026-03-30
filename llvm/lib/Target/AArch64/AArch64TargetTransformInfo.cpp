@@ -5952,7 +5952,7 @@ InstructionCost AArch64TTIImpl::getPartialReductionCost(
     return Invalid;
 
   if ((Opcode != Instruction::Add && Opcode != Instruction::Sub &&
-       Opcode != Instruction::FAdd) ||
+       Opcode != Instruction::FAdd && Opcode != Instruction::FSub) ||
       OpAExtend == TTI::PR_None)
     return Invalid;
 
@@ -6019,7 +6019,7 @@ InstructionCost AArch64TTIImpl::getPartialReductionCost(
             NEONPred);
   };
 
-  bool IsSub = Opcode == Instruction::Sub;
+  bool IsSub = (Opcode == Instruction::Sub) || (Opcode == Instruction::FSub);
   InstructionCost Cost = InputLT.first * TTI::TCC_Basic;
 
   if (AccumLT.second.getScalarType() == MVT::i32 &&
