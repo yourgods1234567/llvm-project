@@ -532,12 +532,15 @@ class TransferReadDropUnitDimsPattern
       }
       FailureOr<Value> rankReducedCreateMask =
           createMaskDropNonScalableUnitDims(rewriter, loc, createMaskOp);
-      if (failed(rankReducedCreateMask)) {
+      if (succeeded(rankReducedCreateMask)) {
+        maskOp = *rankReducedCreateMask;
+        LDBG() << "  -> Successfully reduced mask dimensions";
+      } else if (createMaskOp.getVectorType().getRank() !=
+                 reducedVectorType.getRank()) {
+        // Mask needs reduction but couldn't be reduced.
         LDBG() << "  -> Failed to reduce mask dimensions";
         return failure();
       }
-      maskOp = *rankReducedCreateMask;
-      LDBG() << "  -> Successfully reduced mask dimensions";
     }
 
     LDBG() << "  -> Creating rank-reduced subview and new transfer_read";
@@ -647,12 +650,15 @@ class TransferWriteDropUnitDimsPattern
       }
       FailureOr<Value> rankReducedCreateMask =
           createMaskDropNonScalableUnitDims(rewriter, loc, createMaskOp);
-      if (failed(rankReducedCreateMask)) {
+      if (succeeded(rankReducedCreateMask)) {
+        maskOp = *rankReducedCreateMask;
+        LDBG() << "  -> Successfully reduced mask dimensions";
+      } else if (createMaskOp.getVectorType().getRank() !=
+                 reducedVectorType.getRank()) {
+        // Mask needs reduction but couldn't be reduced.
         LDBG() << "  -> Failed to reduce mask dimensions";
         return failure();
       }
-      maskOp = *rankReducedCreateMask;
-      LDBG() << "  -> Successfully reduced mask dimensions";
     }
     LDBG() << "  -> Creating rank-reduced subview and new transfer_write";
     Value reducedShapeSource =
