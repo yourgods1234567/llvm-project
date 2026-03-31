@@ -206,15 +206,27 @@ public:
   /// Initialize a successor that branches after/out of the parent operation.
   static RegionSuccessor parent() { return RegionSuccessor(); }
 
+  /// Sentinel: the terminator propagates through this op to an ancestor.
+  /// The op is transparent to this break and does not consume it.
+  /// Use `resolveTerminatorSuccessors` to resolve to the actual target.
+  static RegionSuccessor propagating() {
+    RegionSuccessor rs;
+    rs.isPropagating_ = true;
+    return rs;
+  }
+
   /// Return the given region successor. Returns nullptr if the successor is the
   /// parent operation.
   Region *getSuccessor() const { return successor; }
 
   /// Return true if the successor is the parent operation.
-  bool isParent() const { return successor == nullptr; }
+  bool isParent() const { return !isPropagating_ && successor == nullptr; }
+
+  /// Return true if this is a propagating-break sentinel.
+  bool isPropagating() const { return isPropagating_; }
 
   bool operator==(RegionSuccessor rhs) const {
-    return successor == rhs.successor;
+    return successor == rhs.successor && isPropagating_ == rhs.isPropagating_;
   }
 
   bool operator==(const Region *region) const { return successor == region; }
@@ -228,6 +240,7 @@ private:
   RegionSuccessor() : successor(nullptr) {}
 
   Region *successor = nullptr;
+  bool isPropagating_ = false;
 };
 
 /// This class represents a point being branched from in the methods of the
@@ -423,11 +436,24 @@ inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
 
 inline llvm::raw_ostream &operator<<(llvm::raw_ostream &os,
                                      RegionSuccessor successor) {
+  if (successor.isPropagating())
+    return os << "<propagating>";
   if (successor.isParent())
     return os << "<to parent>";
   return os << "<to region #" << successor.getSuccessor()->getRegionNumber()
             << ">";
 }
+
+/// Get successor regions for a terminator, resolving propagating breaks.
+/// When the immediate parent returns a `RegionSuccessor::propagating()`
+/// sentinel, finds and queries the actual HasBreakingControlFlowOpInterface
+/// ancestor. Returns the RegionBranchOpInterface that owns the returned
+/// successors. For non-propagating terminators, this is the terminator's
+/// immediate parent.
+RegionBranchOpInterface
+resolveTerminatorSuccessors(RegionBranchTerminatorOpInterface terminator,
+                            SmallVectorImpl<RegionSuccessor> &successors);
+
 } // namespace mlir
 
 #endif // MLIR_INTERFACES_CONTROLFLOWINTERFACES_H
