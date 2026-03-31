@@ -91,25 +91,40 @@ int bar()
 }
 
 // CHECK-LABEL: @"?foo1@@YAXXZ"()
+
 // CHECK-NOT: invoke void @llvm.seh.scope.begin()
 // CHECK:     invoke void @llvm.seh.try.begin()
-// CHECK:     invoke.cont:
+// CHECK:     invoke.cont1:
+
 // CHECK:     invoke void @llvm.seh.scope.begin()
 // CHECK:     invoke noundef ptr @"??0A@@QEAA@XZ"
+
 // CHECK:     invoke void @llvm.seh.scope.end()
+
 // CHECK:     invoke void @llvm.seh.scope.begin()
 // CHECK:     invoke void @"??1A@@QEAA@XZ"
+
 // CHECK:     invoke void @llvm.seh.scope.end()
-// CHECK-NOT: invoke void @llvm.seh.try.end()
+// CHECK-NOT: @llvm.seh
 // CHECK:     br label %delete.end
+
 // CHECK:     invoke void @llvm.seh.try.end()
+// CHECK:     invoke.cont15:
+
 // CHECK:     call void @"?fin$0@0@foo1@@"(i8 noundef 0
+// CHECK-NOT: @llvm.seh
+// CHECK:     ehcleanup:
+// CHECK:     invoke.cont7:
 // CHECK:     cleanupret
+// CHECK:     invoke.cont14:
+// CHECK:     cleanupret
+
+// CHECK:     ehcleanup16:
 // CHECK:     call void @"?fin$0@0@foo1@@"(i8 noundef 1
-// CHECK-NOT: @llvm.seh.scope.end
+// CHECK-NOT: @llvm.seh
 // CHECK:     cleanupret
 struct A {
-	A();
+	A() noexcept;
 	~A();
 };
 
