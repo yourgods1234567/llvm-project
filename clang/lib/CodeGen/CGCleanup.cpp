@@ -800,8 +800,7 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
       // block.
       if (NormalDeactivateOrigIP.isSet())
         Builder.restoreIP(NormalDeactivateOrigIP);
-      if (Personality.isMSVCPersonality() && Builder.GetInsertBlock() &&
-          !IsSEHFinallyCleanup)
+      if (Builder.GetInsertBlock() && !IsSEHFinallyCleanup)
         EmitSehCppScopeEnd();
       if (NormalDeactivateOrigIP.isSet())
         NormalDeactivateOrigIP = Builder.saveAndClearIP();
@@ -819,7 +818,7 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
       if (IsEHa && getInvokeDest()) {
         if (Scope.isSEHFinallyCleanup())
           EmitSehTryScopeEnd();
-        else if (Personality.isMSVCPersonality())
+        else
           EmitSehCppScopeEnd();
       }
 
@@ -861,7 +860,7 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
       if (IsEHa && getInvokeDest()) {
         if (Scope.isSEHFinallyCleanup())
           EmitSehTryScopeEnd();
-        else if (Personality.isMSVCPersonality())
+        else
           EmitSehCppScopeEnd();
       }
 

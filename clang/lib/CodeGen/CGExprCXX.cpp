@@ -1729,7 +1729,7 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
                               ->castAs<FunctionProtoType>();
         if (!FPT->isNothrow())
           getContext().getDiagnostics().Report(E->getBeginLoc(),
-                                              diag::err_seh_object_unwinding);
+                                               diag::err_seh_object_unwinding);
       }
     }
     EnterNewDeleteCleanup(*this, E, TypeIdentityArg, allocation, allocSize,
