@@ -790,7 +790,6 @@ void CodeGenFunction::PopCleanupBlock(bool FallthroughIsBranchThrough,
   // Under -EHa, invoke seh.scope.end() to mark scope end before dtor
   bool IsEHa = getLangOpts().EHAsynch && !Scope.isLifetimeMarker();
   bool IsSEHFinallyCleanup = Scope.isSEHFinallyCleanup();
-  const EHPersonality &Personality = EHPersonality::get(*this);
   if (!RequiresNormalCleanup) {
     // Mark CPP scope end for passed-by-value Arg temp
     //   per Windows ABI which is "normally" Cleanup in callee
