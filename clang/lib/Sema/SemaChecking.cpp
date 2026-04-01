@@ -1229,8 +1229,34 @@ public:
     return std::nullopt;
   }
 
-  const DiagnoseAsBuiltinAttr *getDABAttr() const { return DABAttr; }
   unsigned getSizeTypeWidth() const { return SizeTypeWidth; }
+
+  unsigned getBuiltinID() const {
+    const FunctionDecl *UseDecl = FD;
+    if (DABAttr) {
+      UseDecl = DABAttr->getFunction();
+      assert(UseDecl && "Missing FunctionDecl in DiagnoseAsBuiltin attribute!");
+    }
+    return UseDecl->getBuiltinID(/*ConsiderWrappers=*/true);
+  }
+
+  /// Return function name after stripping __builtin_ and _chk affixes.
+  std::string getFunctionName() const {
+    unsigned ID = getBuiltinID();
+    if (!ID) {
+      // Use callee name directly if not a builtin.
+      const FunctionDecl *Callee = TheCall->getDirectCallee();
+      assert(Callee && "expected callee");
+      return Callee->getName().str();
+    }
+    std::string Name = S.getASTContext().BuiltinInfo.getName(ID);
+    StringRef Ref = Name;
+    // Strip __builtin___*_chk or __builtin_ prefix.
+    if (!(Ref.consume_front("__builtin___") && Ref.consume_back("_chk")))
+      Ref.consume_front("__builtin_");
+    assert(!Ref.empty() && "expected non-empty function name");
+    return Ref.str();
+  }
 
 private:
   Sema &S;
@@ -1265,17 +1291,7 @@ void Sema::checkSourceBufferOverread(FunctionDecl *FD, CallExpr *TheCall,
   if (llvm::APSInt::compareValues(*CopyLen, *SrcBufSize) <= 0)
     return;
 
-  const FunctionDecl *CalleeDecl = TheCall->getDirectCallee();
-  assert(CalleeDecl && "expected builtin callee");
-  StringRef FuncName = CalleeDecl->getName();
-
-  // Need to strip affixes from function name, see memcpy for example:
-  // __builtin___memcpy_chk, __builtin_memcpy
-  // The _chk variants have a different prefix so try that one first.
-  if (!(FuncName.consume_front("__builtin___") &&
-        FuncName.consume_back("_chk")))
-    FuncName.consume_front("__builtin_");
-  assert(!FuncName.empty() && "expected non-empty function name");
+  std::string FuncName = Checker.getFunctionName();
 
   DiagRuntimeBehavior(TheCall->getBeginLoc(), TheCall,
                       PDiag(diag::warn_stringop_overread)
@@ -1290,13 +1306,7 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
 
   FortifiedBufferChecker Checker(*this, FD, TheCall);
 
-  const FunctionDecl *UseDecl = FD;
-  if (const auto *DABAttr = Checker.getDABAttr()) {
-    UseDecl = DABAttr->getFunction();
-    assert(UseDecl && "Missing FunctionDecl in DiagnoseAsBuiltin attribute!");
-  }
-
-  unsigned BuiltinID = UseDecl->getBuiltinID(/*ConsiderWrappers=*/true);
+  unsigned BuiltinID = Checker.getBuiltinID();
   if (!BuiltinID)
     return;
 
@@ -1305,23 +1315,6 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
   std::optional<llvm::APSInt> SourceSize;
   std::optional<llvm::APSInt> DestinationSize;
   unsigned DiagID = 0;
-  bool IsChkVariant = false;
-
-  auto GetFunctionName = [&]() {
-    std::string FunctionNameStr =
-        getASTContext().BuiltinInfo.getName(BuiltinID);
-    llvm::StringRef FunctionName = FunctionNameStr;
-    // Skim off the details of whichever builtin was called to produce a better
-    // diagnostic, as it's unlikely that the user wrote the __builtin
-    // explicitly.
-    if (IsChkVariant) {
-      FunctionName = FunctionName.drop_front(std::strlen("__builtin___"));
-      FunctionName = FunctionName.drop_back(std::strlen("_chk"));
-    } else {
-      FunctionName.consume_front("__builtin_");
-    }
-    return FunctionName.str();
-  };
 
   switch (BuiltinID) {
   default:
@@ -1344,7 +1337,6 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
     DiagID = diag::warn_fortify_strlen_overflow;
     SourceSize = Checker.ComputeStrLenArgument(1);
     DestinationSize = Checker.ComputeExplicitObjectSizeArgument(2);
-    IsChkVariant = true;
     break;
   }
 
@@ -1370,7 +1362,7 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
                         unsigned SourceSize) {
       DiagID = diag::warn_fortify_scanf_overflow;
       unsigned Index = ArgIndex + DataIndex;
-      std::string FunctionName = GetFunctionName();
+      std::string FunctionName = Checker.getFunctionName();
       DiagRuntimeBehavior(TheCall->getArg(Index)->getBeginLoc(), TheCall,
                           PDiag(DiagID) << FunctionName << (Index + 1)
                                         << DestSize << SourceSize);
@@ -1411,7 +1403,6 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
                          .extOrTrunc(SizeTypeWidth);
         if (BuiltinID == Builtin::BI__builtin___sprintf_chk) {
           DestinationSize = Checker.ComputeExplicitObjectSizeArgument(2);
-          IsChkVariant = true;
         } else {
           DestinationSize = Checker.ComputeSizeArgument(0);
         }
@@ -1435,7 +1426,6 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
         Checker.ComputeExplicitObjectSizeArgument(TheCall->getNumArgs() - 2);
     DestinationSize =
         Checker.ComputeExplicitObjectSizeArgument(TheCall->getNumArgs() - 1);
-    IsChkVariant = true;
 
     if (BuiltinID == Builtin::BI__builtin___memcpy_chk ||
         BuiltinID == Builtin::BI__builtin___memmove_chk ||
@@ -1450,7 +1440,6 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
     DiagID = diag::warn_builtin_chk_overflow;
     SourceSize = Checker.ComputeExplicitObjectSizeArgument(1);
     DestinationSize = Checker.ComputeExplicitObjectSizeArgument(3);
-    IsChkVariant = true;
     break;
   }
 
@@ -1540,8 +1529,8 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
           FormatSize.toString(FormatSizeStr, /*Radix=*/10);
           DiagRuntimeBehavior(TheCall->getBeginLoc(), TheCall,
                               PDiag(TruncationDiagID)
-                                  << GetFunctionName() << SpecifiedSizeStr
-                                  << FormatSizeStr);
+                                  << Checker.getFunctionName()
+                                  << SpecifiedSizeStr << FormatSizeStr);
         }
       }
     }
@@ -1557,7 +1546,7 @@ void Sema::checkFortifiedBuiltinMemoryFunction(FunctionDecl *FD,
       llvm::APSInt::compareValues(*SourceSize, *DestinationSize) <= 0)
     return;
 
-  std::string FunctionName = GetFunctionName();
+  std::string FunctionName = Checker.getFunctionName();
 
   SmallString<16> DestinationStr;
   SmallString<16> SourceStr;
