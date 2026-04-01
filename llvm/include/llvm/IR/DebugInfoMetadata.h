@@ -2123,6 +2123,7 @@ public:
   DebugEmissionKind getEmissionKind() const {
     return (DebugEmissionKind)EmissionKind;
   }
+  bool isNoDebug() const { return EmissionKind == NoDebug; }
   bool isDebugDirectivesOnly() const {
     return EmissionKind == DebugDirectivesOnly;
   }
