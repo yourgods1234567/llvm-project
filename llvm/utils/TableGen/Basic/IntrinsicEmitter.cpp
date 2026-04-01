@@ -334,6 +334,27 @@ static std::optional<uint32_t> encodePacked(const TypeSigTy &TypeSig) {
   return Result;
 }
 
+/// Emit IIT_Table[] and IIT_LongEncodingTable[] into \p OS
+/// (included via GET_INTRINSIC_GENERATOR_GLOBAL in Intrinsics.cpp).
+///
+/// TypeInfoGen<> in Intrinsics.td builds the TypeSig list,
+/// which IntrinsicEmitter.cpp packs using encodePacked().
+/// IIT_Table[] is fixed-width (one FixedEncodingTy entry per intrinsic) to
+/// allow O(1) lookup by intrinsic ID. The MSB of each entry distinguishes
+/// two storage paths.
+///
+///   Fixed (MSB=0)  : TypeSig inlined as nibbles directly in IIT_Table[].
+///   Long  (MSB=1)  : any code >= 16, or inlining would set the MSB.
+///     (the highest nibble's value is >= 8, which would be misread as a
+///     long-table offset at runtime).
+///     Raw bytes stored in IIT_LongEncodingTable[]; IIT_Table[] holds
+///     (offset | MSB_sentinel).
+///     SequenceToOffsetTable<> lays all sequences contiguously in one byte
+///     array and assigns each a start offset. It appends an implicit 0-byte
+///     terminator after each sequence (which is the IIT_Done token).
+///     Sequences sharing a common suffix - for example, two intrinsics both
+///     ending in [..., IIT_I32(4), IIT_I32(4), 0] - overlap in the buffer,
+///     so the shared trailing bytes are stored only once, reducing table size.
 void IntrinsicEmitter::EmitGenerator(const CodeGenIntrinsicTable &Ints,
                                      raw_ostream &OS) {
   // Note: the code below can be switched to use 32-bit fixed encoding by

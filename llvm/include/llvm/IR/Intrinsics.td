@@ -231,6 +231,70 @@ def IntrNoCreateUndefOrPoison : IntrinsicProperty;
 //===----------------------------------------------------------------------===//
 // IIT constants and utils
 //===----------------------------------------------------------------------===//
+// IIT (Intrinsic Information Table) Encoding
+//
+// Each intrinsic's type signature is encoded at build time (when tblgen
+// converts .td files to .inc) and decoded at runtime (when LLVM compiles IR)
+// via 3 cooperating components:
+//
+// 1. Token definitions: IIT_* records below assign a numeric code to each type 
+//    or type modifier. 
+//    TypeInfoGen<> walks each Intrinsic<> record and builds a flat byte
+//    sequence 'TypeSig' of IIT_* codes: return types first, then params.
+//    Each type position in the signature is encoded as a variable-length byte
+//    sequence. The first byte is always one of the IIT_* opcodes defined below
+//    and determines how subsequent bytes (if any) should be interpreted.
+//
+//    - Simple scalar types are self-contained in a single opcode byte:
+//        i32 -> IIT_I32 (= 4), i64 -> IIT_I64 (= 5)
+//    - Vector types encode the opcode for the vector width, immediately
+//      followed by the recursive encoding of the element type:
+//        <4 x i32>  -> [IIT_V4, IIT_I32] (= 10, 4)
+//    - Overloaded positions are encoded as IIT_ARG (= 15) followed by an
+//      ArgInfo byte where bits[2:0] identify the accepted type family 
+//      (1=AnyInt, 2=AnyFloat, 3=AnyVec, 4=AnyPtr) and bits[7:3] hold
+//      the overload slot index:
+//        llvm_anyint_ty at overload-index 0  -> [IIT_ARG, 0x01]
+//    - Positions whose type must match an overloaded slot use IIT_ARG with
+//      bits[2:0] = 7 (MatchType) and bits[7:3] = the slot index to match:
+//        LLVMMatchType<0>  -> [IIT_ARG, 0x07]
+//    - Multi-value returns are prefixed with IIT_STRUCT (= 21) and a count 
+//      byte encoding N-2 (minimum 2 fields -> 0, maximum 257 fields -> 255), 
+//      followed by the encoding of each field type:
+//        {i32, i64}  -> [IIT_STRUCT, 0, IIT_I32, IIT_I64]
+//
+//     TypeInfoGen<> concatenates type encodings for all return types first,
+//     then all parameter types in declaration order. 
+//     The return section has three forms:
+//      - Void return:         starts with IIT_Done (= 0).
+//      - Single return:       no prefix; the return type encoding starts directly.
+//      - Multi-value return:  starts with IIT_STRUCT + count byte as above.
+//
+//    For example, intrinsic with i64 return and (i32, i32, i8) parameters:
+//    TypeSig = [IIT_I64(5), IIT_I32(4), IIT_I32(4), IIT_I8(2)]
+// 
+// 2. Encoding Optimization: For each intrinsic ComputeTypeSignature() in 
+//    IntrinsicEmitter.cpp gets TypeSig byte sequence.
+//    EmitGenerator() then decides how to store this sequence in the generated
+//    tables in IntrinsicImpl.inc file. If the sequence is short and all IIT
+//    codes are less than 16, encodePacked() compresses it into packed nibbles
+//    and stores it directly in the IIT_Table entry for that intrinsic.
+//    Otherwise the full byte sequence is placed in IIT_LongEncodingTable[],
+//    and IIT_Table[] stores an offset into that table.
+//
+//    The example above (TypeSig [5,4,4,2]) packs to 0x2445 with bit 15 = 0,
+//    so it is inlined directly into IIT_Table[]. (Refer to EmitGenerator() in
+//    IntrinsicEmitter.cpp for the full details.)
+// 
+// 3. Decoding: getIntrinsicInfoTableEntries() in Intrinsics.cpp reads
+//    IIT_Table[id-1]. 
+//    The MSB selects one of the tables accordingly, unpacks the byte stream,
+//    and calls DecodeIITType() to build the IITDescriptor vector. Each
+//    IITDescriptor entry describes one type position in the signature. 
+//    For the example above, the result is [Integer(64), Integer(32),  
+//    Integer(32), Integer(8)], which is used by getType() to reconstruct the
+//    intrinsic's FunctionType and by matchIntrinsicSignature() to verify 
+//    call sites at runtime.
 
 // llvm::Intrinsic::IITDescriptor::ArgKind::AK_%
 def ArgKind {
@@ -669,6 +733,47 @@ def llvm_funcref_ty    : LLVMType<funcref>;
 def llvm_exnref_ty     : LLVMType<exnref>;
 
 //===----------------------------------------------------------------------===//
+// TypeInfoGen overview
+//
+// TypeInfoGen builds the TypeSig byte sequence for a single intrinsic by
+// lowering TableGen "Sig" encodings into the compact IIT_* representation
+// used at runtime.
+//
+// The following intermediate fields are constructed:
+//   AllTypes     -  all ret and param types concatenated in declaration order.
+//   ACTys        -  the subset of AllTypes passing the predicate:
+//                   ty.isAny OR isa<LLVMMatchTypeNextArg>(ty)
+//                   These define the overload slots.
+//   ArgCodes     -  ArgKind for each entry in ACTys (e.g. AnyInteger, 
+//                   AnyFloat, ...).
+//   ACIdxs       -  parallel to AllTypes. ACIdxs[i] is the count of
+//                   predicate-true entries seen before position i in AllTypes.
+//                   For a type that passes the predicate, ACIdxs[i] is its
+//                   index in ACTys. For a type that does not pass, ACIdxs[i]
+//                   is still propagated through ResolveArgCode but is not
+//                   consumed. Only used by EncAnyType and EncNextArgA.
+//   MappingRIdxs -  parallel to ACTys. MappingRIdxs[i] is the number of prior
+//                   isAny=true entries, i.e. the overload slot index among
+//                   any-types. Used by EncMatchType to map
+//                   LLVMMatchType<N>.Number (ACTys index) to a slot.
+//
+// With those tables built, TypeSig is assembled by iterating over AllTypes
+// and expanding each type's raw Sig bytes through ResolveArgCode:
+//
+//   ResolveArgCode(Mapping=MappingRIdxs, ArgCodes, ACIdx=ACIdxs[i], ax):
+//     ah = ax & 0xFF00   - identifies which Enc* class produced this byte
+//     al = ax & 0x00FF   - type-specific payload
+//     num = Mapping[al]  - overload slot index via MappingRIdxs
+//     EncAnyType  (0x100): ret = (ACIdx << 3) | al
+//                        - assigns this position to its overload slot with 
+//                          given ArgKind
+//     EncMatchType(0x200): ret = (num << 3) | AK_MatchType(7)
+//                        - al = LLVMMatchType<N>.Number, 
+//                          num = MappingRIdxs[al] = slot index
+//     EncSameWidth(0x300): ret = (num << 3) | ArgCodes[num]
+//     EncNextArgA (0x400): ret = ACIdx
+//     EncNextArgN (0x500): ret = num
+//     Otherwise          : ret = al  (already a final IIT_* code).
 
 // Computes the overload index for overloaded types used by an intrinsic.
 // Input `IsOverloadedType` is a list of booleans, one for each type in the

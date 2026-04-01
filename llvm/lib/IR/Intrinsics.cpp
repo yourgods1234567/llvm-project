@@ -352,6 +352,9 @@ DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
         IITDescriptor::get(IITDescriptor::Pointer, Infos[NextElt++]));
     return;
   case IIT_ARG: {
+    // IIT_ARG is the primary token for overloaded intrinsics, each "any"-typed
+    // parameter or return type is encoded as IIT_ARG + ArgInfo.
+    // ArgInfo byte: bits[2:0] = argument kind, bits[7:3] = argument index.
     unsigned ArgInfo = (NextElt == Infos.size() ? 0 : Infos[NextElt++]);
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Argument, ArgInfo));
     return;
@@ -436,6 +439,7 @@ DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
 #define GET_INTRINSIC_GENERATOR_GLOBAL
 #include "llvm/IR/IntrinsicImpl.inc"
 
+// Decode the IIT encoding for intrinsic \p id into \p T.
 void Intrinsic::getIntrinsicInfoTableEntries(
     ID id, SmallVectorImpl<IITDescriptor> &T) {
   // Note that `FixedEncodingTy` is defined in IntrinsicImpl.inc and can be
