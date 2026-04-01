@@ -636,6 +636,13 @@ __cpp_lib_void_t                                        201411L <type_traits>
 # define __cpp_lib_variant                              202306L
 #endif
 
+#if _LIBCPP_STD_VER >= 23
+# if __has_builtin(__builtin_std_embed) || (defined(_LIBCPP_HAS_EMBED) && (_LIBCPP_HAS_EMBED != 0))
+#   define __cpp_lib_embed                                 202607L
+# endif
+#endif
+
+
 #endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
 
 // clang-format on

@@ -3934,6 +3934,13 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (BuiltinCountedByRef(TheCall))
       return ExprError();
     break;
+  case Builtin::BI__builtin_std_embed:
+    // while we do not have Custom Typechecking,
+    // we have a `...` signature, so we do need to
+    // at least gently inspect some of the arguments
+    if (BuiltinStdEmbed(TheCall))
+      return ExprError();
+    break;
   }
 
   if (getLangOpts().HLSL && HLSL().CheckBuiltinFunctionCall(BuiltinID, TheCall))
@@ -6847,6 +6854,150 @@ bool Sema::BuiltinCountedByRef(CallExpr *TheCall) {
   }
 
   TheCall->setType(Context.getPointerType(Context.VoidTy));
+  return false;
+}
+
+bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
+  const bool HasProperArgCount = !checkArgCountAtLeast(TheCall, 5);
+  const bool HasExtraLimitArg = !checkArgCountAtMost(TheCall, 6) && TheCall->getNumArgs() == 6;
+  if (!HasProperArgCount && !HasExtraLimitArg)
+    return true;
+
+  const Expr *SizeRef = TheCall->getArg(0);
+  const Expr *PtrRef = TheCall->getArg(1);
+  const unsigned int ResourceNameSizeIndex = 2;
+  const Expr *ResourceNameSize = TheCall->getArg(ResourceNameSizeIndex);
+  const unsigned int ResourceNamePtrIndex = 3;
+  const Expr *ResourceNamePtr = TheCall->getArg(ResourceNamePtrIndex);
+  const unsigned int OffsetIndex = 4;
+  const Expr *Offset = TheCall->getArg(OffsetIndex);
+  const unsigned int LimitIndex = 5;
+  const Expr *Limit = HasExtraLimitArg ? TheCall->getArg(LimitIndex) : nullptr;
+
+  // Size argument type
+  QualType SizeRefTy = SizeRef->getType();
+  if ((!SizeRefTy->isIntegralOrUnscopedEnumerationType())
+      || SizeRefTy.isConstant(Context)
+      || !SizeRef->isLValue()) {
+    Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
+      << SizeRef << "__builtin_std_embed"
+      << SizeRef->getSourceRange();
+    return true;
+  }
+
+  // value pointer, has to be non-constant (but pointer to `const`).
+  // tells us what the type for the builtin return is, serves no other purpose.
+  QualType PtrRefTy = PtrRef->getType();
+  if (!PtrRefTy->isPointerType()) {
+    Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
+      << PtrRefTy << "__builtin_std_embed"
+      << PtrRef->getSourceRange();
+    return true;
+  }
+  QualType ArrElementTy = PtrRefTy->getPointeeType();
+  if (!ArrElementTy.isConstant(Context)) {
+    Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
+      << PtrRef << "__builtin_std_embed"
+      << PtrRef->getSourceRange();
+    return true;
+  }
+
+  const uint64_t CharSize = Context.getCharWidth();
+  if (!(ArrElementTy->isIntegralOrEnumerationType()
+        && Context.getTypeSize(ArrElementTy) == CharSize
+        && Context.getTypeAlign(ArrElementTy) == CharSize)) {
+    Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
+      << PtrRef << "__builtin_std_embed"
+      << PtrRef->getSourceRange();
+    return true;
+  }
+
+  // Next argument is size of the string
+  const QualType SizeType = Context.getSizeType();
+  QualType ResourceNameSizeTy = ResourceNameSize->getType();
+  if (!ResourceNameSizeTy->isIntegralOrEnumerationType()) {
+    Expr *ResourceNameSizeMutable = const_cast<Expr *>(ResourceNameSize);
+    ExprResult ImplicitResourceNameSizeFixupResult = PerformImplicitConversion(ResourceNameSizeMutable, SizeType, AssignmentAction::Passing);
+    if (!ImplicitResourceNameSizeFixupResult.isUsable()) {
+      Diag(TheCall->getBeginLoc(), diag::err_typecheck_converted_constant_expression)
+        << ResourceNameSizeTy << SizeType;
+      return true;
+    }
+    // The implicit conversion worked -- adjust the builtin's argument.
+    TheCall->setArg(ResourceNameSizeIndex, ImplicitResourceNameSizeFixupResult.get());
+  }
+
+  // Pointer to an appropriate string type
+  // (char, wchar_t, or char8_t)
+  QualType ResourceNamePtrTy = ResourceNamePtr->getType();
+  if (!ResourceNamePtrTy->isPointerType()) {
+    const QualType AllowedTypes[3] = {
+      Context.getPointerType(Context.CharTy),
+      Context.getPointerType(Context.WCharTy),
+      Context.getPointerType(Context.Char8Ty)
+    };
+    Expr *ResourceNamePtrMutable =  const_cast<Expr *>(ResourceNamePtr);
+    ExprResult ImplicitResourceNamePtrFixupResult;
+    for (const QualType& DesiredType : AllowedTypes) {
+      ImplicitResourceNamePtrFixupResult = PerformImplicitConversion(ResourceNamePtrMutable, DesiredType, AssignmentAction::Passing);
+      if (ImplicitResourceNamePtrFixupResult.isUsable()) {
+        break;
+      }
+    }
+    if (!ImplicitResourceNamePtrFixupResult.isUsable()) {
+      Diag(ResourceNamePtr->getBeginLoc(), diag::err_typecheck_converted_constant_expression)
+         << ResourceNamePtrTy << "a pointer to char, wchar_t, or char8_t";
+      return true;
+    }
+    TheCall->setArg(ResourceNamePtrIndex, ImplicitResourceNamePtrFixupResult.get());
+    ResourceNamePtr = TheCall->getArg(ResourceNamePtrIndex);
+    ResourceNamePtrTy = ResourceNamePtr->getType();
+  }
+  QualType ResourceNameCharTy(ResourceNamePtrTy->getPointeeOrArrayElementType(), 0);
+  if (!ResourceNameCharTy->isCharType()
+      && !ResourceNameCharTy->isChar8Type()
+      && !ResourceNameCharTy->isWideCharType()) {
+      Diag(ResourceNamePtr->getBeginLoc(), diag::err_typecheck_convert_incompatible_pointer)
+        << 1 << 1 << 1 << 0;
+      return true;
+    
+  }
+
+  // Check the integer-convertible argument is offset
+  QualType OffsetTy = Offset->getType();
+  if (!OffsetTy->isIntegralOrEnumerationType()) {
+    Expr *OffsetMutable =  const_cast<Expr *>(Offset);
+    ExprResult ImplicitOffsetFixupResult = PerformImplicitConversion(OffsetMutable, SizeType, AssignmentAction::Passing);
+    if (!ImplicitOffsetFixupResult.isUsable()) {
+      Diag(TheCall->getBeginLoc(), diag::err_typecheck_converted_constant_expression)
+        << ResourceNameSizeTy << SizeType;
+      return true;
+    }
+    // The implicit conversion worked -- adjust the builtin's argument.
+    TheCall->setArg(OffsetIndex, ImplicitOffsetFixupResult.get());
+  }
+
+  if (HasExtraLimitArg) {
+    // If present, final argument is offset
+    QualType LimitTy = Limit->getType();
+    if (!LimitTy->isIntegralOrEnumerationType()) {
+      Expr *LimitMutable =  const_cast<Expr *>(Limit);
+      ExprResult ImplicitLimitFixupResult = PerformImplicitConversion(LimitMutable, SizeType, AssignmentAction::Passing);
+      if (!ImplicitLimitFixupResult.isUsable()) {
+        Diag(TheCall->getBeginLoc(), diag::err_typecheck_converted_constant_expression)
+        << ResourceNameSizeTy << SizeType;
+        return true;
+      }
+      // The implicit conversion worked -- adjust the builtin's argument.
+      TheCall->setArg(LimitIndex, ImplicitLimitFixupResult.get());
+    }
+  }
+
+  // return the same type as was put in; we don't actually do anything with
+  // the pointer-reference type other than to use it for
+  // proper typesetting.
+  TheCall->setType(PtrRefTy);
+
   return false;
 }
 

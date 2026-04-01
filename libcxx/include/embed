@@ -1,0 +1,113 @@
+// -*- C++ -*-
+//===----------------------------------------------------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===---------------------------------------------------------------------===//
+
+#ifndef _LIBCPP_EMBED
+#define _LIBCPP_EMBED
+
+/*
+    embed synopsis
+
+namespace std {
+
+  template <typename T>
+consteval span<const T> embed(string_view resource_idenfier,
+  size_t offset = 0,
+  optional<size_t> limit = nullopt);
+
+  template <typename T>
+consteval span<const T> embed(wstring_view resource_idenfier,
+  size_t offset = 0,
+  optional<size_t> limit = nullopt);
+
+  template <typename T>
+consteval span<const T> embed(u8string_view resource_idenfier,
+  size_t offset = 0,
+  optional<size_t> limit = nullopt);
+
+} // namespace std
+
+*/
+
+#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#  include <__cxx03/__config>
+#else
+#  include <__config>
+#  include <__cstddef/byte.h>
+#  include <__type_traits/is_enum.h>
+#  include <__type_traits/is_integral.h>
+#  include <__type_traits/is_same.h>
+#  include <optional>
+#  include <span>
+#  include <string_view>
+#  include <version>
+
+#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#    pragma GCC system_header
+#  endif
+
+_LIBCPP_PUSH_MACROS
+#  include <__undef_macros>
+
+#  if !defined(_LIBCPP_HAS_EMBED)
+#    if __has_builtin(__builtin_std_embed)
+#      define _LIBCPP_HAS_EMBED 1
+#    else
+#      define _LIBCPP_HAS_EMBED 0
+#    endif
+#  endif
+
+#  if _LIBCPP_HAS_EMBED != 0
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+namespace __embed_detail {
+template <typename _Byte, typename _StrView>
+consteval span<const _Byte>
+__embed(const _StrView& __resource_identifier, size_t __offset = 0, optional<size_t> __limit = nullopt) {
+  static_assert(sizeof(_Byte) == 1 && alignof(_Byte) == 1 && (is_integral<_Byte>::value || is_enum<_Byte>::value),
+                "embed data type must be a character type with a size and alignment of 1");
+  size_t __size      = 0;
+  _Byte const* __ptr = nullptr;
+  if (__limit) {
+    __ptr = __builtin_std_embed(
+        __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, *__limit);
+  } else {
+    __ptr = __builtin_std_embed(__size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset);
+  }
+  return span<const _Byte>(__ptr, __size);
+}
+} // namespace __embed_detail
+
+template <typename _Byte>
+consteval span<const _Byte>
+embed(string_view __resource_identifier, size_t __offset = 0, optional<size_t> __limit = nullopt) {
+  return __embed_detail::__embed<_Byte>(__resource_identifier, __offset, __limit);
+}
+
+template <typename _Byte>
+consteval span<const _Byte>
+embed(wstring_view __resource_identifier, size_t __offset = 0, optional<size_t> __limit = nullopt) {
+  return __embed_detail::__embed<_Byte>(__resource_identifier, __offset, __limit);
+}
+
+template <typename _Byte>
+consteval span<const _Byte>
+embed(u8string_view __resource_identifier, size_t __offset = 0, optional<size_t> __limit = nullopt) {
+  return __embed_detail::__embed<_Byte>(__resource_identifier, __offset, __limit);
+}
+
+_LIBCPP_END_NAMESPACE_STD
+
+#  endif
+
+_LIBCPP_POP_MACROS
+
+#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+
+#endif // _LIBCPP_EMBED
