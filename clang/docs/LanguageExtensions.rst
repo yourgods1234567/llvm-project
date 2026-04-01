@@ -6810,6 +6810,37 @@ The ``#pragma comment(lib, ...)`` directive is supported on all ELF targets.
 The second parameter is the library name (without the traditional Unix prefix of
 ``lib``).  This allows you to provide an implicit link of dependent libraries.
 
+Embedding Copyright Information on AIX
+======================================
+Clang supports the ``#pragma comment(copyright, "string")`` directive on AIX
+targets. This directive embeds a copyright or identifying string into the
+compiled object file so that the string survives into shared libraries and
+executables. The directive is silently ignored on non-AIX targets.
+
+.. code-block:: c
+
+   #pragma comment(copyright, "string-literal")
+
+The *string-literal* may be any ordinary string constant, including
+concatenated string literals. The directive may appear at file scope; it is
+not meaningful inside a function body.
+
+When the directive is processed, Clang emits two read-only XCOFF csect symbols
+into the ``.text`` section of the object file:
+
+``__loadtime_comment``
+  A csect (storage-class ``unamex``, type ``RO``) that contains the comment
+  string data and serves as the owning section for the symbol.
+
+``__loadtime_comment_str``
+  A label (storage-class ``unamex``, type ``LD``) at the same address as
+  ``__loadtime_comment``, pointing directly to the embedded string. This is
+  the symbol that tools such as ``strings`` and ``what`` typically resolve.
+
+Both symbols reside in the ``.text`` segment and are marked read-only, so the
+string is linked into any binary that includes the object file and remains
+visible at run time.
+
 Evaluating Object Size
 ======================
 
