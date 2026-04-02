@@ -1291,7 +1291,6 @@ std::string NVPTXTargetLowering::getPrototype(
   return Prototype;
 }
 
-
 static bool shouldConvertToIndirectCall(const CallBase *CB,
                                         const GlobalAddressSDNode *Func) {
   if (!Func)
