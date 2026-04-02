@@ -51,6 +51,7 @@ FunctionPass *createSIFixSGPRCopiesLegacyPass();
 FunctionPass *createLowerWWMCopiesPass();
 FunctionPass *createSIMemoryLegalizerPass();
 FunctionPass *createSIInsertWaitcntsPass();
+FunctionPass *createSIInsertWaterfallPass();
 FunctionPass *createSIPreAllocateWWMRegsLegacyPass();
 FunctionPass *createSIFormMemoryClausesLegacyPass();
 
@@ -231,6 +232,9 @@ extern char &SILateBranchLoweringPassID;
 
 void initializeSIOptimizeExecMaskingLegacyPass(PassRegistry &);
 extern char &SIOptimizeExecMaskingLegacyID;
+
+void initializeSIInsertWaterfallPass(PassRegistry &);
+extern char &SIInsertWaterfallID;
 
 void initializeSIPreAllocateWWMRegsLegacyPass(PassRegistry &);
 extern char &SIPreAllocateWWMRegsLegacyID;
