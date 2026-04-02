@@ -1803,7 +1803,8 @@ def CrossTU : DiagGroup<"ctu">;
 
 def CTADMaybeUnsupported : DiagGroup<"ctad-maybe-unsupported">;
 
-def FortifySource : DiagGroup<"fortify-source", [FormatOverflow, FormatTruncation]>;
+def FortifySource
+    : DiagGroup<"fortify-source", [FormatOverflow, FormatTruncation]>;
 
 def OverflowBehaviorAttributeIgnored
     : DiagGroup<"overflow-behavior-attribute-ignored">;
