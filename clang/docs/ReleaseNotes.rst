@@ -353,6 +353,8 @@ Improvements to Clang's diagnostics
 - Improved ``-Wgnu-zero-variadic-macro-arguments`` to suggest using
   ``__VA_OPT__`` if the current language version supports it(#GH188624)
 
+- ``-Wimplicit-fallthrough`` was added to ``-Wextra`` for GCC compatibility.
+
 Improvements to Clang's time-trace
 ----------------------------------
 
