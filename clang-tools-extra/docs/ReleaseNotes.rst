@@ -148,7 +148,8 @@ New checks
 - New :doc:`modernize-use-if-consteval
   <clang-tidy/checks/modernize/use-if-consteval>` check.
 
-  Use ``if consteval`` instead of ``std::is_constant_evaluated`` in if statements.
+  Replaces direct ``std::is_constant_evaluated()`` checks in ``if`` statements
+  with C++23's ``if consteval`` syntax.
 
 - New :doc:`modernize-use-std-bit
   <clang-tidy/checks/modernize/use-std-bit>` check.
