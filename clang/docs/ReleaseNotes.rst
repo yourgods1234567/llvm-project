@@ -252,6 +252,8 @@ Attribute Changes in Clang
   sound because any writer must hold all capabilities, so holding any one
   prevents concurrent writes.
 
+- Clang now allows GNU attributes between a member declarator and bit-field width. (#GH184954)
+
 Improvements to Clang's diagnostics
 -----------------------------------
 - ``-Wunused-but-set-variable`` now diagnoses file-scope variables with
