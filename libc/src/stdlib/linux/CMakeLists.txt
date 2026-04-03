@@ -9,3 +9,22 @@ add_entrypoint_object(
     libc.src.signal.raise
     libc.src.stdlib._Exit
 )
+
+add_entrypoint_object(
+  setenv
+  SRCS
+    setenv.cpp
+  HDRS
+    ../setenv.h
+  DEPENDS
+    libc.src.stdlib.environ_internal
+    libc.hdr.func.aligned_alloc
+    libc.hdr.func.malloc
+    libc.src.__support.common
+    libc.src.__support.CPP.new
+    libc.src.__support.CPP.string_view
+    libc.src.__support.libc_errno
+    libc.src.__support.macros.null_check
+    libc.src.string.memory_utils.inline_memcpy
+    libc.src.string.string_utils
+)

@@ -62,7 +62,25 @@ add_entrypoint_object(
   HDRS
     getenv.h
   DEPENDS
-  libc.config.app_h
+    libc.config.app_h
+    .environ_internal
+)
+
+
+add_object_library(
+  environ_internal
+  SRCS
+    environ_internal.cpp
+  HDRS
+    environ_internal.h
+  DEPENDS
+    libc.config.app_h
+    libc.hdr.func.aligned_alloc
+    libc.hdr.func.malloc
+    libc.hdr.types.size_t
+    libc.src.__support.CPP.new
+    libc.src.__support.CPP.string_view
+    libc.src.__support.macros.config
 )
 
 add_entrypoint_object(
@@ -607,6 +625,13 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${LIBC_TARGET_OS})
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/${LIBC_TARGET_OS})
 endif()
 
+add_entrypoint_object(
+  setenv
+  ALIAS
+  DEPENDS
+    .${LIBC_TARGET_OS}.setenv
+)
+
 if(LIBC_TARGET_OS_IS_BAREMETAL OR LIBC_TARGET_OS_IS_GPU)
   add_entrypoint_object(
     malloc
@@ -719,6 +744,7 @@ add_entrypoint_object(
   DEPENDS
     .${LIBC_TARGET_OS}.abort
 )
+
 
 add_entrypoint_object(
   system
