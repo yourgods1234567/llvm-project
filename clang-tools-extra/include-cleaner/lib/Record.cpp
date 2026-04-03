@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang-include-cleaner/Record.h"
+#include "TypesInternal.h"
 #include "clang-include-cleaner/Types.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -75,6 +76,7 @@ public:
 
     Include I;
     I.HashLocation = Hash;
+    I.FilenameLocation = FilenameRange.getBegin();
     I.Resolved = File;
     I.Line = SM.getSpellingLineNumber(Hash);
     I.Spelled = SpelledFilename;
@@ -84,13 +86,13 @@ public:
 
   void MacroExpands(const Token &MacroName, const MacroDefinition &MD,
                     SourceRange Range, const MacroArgs *Args) override {
-    if (!Active)
+    if (!shouldRecordMacroRef(MacroName.getLocation()))
       return;
     recordMacroRef(MacroName, *MD.getMacroInfo());
   }
 
   void MacroDefined(const Token &MacroName, const MacroDirective *MD) override {
-    if (!Active)
+    if (!shouldRecordMacroRef(MacroName.getLocation()))
       return;
 
     const auto *MI = MD->getMacroInfo();
@@ -110,7 +112,7 @@ public:
 
   void MacroUndefined(const Token &MacroName, const MacroDefinition &MD,
                       const MacroDirective *) override {
-    if (!Active)
+    if (!shouldRecordMacroRef(MacroName.getLocation()))
       return;
     if (const auto *MI = MD.getMacroInfo())
       recordMacroRef(MacroName, *MI);
@@ -118,7 +120,7 @@ public:
 
   void Ifdef(SourceLocation Loc, const Token &MacroNameTok,
              const MacroDefinition &MD) override {
-    if (!Active)
+    if (!shouldRecordMacroRef(MacroNameTok.getLocation()))
       return;
     if (const auto *MI = MD.getMacroInfo())
       recordMacroRef(MacroNameTok, *MI, RefType::Ambiguous);
@@ -126,7 +128,7 @@ public:
 
   void Ifndef(SourceLocation Loc, const Token &MacroNameTok,
               const MacroDefinition &MD) override {
-    if (!Active)
+    if (!shouldRecordMacroRef(MacroNameTok.getLocation()))
       return;
     if (const auto *MI = MD.getMacroInfo())
       recordMacroRef(MacroNameTok, *MI, RefType::Ambiguous);
@@ -136,14 +138,14 @@ public:
   using PPCallbacks::Elifndef;
   void Elifdef(SourceLocation Loc, const Token &MacroNameTok,
                const MacroDefinition &MD) override {
-    if (!Active)
+    if (!shouldRecordMacroRef(MacroNameTok.getLocation()))
       return;
     if (const auto *MI = MD.getMacroInfo())
       recordMacroRef(MacroNameTok, *MI, RefType::Ambiguous);
   }
   void Elifndef(SourceLocation Loc, const Token &MacroNameTok,
                 const MacroDefinition &MD) override {
-    if (!Active)
+    if (!shouldRecordMacroRef(MacroNameTok.getLocation()))
       return;
     if (const auto *MI = MD.getMacroInfo())
       recordMacroRef(MacroNameTok, *MI, RefType::Ambiguous);
@@ -151,13 +153,17 @@ public:
 
   void Defined(const Token &MacroNameTok, const MacroDefinition &MD,
                SourceRange Range) override {
-    if (!Active)
+    if (!shouldRecordMacroRef(MacroNameTok.getLocation()))
       return;
     if (const auto *MI = MD.getMacroInfo())
       recordMacroRef(MacroNameTok, *MI, RefType::Ambiguous);
   }
 
 private:
+  bool shouldRecordMacroRef(SourceLocation Loc) const {
+    return locateInMainFile(Loc, SM) != MainFileLocation::Other;
+  }
+
   void recordMacroRef(const Token &Tok, const MacroInfo &MI,
                       RefType RT = RefType::Explicit) {
     if (MI.isBuiltinMacro())

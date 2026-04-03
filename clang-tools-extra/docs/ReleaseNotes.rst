@@ -310,12 +310,17 @@ Changes in existing checks
 
   - Added support for analyzing function parameters with the `AnalyzeParameters`
     option.
-
   - Fixed false positive where an array of pointers to ``const`` was
     incorrectly diagnosed as allowing the pointee to be made ``const``.
 
   - Fixed false positive where a pointer used with placement new was
     incorrectly diagnosed as allowing the pointee to be made ``const``.
+
+- Improved :doc:`misc-include-cleaner
+  <clang-tidy/checks/misc/include-cleaner>` check by adding the
+  `FragmentHeaders` option for fragment-aware usage scanning and the
+  `FragmentDependencyCommentFormat` option for annotating includes kept only by
+  those fragments.
 
 - Improved :doc:`misc-multiple-inheritance
   <clang-tidy/checks/misc/multiple-inheritance>` by avoiding false positives when
@@ -475,6 +480,14 @@ Miscellaneous
 
 Improvements to include-fixer
 -----------------------------
+
+Improvements to clang-include-cleaner
+-------------------------------------
+
+- Added :program:`clang-include-cleaner` support for treating matching direct
+  includes as fragments of the main file with ``--fragment-headers`` and for
+  optionally annotating preserved includes with
+  ``--fragment-dependency-comment-format``.
 
 Improvements to clang-include-fixer
 -----------------------------------
