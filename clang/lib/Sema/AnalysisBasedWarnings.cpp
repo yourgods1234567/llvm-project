@@ -32,6 +32,7 @@
 #include "clang/Analysis/Analyses/CFGReachabilityAnalysis.h"
 #include "clang/Analysis/Analyses/CalledOnceCheck.h"
 #include "clang/Analysis/Analyses/Consumed.h"
+#include "clang/Analysis/Analyses/FlowNullability.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/LifetimeSafety.h"
 #include "clang/Analysis/Analyses/ReachableCode.h"
 #include "clang/Analysis/Analyses/ThreadSafety.h"
@@ -2931,8 +2932,50 @@ LifetimeSafetyTUAnalysis(Sema &S, TranslationUnitDecl *TU,
   }
 }
 
+namespace {
+class FlowNullabilityReporter : public FlowNullabilityHandler {
+  Sema &S;
+
+public:
+  FlowNullabilityReporter(Sema &S) : S(S) {}
+
+  void handleNullableDereference(const Expr *DerefExpr,
+                                 QualType PtrType) override {
+    S.Diag(DerefExpr->getExprLoc(), diag::warn_flow_nullable_dereference)
+        << PtrType;
+    S.Diag(DerefExpr->getExprLoc(), diag::note_nullable_dereference_fix);
+  }
+
+  void handleNullableArithmetic(const Expr *ArithExpr,
+                                QualType PtrType) override {
+    S.Diag(ArithExpr->getExprLoc(), diag::warn_flow_nullable_arithmetic)
+        << PtrType;
+    S.Diag(ArithExpr->getExprLoc(), diag::note_nullable_arithmetic_fix);
+  }
+
+  void handleNullableReturn(const Expr *ReturnExpr, QualType ExprType,
+                            QualType ReturnType) override {
+    S.Diag(ReturnExpr->getExprLoc(), diag::warn_flow_nullable_return);
+    S.Diag(ReturnExpr->getExprLoc(), diag::note_nullable_return_fix);
+  }
+
+  void handleNullableAssignment(const Expr *AssignExpr,
+                                const VarDecl *LHSVar) override {
+    S.Diag(AssignExpr->getExprLoc(), diag::warn_flow_nullable_assignment)
+        << LHSVar;
+    S.Diag(AssignExpr->getExprLoc(), diag::note_nullable_assignment_fix);
+  }
+
+  void handleNullableArgument(const Expr *ArgExpr,
+                              const ParmVarDecl *Param) override {
+    S.Diag(ArgExpr->getExprLoc(), diag::warn_flow_nullable_argument) << Param;
+    S.Diag(ArgExpr->getExprLoc(), diag::note_nullable_argument_fix);
+  }
+};
+} // anonymous namespace
+
 void clang::sema::AnalysisBasedWarnings::IssueWarnings(
-     TranslationUnitDecl *TU) {
+    TranslationUnitDecl *TU) {
   if (!TU)
     return; // This is unexpected, give up quietly.
 
@@ -3047,19 +3090,24 @@ void clang::sema::AnalysisBasedWarnings::IssueWarnings(
   // prototyping, but we need a way for analyses to say what expressions they
   // expect to always be CFGElements and then fill in the BuildOptions
   // appropriately.  This is essentially a layering violation.
+  bool EnableFlowNullability =
+      S.getLangOpts().FlowSensitiveNullability &&
+      !Diags.isIgnored(diag::warn_flow_nullable_dereference, D->getBeginLoc());
+
   if (P.enableCheckUnreachable || P.enableThreadSafetyAnalysis ||
-      P.enableConsumedAnalysis || EnableLifetimeSafetyAnalysis) {
-    // Unreachable code analysis and thread safety require a linearized CFG.
+      P.enableConsumedAnalysis || EnableLifetimeSafetyAnalysis ||
+      EnableFlowNullability) {
+    // These analyses require a linearized CFG with all statements visible.
     AC.getCFGBuildOptions().setAllAlwaysAdd();
   } else {
     AC.getCFGBuildOptions()
-      .setAlwaysAdd(Stmt::BinaryOperatorClass)
-      .setAlwaysAdd(Stmt::CompoundAssignOperatorClass)
-      .setAlwaysAdd(Stmt::BlockExprClass)
-      .setAlwaysAdd(Stmt::CStyleCastExprClass)
-      .setAlwaysAdd(Stmt::DeclRefExprClass)
-      .setAlwaysAdd(Stmt::ImplicitCastExprClass)
-      .setAlwaysAdd(Stmt::UnaryOperatorClass);
+        .setAlwaysAdd(Stmt::BinaryOperatorClass)
+        .setAlwaysAdd(Stmt::CompoundAssignOperatorClass)
+        .setAlwaysAdd(Stmt::BlockExprClass)
+        .setAlwaysAdd(Stmt::CStyleCastExprClass)
+        .setAlwaysAdd(Stmt::DeclRefExprClass)
+        .setAlwaysAdd(Stmt::ImplicitCastExprClass)
+        .setAlwaysAdd(Stmt::UnaryOperatorClass);
   }
   if (EnableLifetimeSafetyAnalysis)
     AC.getCFGBuildOptions().AddLifetime = true;
@@ -3115,6 +3163,28 @@ void clang::sema::AnalysisBasedWarnings::IssueWarnings(
     threadSafety::runThreadSafetyAnalysis(AC, Reporter,
                                           &S.ThreadSafetyDeclCache);
     Reporter.emitDiagnostics();
+  }
+
+  // Gradual adoption: only run flow-sensitive nullability when the function
+  // opts in — either via -fnullability-default, an active assume_nonnull
+  // pragma, or explicit nullability annotations on the function signature.
+  // Computed here (not stored on Sema) to avoid scoping bugs when lambda
+  // bodies interleave with the enclosing function's processing.
+  if (EnableFlowNullability) {
+    bool FlowNullabilityForFunc = S.getLangOpts().getNullabilityDefault() !=
+                                      NullabilityKind::Unspecified ||
+                                  S.PP.getPragmaAssumeNonNullLoc().isValid();
+    if (!FlowNullabilityForFunc) {
+      if (const auto *FD = dyn_cast<FunctionDecl>(D))
+        FlowNullabilityForFunc = S.functionHasNullabilityAnnotations(FD);
+    }
+    if (FlowNullabilityForFunc && AC.getCFG()) {
+      llvm::TimeTraceScope TimeProfile("FlowNullabilityAnalysis");
+      FlowNullabilityReporter Reporter(S);
+      NullabilityKind Default = S.getLangOpts().getNullabilityDefault();
+      bool StrictMode = (Default != NullabilityKind::Unspecified);
+      runFlowNullabilityAnalysis(AC, Reporter, StrictMode, Default);
+    }
   }
 
   // Check for violations of consumed properties.
