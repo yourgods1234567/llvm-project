@@ -51,6 +51,7 @@
 #include "MisplacedOperatorInStrlenInAllocCheck.h"
 #include "MisplacedPointerArithmeticInAllocCheck.h"
 #include "MisplacedWideningCastCheck.h"
+#include "MissingEndComparisonCheck.h"
 #include "MoveForwardingReferenceCheck.h"
 #include "MultiLevelImplicitPointerConversionCheck.h"
 #include "MultipleNewInOneExpressionCheck.h"
@@ -209,6 +210,8 @@ public:
         "bugprone-misplaced-pointer-arithmetic-in-alloc");
     CheckFactories.registerCheck<MisplacedWideningCastCheck>(
         "bugprone-misplaced-widening-cast");
+    CheckFactories.registerCheck<MissingEndComparisonCheck>(
+        "bugprone-missing-end-comparison");
     CheckFactories.registerCheck<MoveForwardingReferenceCheck>(
         "bugprone-move-forwarding-reference");
     CheckFactories.registerCheck<MultiLevelImplicitPointerConversionCheck>(
