@@ -92,63 +92,45 @@ int bar()
 
 // CHECK-LABEL: @"?foo1@@YAXXZ"()
 //
-// NORMAL PATH
-//
-// no spurious seh.scope.begin from PerformSEHFinally push
 // CHECK-NOT: invoke void @llvm.seh.scope.begin()
 // CHECK:     invoke void @llvm.seh.try.begin()
 //
-// only one seh.try.begin (from EmitSEHTryStmt):
 // CHECK-NOT: invoke void @llvm.seh.try.begin()
 // CHECK:     invoke.cont1:
 //
-// operator-delete EH cleanup push emits seh.scope.begin[1]
 // CHECK:     invoke void @llvm.seh.scope.begin()
 // CHECK:     invoke noundef ptr @"??0A@@QEAA@XZ"
 //
-// deactivation emits seh.scope.end[1]
 // CHECK:     invoke void @llvm.seh.scope.end()
 //
-// no stray seh markers between the two scope pairs:
 // CHECK-NOT: @llvm.seh
 //
-// delete-dtor cleanup push emits seh.scope.begin[2]
 // CHECK:     invoke void @llvm.seh.scope.begin()
 //
-// no extra scope markers before dtor call:
 // CHECK-NOT: @llvm.seh.scope
 // CHECK:     invoke void @"??1A@@QEAA@XZ"
 //
-// dtor cleanup pop emits seh.scope.end[2], not seh.try.end
 // CHECK:     invoke void @llvm.seh.scope.end()
 // CHECK-NOT: @llvm.seh
 // CHECK:     br label %delete.end
 //
-// pop emits seh.try.end (correct pairing)
 // CHECK:     invoke void @llvm.seh.try.end()
 //
-// only one seh.try.end (paired with the single seh.try.begin):
 // CHECK-NOT: invoke void @llvm.seh.try.end()
 // CHECK:     invoke.cont15:
 //
-// normal __finally call path
 // CHECK:     call void @"?fin$0@0@foo1@@"(i8 noundef 0
 // CHECK-NOT: @llvm.seh
 //
-// EH PATH
-//
-// dtor EH cleanup correctly emits seh.scope.end
 // CHECK:     ehcleanup:
 // CHECK:     invoke void @llvm.seh.scope.end()
 // CHECK:     invoke.cont7:
 // CHECK:     cleanupret
 //
-// operator-delete EH cleanup correctly emits seh.scope.end
 // CHECK:     invoke void @llvm.seh.scope.end()
 // CHECK:     invoke.cont14:
 // CHECK:     cleanupret
 //
-// EH __finally path must NOT emit seh.scope.end
 // CHECK:     ehcleanup16:
 // CHECK:     call void @"?fin$0@0@foo1@@"(i8 noundef 1
 // CHECK-NOT: @llvm.seh
@@ -162,6 +144,59 @@ void foo1() {
 	__try {
 		A* a = new A;
 		delete a;
+	}
+	__finally {
+	}
+}
+
+// CHECK-LABEL: @"?seh_no_cpp@@YAXXZ"()
+// CHECK-NOT: @llvm.seh.scope
+// CHECK:     invoke void @llvm.seh.try.begin()
+// CHECK-NOT: @llvm.seh.scope
+// CHECK:     invoke void @"?might_throw@@YAXXZ"()
+// CHECK-NOT: @llvm.seh.scope
+// CHECK:     invoke void @llvm.seh.try.end()
+// CHECK-NOT: @llvm.seh.scope
+// CHECK:     call void @"?fin$0@0@seh_no_cpp@@"(i8 noundef 0
+// CHECK-NOT: @llvm.seh.scope
+// CHECK:     call void @"?fin$0@0@seh_no_cpp@@"(i8 noundef 1
+// CHECK-NOT: @llvm.seh.scope
+// CHECK:     cleanupret
+void might_throw();
+void seh_no_cpp() {
+	__try {
+		might_throw();
+	}
+	__finally {
+	}
+}
+
+// CHECK-LABEL: @"?seh_with_cpp@@YAXPEAUA@@@Z"(
+//
+// CHECK-NOT: @llvm.seh.scope
+// CHECK:     invoke void @llvm.seh.try.begin()
+//
+// CHECK:     invoke void @llvm.seh.scope.begin()
+// CHECK:     invoke void @"??1A@@QEAA@XZ"
+//
+// CHECK:     invoke void @llvm.seh.scope.end()
+//
+// CHECK-NOT: @llvm.seh.scope
+//
+// CHECK:     invoke void @llvm.seh.try.end()
+//
+// CHECK-NOT: @llvm.seh.scope
+// CHECK:     call void @"?fin$0@0@seh_with_cpp@@"(i8 noundef 0
+//
+// CHECK:     invoke void @llvm.seh.scope.end()
+// CHECK:     cleanupret
+//
+// CHECK:     call void @"?fin$0@0@seh_with_cpp@@"(i8 noundef 1
+// CHECK-NOT: @llvm.seh
+// CHECK:     cleanupret
+void seh_with_cpp(A* p) {
+	__try {
+		delete p;
 	}
 	__finally {
 	}
