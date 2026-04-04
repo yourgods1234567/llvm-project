@@ -60,16 +60,19 @@ FunctionPass *llvm::createAArch64PointerAuthPass() {
 
 char AArch64PointerAuthLegacy::ID = 0;
 
-static void emitPACSymOffsetIntoX16(const TargetInstrInfo &TII,
-                                    MachineBasicBlock &MBB,
-                                    MachineBasicBlock::iterator I, DebugLoc DL,
-                                    MCSymbol *PACSym) {
-  BuildMI(MBB, I, DL, TII.get(AArch64::ADRP), AArch64::X16)
-      .addSym(PACSym, AArch64II::MO_PAGE);
-  BuildMI(MBB, I, DL, TII.get(AArch64::ADDXri), AArch64::X16)
-      .addReg(AArch64::X16)
+static void emitEpiloguePACSymOffsetIntoReg(const TargetInstrInfo &TII,
+                                            MachineBasicBlock &MBB,
+                                            MachineBasicBlock::iterator I,
+                                            DebugLoc DL, MCSymbol *PACSym,
+                                            Register Reg) {
+  BuildMI(MBB, I, DL, TII.get(AArch64::ADRP), Reg)
+      .addSym(PACSym, AArch64II::MO_PAGE)
+      .setMIFlag(MachineInstr::FrameDestroy);
+  BuildMI(MBB, I, DL, TII.get(AArch64::ADDXri), Reg)
+      .addReg(Reg)
       .addSym(PACSym, AArch64II::MO_PAGEOFF | AArch64II::MO_NC)
-      .addImm(0);
+      .addImm(0)
+      .setMIFlag(MachineInstr::FrameDestroy);
 }
 
 static void emitPACCFI(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
@@ -175,7 +178,8 @@ void AArch64PointerAuthImpl::authenticateLR(
           .setMIFlag(MachineInstr::FrameDestroy);
     } else {
       if (MFnI->branchProtectionPAuthLR()) {
-        emitPACSymOffsetIntoX16(*TII, MBB, MBBI, DL, PACSym);
+        emitEpiloguePACSymOffsetIntoReg(*TII, MBB, MBBI, DL, PACSym,
+                                        AArch64::X16);
         BuildMI(MBB, MBBI, DL, TII->get(AArch64::PACM))
             .setMIFlag(MachineInstr::FrameDestroy);
       }
@@ -194,7 +198,8 @@ void AArch64PointerAuthImpl::authenticateLR(
           .setMIFlag(MachineInstr::FrameDestroy);
     } else {
       if (MFnI->branchProtectionPAuthLR()) {
-        emitPACSymOffsetIntoX16(*TII, MBB, MBBI, DL, PACSym);
+        emitEpiloguePACSymOffsetIntoReg(*TII, MBB, MBBI, DL, PACSym,
+                                        AArch64::X16);
         BuildMI(MBB, MBBI, DL, TII->get(AArch64::PACM))
             .setMIFlag(MachineInstr::FrameDestroy);
         emitPACCFI(MBB, MBBI, MachineInstr::FrameDestroy, EmitAsyncCFI);
