@@ -149,7 +149,7 @@ void foo1() {
 	}
 }
 
-// CHECK-LABEL: @"?seh_no_cpp@@YAXXZ"()
+// CHECK-LABEL: @"?seh_finally_no_obj@@YAXXZ"()
 // CHECK-NOT: @llvm.seh.scope
 // CHECK:     invoke void @llvm.seh.try.begin()
 // CHECK-NOT: @llvm.seh.scope
@@ -157,21 +157,21 @@ void foo1() {
 // CHECK-NOT: @llvm.seh.scope
 // CHECK:     invoke void @llvm.seh.try.end()
 // CHECK-NOT: @llvm.seh.scope
-// CHECK:     call void @"?fin$0@0@seh_no_cpp@@"(i8 noundef 0
+// CHECK:     call void @"?fin$0@0@seh_finally_no_obj@@"(i8 noundef 0
 // CHECK-NOT: @llvm.seh.scope
-// CHECK:     call void @"?fin$0@0@seh_no_cpp@@"(i8 noundef 1
+// CHECK:     call void @"?fin$0@0@seh_finally_no_obj@@"(i8 noundef 1
 // CHECK-NOT: @llvm.seh.scope
 // CHECK:     cleanupret
 void might_throw();
-void seh_no_cpp() {
-	__try {
-		might_throw();
-	}
-	__finally {
-	}
+void seh_finally_no_obj() {
+  __try {
+    might_throw();
+  }
+  __finally {
+  }
 }
 
-// CHECK-LABEL: @"?seh_with_cpp@@YAXPEAUA@@@Z"(
+// CHECK-LABEL: @"?seh_finally_with_obj@@YAXPEAUA@@@Z"(
 //
 // CHECK-NOT: @llvm.seh.scope
 // CHECK:     invoke void @llvm.seh.try.begin()
@@ -186,18 +186,18 @@ void seh_no_cpp() {
 // CHECK:     invoke void @llvm.seh.try.end()
 //
 // CHECK-NOT: @llvm.seh.scope
-// CHECK:     call void @"?fin$0@0@seh_with_cpp@@"(i8 noundef 0
+// CHECK:     call void @"?fin$0@0@seh_finally_with_obj@@"(i8 noundef 0
 //
 // CHECK:     invoke void @llvm.seh.scope.end()
 // CHECK:     cleanupret
 //
-// CHECK:     call void @"?fin$0@0@seh_with_cpp@@"(i8 noundef 1
+// CHECK:     call void @"?fin$0@0@seh_finally_with_obj@@"(i8 noundef 1
 // CHECK-NOT: @llvm.seh
 // CHECK:     cleanupret
-void seh_with_cpp(A* p) {
-	__try {
-		delete p;
-	}
-	__finally {
-	}
+void seh_finally_with_obj(A* p) {
+  __try {
+    delete p;
+  }
+  __finally {
+  }
 }
