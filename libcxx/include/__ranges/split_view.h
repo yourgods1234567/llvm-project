@@ -84,8 +84,7 @@ public:
   template <forward_range _Range>
     requires constructible_from<_View, views::all_t<_Range>> &&
                  constructible_from<_Pattern, single_view<range_value_t<_Range>>>
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit
-  split_view(_Range&& __range, range_value_t<_Range> __elem)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit split_view(_Range&& __range, range_value_t<_Range> __elem)
       : __base_(views::all(std::forward<_Range>(__range))), __pattern_(views::single(std::move(__elem))) {}
 
   _LIBCPP_HIDE_FROM_ABI constexpr _View base() const&

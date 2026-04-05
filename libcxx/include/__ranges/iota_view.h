@@ -316,8 +316,8 @@ public:
 
   _LIBCPP_HIDE_FROM_ABI constexpr explicit iota_view(_Start __value) : __value_(std::move(__value)) {}
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit
-  iota_view(type_identity_t<_Start> __value, type_identity_t<_BoundSentinel> __bound_sentinel)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit iota_view(type_identity_t<_Start> __value,
+                                                     type_identity_t<_BoundSentinel> __bound_sentinel)
       : __value_(std::move(__value)), __bound_sentinel_(std::move(__bound_sentinel)) {
     // Validate the precondition if possible.
     if constexpr (totally_ordered_with<_Start, _BoundSentinel>) {

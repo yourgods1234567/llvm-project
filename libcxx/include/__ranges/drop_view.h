@@ -74,8 +74,7 @@ public:
     requires default_initializable<_View>
   = default;
 
-  _LIBCPP_HIDE_FROM_ABI constexpr explicit
-  drop_view(_View __base, range_difference_t<_View> __count)
+  _LIBCPP_HIDE_FROM_ABI constexpr explicit drop_view(_View __base, range_difference_t<_View> __count)
       : __count_(__count), __base_(std::move(__base)) {
     _LIBCPP_ASSERT_UNCATEGORIZED(__count_ >= 0, "count must be greater than or equal to zero.");
   }
@@ -289,14 +288,14 @@ struct __fn {
   template <class _Range, convertible_to<range_difference_t<_Range>> _Np, class _RawRange = remove_cvref_t<_Range>>
   // Note: without specifically excluding the other cases, GCC sees this overload as ambiguous with the other
   // overloads.
-    requires(!(__is_empty_view<_RawRange> ||
+    requires(
+        !(__is_empty_view<_RawRange> ||
 #  if _LIBCPP_STD_VER >= 23
-               __is_repeat_specialization<_RawRange> ||
+          __is_repeat_specialization<_RawRange> ||
 #  endif
-               (__is_subrange_specialization_with_store_size<_RawRange> && sized_range<_RawRange> &&
-                random_access_range<_RawRange>) ||
-               (__is_passthrough_specialization<_RawRange> && sized_range<_RawRange> &&
-                random_access_range<_RawRange>)))
+          (__is_subrange_specialization_with_store_size<_RawRange> && sized_range<_RawRange> &&
+           random_access_range<_RawRange>) ||
+          (__is_passthrough_specialization<_RawRange> && sized_range<_RawRange> && random_access_range<_RawRange>)))
   [[nodiscard]] _LIBCPP_HIDE_FROM_ABI constexpr auto operator()(_Range&& __range, _Np&& __n) const
       noexcept(noexcept(drop_view(std::forward<_Range>(__range), std::forward<_Np>(__n))))
           -> decltype(drop_view(std::forward<_Range>(__range), std::forward<_Np>(__n))) {

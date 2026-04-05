@@ -88,12 +88,9 @@ static_assert(std::is_copy_constructible_v<StrView>);
 
 // SFINAE tests.
 
-
 static_assert(
     !test_convertible<std::ranges::lazy_split_view<StrView, StrView>, StrView, std::ranges::range_value_t<StrView>>(),
     "This constructor must be explicit");
-
-
 
 constexpr bool test() {
   {
