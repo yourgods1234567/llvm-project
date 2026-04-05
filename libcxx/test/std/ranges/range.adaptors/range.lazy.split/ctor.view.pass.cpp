@@ -48,8 +48,6 @@ using Pattern = ViewWithCounting;
 
 // SFINAE tests.
 
-#if TEST_STD_VER >= 23
-
 static_assert(!test_convertible<std::ranges::lazy_split_view<View, Pattern>, View, Pattern>(),
               "This constructor must be explicit");
 

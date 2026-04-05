@@ -45,8 +45,6 @@ struct TrackingRange : TrackInitialization, std::ranges::view_base {
 
 // SFINAE tests.
 
-#if TEST_STD_VER >= 23
-
 static_assert(!test_convertible<std::ranges::filter_view<Range, Pred>, Range, Pred>(),
               "This constructor must be explicit");
 

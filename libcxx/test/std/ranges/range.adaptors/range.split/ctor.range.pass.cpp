@@ -73,19 +73,9 @@ static_assert(std::is_copy_constructible_v<StrView>);
 
 // SFINAE tests.
 
-#if TEST_STD_VER >= 23
-
 static_assert(
     !test_convertible<std::ranges::split_view<StrView, StrView>, StrView, std::ranges::range_value_t<StrView>>(),
     "This constructor must be explicit");
-
-# else
-
-static_assert(
-    test_convertible<std::ranges::split_view<StrView, StrView>, StrView, std::ranges::range_value_t<StrView>>(),
-    "This constructor must not be explicit");
-
-#endif // TEST_STD_VER >= 23
 
 constexpr bool test() {
   {
