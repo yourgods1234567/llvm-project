@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 
-// constexpr take_view(V base, range_difference_t<V> count); // explicit since C++23
+// constexpr explicit take_view(V base, range_difference_t<V> count); // explicit since C++23
 
 #include <cassert>
 #include <ranges>

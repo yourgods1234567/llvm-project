@@ -14,7 +14,7 @@ TEST_CLANG_DIAGNOSTIC_IGNORED("-Wsign-compare")
 TEST_GCC_DIAGNOSTIC_IGNORED("-Wsign-compare")
 TEST_MSVC_DIAGNOSTIC_IGNORED(4018 4389) // various "signed/unsigned mismatch"
 
-// constexpr iota_view(type_identity_t<W> value, type_identity_t<Bound> bound); // explicit since C++23
+// constexpr explicit iota_view(type_identity_t<W> value, type_identity_t<Bound> bound); // explicit since C++23
 
 #include <ranges>
 #include <cassert>

@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 
-// constexpr drop_while_view(V base, Pred pred); // explicit since C++23
+// constexpr explicit drop_while_view(V base, Pred pred); // explicit since C++23
 
 #include <cassert>
 #include <ranges>

@@ -11,7 +11,7 @@
 // template <input_range Range>
 //   requires constructible_from<View, views::all_t<Range>> &&
 //             constructible_from<Pattern, single_view<range_value_t<Range>>>
-// constexpr split_view(Range&& r, range_value_t<Range> e); // explicit since C++23
+// constexpr explicit split_view(Range&& r, range_value_t<Range> e); // explicit since C++23
 
 #include <algorithm>
 #include <cassert>

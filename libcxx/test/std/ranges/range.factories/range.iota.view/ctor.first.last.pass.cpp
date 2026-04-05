@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 
-// constexpr iota_view(iterator first, see below last); // explicit since C++23
+// constexpr explicit iota_view(iterator first, see below last); // explicit since C++23
 
 #include <ranges>
 #include <cassert>

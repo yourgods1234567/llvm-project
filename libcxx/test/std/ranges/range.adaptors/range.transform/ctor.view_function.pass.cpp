@@ -8,7 +8,7 @@
 
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 
-// constexpr transform_view(View, F); // explicit since C++23
+// constexpr explicit transform_view(View, F); // explicit since C++23
 
 #include <cassert>
 #include <ranges>
