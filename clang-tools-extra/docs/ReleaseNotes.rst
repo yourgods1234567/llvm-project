@@ -290,9 +290,14 @@ Changes in existing checks
   detail.
 
 - Improved :doc:`cppcoreguidelines-rvalue-reference-param-not-moved
-  <clang-tidy/checks/cppcoreguidelines/rvalue-reference-param-not-moved>` check
-  by fixing a false positive on implicitly generated functions such as
-  inherited constructors.
+  <clang-tidy/checks/cppcoreguidelines/rvalue-reference-param-not-moved>` check:
+
+    - Fixed a false positive on implicitly generated functions such as
+      inherited constructors.
+
+    - Added `AllowImplicitMove` option. When enabled and compiling as C++20
+      or later, the check don't warn when an rvalue reference parameter is returned
+      without an explicit ``std::move``.
 
 - Improved :doc:`llvm-use-ranges
   <clang-tidy/checks/llvm/use-ranges>` check by adding support for the following
