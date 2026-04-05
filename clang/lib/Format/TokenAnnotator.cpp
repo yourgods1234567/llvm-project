@@ -139,6 +139,8 @@ private:
     case TT_StructLBrace:
     case TT_UnionLBrace:
       return ST_Class;
+    case TT_EnumLBrace:
+      return ST_Enum;
     case TT_CompoundRequirementLBrace:
       return ST_CompoundRequirement;
     default:
@@ -1832,6 +1834,10 @@ private:
         Tok->setType(TT_TrailingReturnArrow);
       break;
     case tok::equal:
+      if ((CurrentToken && CurrentToken->is(tok::numeric_constant)) &&
+          (!Scopes.empty() && Scopes.back() == ST_Enum)) {
+        Tok->setType(TT_EnumEqual);
+      }
       // In TableGen, there must be a value after "=";
       if (Style.isTableGen() && !parseTableGenValue())
         return false;
