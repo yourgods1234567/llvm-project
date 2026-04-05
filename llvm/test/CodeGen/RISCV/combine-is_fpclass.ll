@@ -97,15 +97,8 @@ define i1 @insert_subvec_sub_demanded(<4 x float> %base, <2 x float> %sub){
 define <4 x i1> @insert_subvec_both_demanded(<4 x float> %base, <2 x float> %sub){
 ; CHECK-LABEL: insert_subvec_both_demanded:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
-; CHECK-NEXT:    vfabs.v v8, v8
-; CHECK-NEXT:    vsetivli zero, 2, e32, mf2, ta, ma
-; CHECK-NEXT:    vfabs.v v9, v9
-; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
-; CHECK-NEXT:    vslideup.vi v8, v9, 2
-; CHECK-NEXT:    vfclass.v v8, v8
-; CHECK-NEXT:    vand.vi v8, v8, 15
-; CHECK-NEXT:    vmsne.vi v0, v8, 0
+; CHECK-NEXT:    vsetivli zero, 4, e8, mf4, ta, ma
+; CHECK-NEXT:    vmclr.m v0
 ; CHECK-NEXT:    ret
   %absbase = call <4 x float> @llvm.fabs.v4f32(<4 x float> %base)
   %abssub  = call <2 x float> @llvm.fabs.v2f32(<2 x float> %sub)
