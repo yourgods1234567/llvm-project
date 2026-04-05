@@ -21,3 +21,113 @@ define i8 @iszero_constant_v4f32() nounwind {
   %r = bitcast <8 x i1> %f to i8
   ret i8 %r
 }
+
+define i1 @extract_subvec(<8 x float> %a0){
+; CHECK-LABEL: extract_subvec:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 8, e32, m2, ta, ma
+; CHECK-NEXT:    vfabs.v v8, v8
+; CHECK-NEXT:    vsetivli zero, 4, e32, m2, ta, ma
+; CHECK-NEXT:    vslidedown.vi v8, v8, 4
+; CHECK-NEXT:    vfmv.f.s fa5, v8
+; CHECK-NEXT:    fclass.s a0, fa5
+; CHECK-NEXT:    andi a0, a0, 15
+; CHECK-NEXT:    snez a0, a0
+; CHECK-NEXT:    ret
+  %abs = call <8 x float> @llvm.fabs.v8f32(<8 x float> %a0)
+  %sub = call <4 x float> @llvm.vector.extract.v4f32.v8f32(<8 x float> %abs, i64 4)
+  %elt = extractelement <4 x float> %sub, i32 0
+  %res = call i1 @llvm.is.fpclass.f32(float %elt, i32 60)
+  ret i1 %res
+}
+
+define i1 @extract_subvec_scalable(<vscale x 8 x float> %a0){
+; CHECK-LABEL: extract_subvec_scalable:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetvli a0, zero, e32, m4, ta, ma
+; CHECK-NEXT:    vfabs.v v8, v8
+; CHECK-NEXT:    vfmv.f.s fa5, v8
+; CHECK-NEXT:    fclass.s a0, fa5
+; CHECK-NEXT:    andi a0, a0, 15
+; CHECK-NEXT:    snez a0, a0
+; CHECK-NEXT:    ret
+  %abs = call <vscale x 8 x float> @llvm.fabs.nxv8f32(<vscale x 8 x float> %a0)
+  %sub = call <vscale x 4 x float> @llvm.vector.extract.nxv4f32.nxv8f32(<vscale x 8 x float> %abs, i64 0)
+  %elt = extractelement <vscale x 4 x float> %sub, i32 0
+  %res = call i1 @llvm.is.fpclass.f32(float %elt, i32 60)
+  ret i1 %res
+}
+
+define <4 x i1> @insert_subvec_base_demanded(<4 x float> %base, <2 x float> %sub){
+; CHECK-LABEL: insert_subvec_base_demanded:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vfabs.v v8, v8
+; CHECK-NEXT:    vslideup.vi v8, v9, 2
+; CHECK-NEXT:    vfclass.v v8, v8
+; CHECK-NEXT:    vand.vi v8, v8, 15
+; CHECK-NEXT:    vmsne.vi v0, v8, 0
+; CHECK-NEXT:    ret
+  %absbase = call <4 x float> @llvm.fabs.v4f32(<4 x float> %base)
+  %ins = call <4 x float> @llvm.vector.insert.v4f32.v2f32(<4 x float> %absbase, <2 x float> %sub, i64 2)
+  %res = call <4 x i1> @llvm.is.fpclass.v4f32(<4 x float> %ins, i32 60)
+  ret <4 x i1> %res
+}
+
+define i1 @insert_subvec_sub_demanded(<4 x float> %base, <2 x float> %sub){
+; CHECK-LABEL: insert_subvec_sub_demanded:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 2, e32, mf2, ta, ma
+; CHECK-NEXT:    vfabs.v v8, v9
+; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vslideup.vi v9, v8, 2
+; CHECK-NEXT:    vslidedown.vi v8, v9, 2
+; CHECK-NEXT:    vfmv.f.s fa5, v8
+; CHECK-NEXT:    fclass.s a0, fa5
+; CHECK-NEXT:    andi a0, a0, 15
+; CHECK-NEXT:    snez a0, a0
+; CHECK-NEXT:    ret
+  %abssub = call <2 x float> @llvm.fabs.v2f32(<2 x float> %sub)
+  %ins = call <4 x float> @llvm.vector.insert.v4f32.v2f32(<4 x float> %base, <2 x float> %abssub, i64 2)
+  %elt = extractelement <4 x float> %ins, i32 2
+  %res = call i1 @llvm.is.fpclass.f32(float %elt, i32 60)
+  ret i1 %res
+}
+
+define <4 x i1> @insert_subvec_both_demanded(<4 x float> %base, <2 x float> %sub){
+; CHECK-LABEL: insert_subvec_both_demanded:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vfabs.v v8, v8
+; CHECK-NEXT:    vsetivli zero, 2, e32, mf2, ta, ma
+; CHECK-NEXT:    vfabs.v v9, v9
+; CHECK-NEXT:    vsetivli zero, 4, e32, m1, ta, ma
+; CHECK-NEXT:    vslideup.vi v8, v9, 2
+; CHECK-NEXT:    vfclass.v v8, v8
+; CHECK-NEXT:    vand.vi v8, v8, 15
+; CHECK-NEXT:    vmsne.vi v0, v8, 0
+; CHECK-NEXT:    ret
+  %absbase = call <4 x float> @llvm.fabs.v4f32(<4 x float> %base)
+  %abssub  = call <2 x float> @llvm.fabs.v2f32(<2 x float> %sub)
+  %ins = call <4 x float> @llvm.vector.insert.v4f32.v2f32(<4 x float> %absbase, <2 x float> %abssub, i64 2)
+  %res = call <4 x i1> @llvm.is.fpclass.v4f32(<4 x float> %ins, i32 60)
+  ret <4 x i1> %res
+}
+
+define i1 @insert_subvec_scalable_both(<vscale x 4 x float> %base, <vscale x 2 x float> %sub){
+; CHECK-LABEL: insert_subvec_scalable_both:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vsetvli a0, zero, e32, m1, ta, ma
+; CHECK-NEXT:    vfabs.v v8, v10
+; CHECK-NEXT:    vfmv.f.s fa5, v8
+; CHECK-NEXT:    fclass.s a0, fa5
+; CHECK-NEXT:    andi a0, a0, 15
+; CHECK-NEXT:    snez a0, a0
+; CHECK-NEXT:    ret
+  %absbase = call <vscale x 4 x float> @llvm.fabs.nxv4f32(<vscale x 4 x float> %base)
+  %abssub  = call <vscale x 2 x float> @llvm.fabs.nxv2f32(<vscale x 2 x float> %sub)
+  %ins = call <vscale x 4 x float> @llvm.vector.insert.nxv4f32.nxv2f32(<vscale x 4 x float> %absbase, <vscale x 2 x float> %abssub, i64 0)
+  %elt = extractelement <vscale x 4 x float> %ins, i32 0
+  %res = call i1 @llvm.is.fpclass.f32(float %elt, i32 60)
+  ret i1 %res
+}
