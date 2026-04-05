@@ -51,13 +51,6 @@ using Pattern = ViewWithCounting;
 static_assert(!test_convertible<std::ranges::lazy_split_view<View, Pattern>, View, Pattern>(),
               "This constructor must be explicit");
 
-#else
-
-static_assert(test_convertible<std::ranges::lazy_split_view<View, Pattern>, View, Pattern>(),
-              "This constructor must not be explicit");
-
-#endif // TEST_STD_VER >= 23
-
 constexpr bool test() {
   // Calling the constructor with `(ForwardView, ForwardView)`.
   {

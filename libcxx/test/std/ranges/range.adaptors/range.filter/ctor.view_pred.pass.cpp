@@ -48,13 +48,6 @@ struct TrackingRange : TrackInitialization, std::ranges::view_base {
 static_assert(!test_convertible<std::ranges::filter_view<Range, Pred>, Range, Pred>(),
               "This constructor must be explicit");
 
-#else
-
-static_assert(test_convertible<std::ranges::filter_view<Range, Pred>, Range, Pred>(),
-              "This constructor must not be explicit");
-
-#endif // TEST_STD_VER >= 23
-
 constexpr bool test() {
   int buff[] = {1, 2, 3, 4, 5, 6, 7, 8};
 
