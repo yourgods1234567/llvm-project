@@ -78,6 +78,9 @@ Changes to the LLVM IR
 
   * Special values for infinities and NaNs, including NaN payloads, are added.
 
+* The standard textual output for floating-point literals is changed to take
+  advantage of the new floating-point literals formats.
+
 Changes to LLVM infrastructure
 ------------------------------
 
