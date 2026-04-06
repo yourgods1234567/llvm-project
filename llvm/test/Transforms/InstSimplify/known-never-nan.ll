@@ -555,7 +555,7 @@ unwind:
 define i1 @issue63316(i64 %arg) {
 ; CHECK-LABEL: @issue63316(
 ; CHECK-NEXT:    [[SITOFP:%.*]] = sitofp i64 [[ARG:%.*]] to float
-; CHECK-NEXT:    [[FMUL:%.*]] = fmul float [[SITOFP]], 0x7FF0000000000000
+; CHECK-NEXT:    [[FMUL:%.*]] = fmul float [[SITOFP]], +inf
 ; CHECK-NEXT:    [[FCMP:%.*]] = fcmp uno float [[FMUL]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[FCMP]]
 ;
@@ -568,7 +568,7 @@ define i1 @issue63316(i64 %arg) {
 define i1 @issue63316_commute(i64 %arg) {
 ; CHECK-LABEL: @issue63316_commute(
 ; CHECK-NEXT:    [[SITOFP:%.*]] = sitofp i64 [[ARG:%.*]] to float
-; CHECK-NEXT:    [[FMUL:%.*]] = fmul float 0x7FF0000000000000, [[SITOFP]]
+; CHECK-NEXT:    [[FMUL:%.*]] = fmul float +inf, [[SITOFP]]
 ; CHECK-NEXT:    [[FCMP:%.*]] = fcmp uno float [[FMUL]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[FCMP]]
 ;

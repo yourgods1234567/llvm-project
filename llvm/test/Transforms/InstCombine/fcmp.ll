@@ -32,7 +32,7 @@ define i1 @fpext_constant(float %a) {
 
 define <2 x i1> @fpext_constant_vec_splat(<2 x half> %a) {
 ; CHECK-LABEL: @fpext_constant_vec_splat(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp nnan ole <2 x half> [[A:%.*]], splat (half 0xH5140)
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp nnan ole <2 x half> [[A:%.*]], splat (half 4.200000e+01)
 ; CHECK-NEXT:    ret <2 x i1> [[CMP]]
 ;
   %ext = fpext <2 x half> %a to <2 x double>
@@ -43,7 +43,7 @@ define <2 x i1> @fpext_constant_vec_splat(<2 x half> %a) {
 define i1 @fpext_constant_lossy(float %a) {
 ; CHECK-LABEL: @fpext_constant_lossy(
 ; CHECK-NEXT:    [[EXT:%.*]] = fpext float [[A:%.*]] to double
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt double [[EXT]], 0x3FF0000000000001
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt double [[EXT]], f0x3FF0000000000001
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %ext = fpext float %a to double
@@ -54,7 +54,7 @@ define i1 @fpext_constant_lossy(float %a) {
 define i1 @fpext_constant_denorm(float %a) {
 ; CHECK-LABEL: @fpext_constant_denorm(
 ; CHECK-NEXT:    [[EXT:%.*]] = fpext float [[A:%.*]] to double
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt double [[EXT]], 0x36A0000000000000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt double [[EXT]], f0x36A0000000000000
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %ext = fpext float %a to double
@@ -380,7 +380,7 @@ define <2 x i1> @fabs_ult_nnan(<2 x float> %a) {
 
 define i1 @fabs_une(half %a) {
 ; CHECK-LABEL: @fabs_une(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ninf une half [[A:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ninf une half [[A:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %call = call half @llvm.fabs.f16(half %a)
@@ -760,7 +760,7 @@ define i1 @lossy_one(float %x, ptr %p) {
 
 define i1 @lossy_ueq(half %x) {
 ; CHECK-LABEL: @lossy_ueq(
-; CHECK-NEXT:    [[R:%.*]] = fcmp uno half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[R:%.*]] = fcmp uno half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %e = fpext half %x to double
@@ -871,7 +871,7 @@ define i1 @lossy_ule(half %x) {
 
 define i1 @lossy_ord(half %x) {
 ; CHECK-LABEL: @lossy_ord(
-; CHECK-NEXT:    [[R:%.*]] = fcmp ord half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[R:%.*]] = fcmp ord half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %e = fpext half %x to double
@@ -881,7 +881,7 @@ define i1 @lossy_ord(half %x) {
 
 define i1 @lossy_uno(half %x) {
 ; CHECK-LABEL: @lossy_uno(
-; CHECK-NEXT:    [[R:%.*]] = fcmp uno half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[R:%.*]] = fcmp uno half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[R]]
 ;
   %e = fpext half %x to float
@@ -901,7 +901,7 @@ define i1 @fneg_oeq(float %a) {
 
 define i1 @fneg_ogt(half %a) {
 ; CHECK-LABEL: @fneg_ogt(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast olt half [[A:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast olt half [[A:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %fneg = fneg half %a
@@ -974,7 +974,7 @@ define i1 @fneg_uno(float %a) {
 
 define i1 @fneg_ueq(half %a) {
 ; CHECK-LABEL: @fneg_ueq(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast ueq half [[A:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast ueq half [[A:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %fneg = fneg half %a
@@ -1050,7 +1050,7 @@ define i1 @fneg_oeq_swap(float %p) {
 define i1 @fneg_ogt_swap(half %p) {
 ; CHECK-LABEL: @fneg_ogt_swap(
 ; CHECK-NEXT:    [[A:%.*]] = fadd half [[P:%.*]], [[P]]
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast ogt half [[A]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast ogt half [[A]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %a = fadd half %p, %p ; thwart complexity-based canonicalization
@@ -1137,7 +1137,7 @@ define i1 @fneg_uno_swap(float %p) {
 define i1 @fneg_ueq_swap(half %p) {
 ; CHECK-LABEL: @fneg_ueq_swap(
 ; CHECK-NEXT:    [[A:%.*]] = fadd half [[P:%.*]], [[P]]
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast ueq half [[A]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp fast ueq half [[A]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %a = fadd half %p, %p ; thwart complexity-based canonicalization
@@ -1851,8 +1851,8 @@ define i1 @same_const_sub_no_fold_large_c(i32 %x) {
 ; CHECK-LABEL: @same_const_sub_no_fold_large_c(
 ; CHECK-NOT:    icmp
 ; CHECK-NEXT:    [[F:%.*]] = sitofp i32 [[X:%.*]] to float
-; CHECK-NEXT:    [[S:%.*]] = fsub float 0x417FFFFFE0000000, [[F]]
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq float [[S]], 0x417FFFFFE0000000
+; CHECK-NEXT:    [[S:%.*]] = fsub float f0x4BFFFFFF, [[F]]
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq float [[S]], f0x4BFFFFFF
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %f = sitofp i32 %x to float
@@ -1888,8 +1888,8 @@ define <2 x i1> @same_const_sub_uitofp_vec_olt(<2 x i32> %x) {
 define i1 @same_const_sub_no_fold_subnormal_c(i32 %x) {
 ; CHECK-LABEL: @same_const_sub_no_fold_subnormal_c(
 ; CHECK-NEXT:    [[F:%.*]] = sitofp i32 [[X:%.*]] to float
-; CHECK-NEXT:    [[S:%.*]] = fsub float 0x36A0000000000000, [[F]]
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp olt float [[S]], 0x36A0000000000000
+; CHECK-NEXT:    [[S:%.*]] = fsub float 1.401300e-45, [[F]]
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp olt float [[S]], 1.401300e-45
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %f = sitofp i32 %x to float
@@ -1901,8 +1901,8 @@ define i1 @same_const_sub_no_fold_subnormal_c(i32 %x) {
 define i1 @same_const_sub_no_fold_wrong_mantissa_width(i32 %x) {
 ; CHECK-LABEL: @same_const_sub_no_fold_wrong_mantissa_width(
 ; CHECK-NEXT:    [[F:%.*]] = sitofp i32 [[X:%.*]] to float
-; CHECK-NEXT:    [[S:%.*]] = fsub float 0x4180000000000000, [[F]]
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq float [[S]], 0x4180000000000000
+; CHECK-NEXT:    [[S:%.*]] = fsub float f0x4C000000, [[F]]
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq float [[S]], f0x4C000000
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %f = sitofp i32 %x to float
@@ -1926,8 +1926,8 @@ define i1 @same_const_sub_no_fold_x86_fp80_large_c(i32 %x) {
 ; CHECK-LABEL: @same_const_sub_no_fold_x86_fp80_large_c(
 ; CHECK-NOT:    icmp
 ; CHECK-NEXT:    [[F:%.*]] = sitofp i32 [[X:%.*]] to x86_fp80
-; CHECK-NEXT:    [[S:%.*]] = fsub x86_fp80 0xK403F8000000000000000, [[F]]
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq x86_fp80 [[S]], 0xK403F8000000000000000
+; CHECK-NEXT:    [[S:%.*]] = fsub x86_fp80 f0x403F8000000000000000, [[F]]
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq x86_fp80 [[S]], f0x403F8000000000000000
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %f = sitofp i32 %x to x86_fp80
@@ -1941,8 +1941,8 @@ define i1 @same_const_sub_no_fold_ppcfp128(i32 %x) {
 ; CHECK-LABEL: @same_const_sub_no_fold_ppcfp128(
 ; CHECK-NOT:    icmp
 ; CHECK-NEXT:    [[F:%.*]] = sitofp i32 [[X:%.*]] to ppc_fp128
-; CHECK-NEXT:    [[S:%.*]] = fsub ppc_fp128 0xM3FF00000000000000000000000000000, [[F]]
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq ppc_fp128 [[S]], 0xM3FF00000000000000000000000000000
+; CHECK-NEXT:    [[S:%.*]] = fsub ppc_fp128 1.000000e+00, [[F]]
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq ppc_fp128 [[S]], 1.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %f = sitofp i32 %x to ppc_fp128
@@ -2360,7 +2360,7 @@ define i1 @fcmp_sqrt_zero_olt(half %x) {
 
 define i1 @fcmp_sqrt_zero_ult(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ult(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2370,7 +2370,7 @@ define i1 @fcmp_sqrt_zero_ult(half %x) {
 
 define i1 @fcmp_sqrt_zero_ult_fmf(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ult_fmf(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp nsz ult half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp nsz ult half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2380,7 +2380,7 @@ define i1 @fcmp_sqrt_zero_ult_fmf(half %x) {
 
 define i1 @fcmp_sqrt_zero_ult_fmf_sqrt_ninf(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ult_fmf_sqrt_ninf(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ninf nsz ult half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ninf nsz ult half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call ninf half @llvm.sqrt.f16(half %x)
@@ -2390,7 +2390,7 @@ define i1 @fcmp_sqrt_zero_ult_fmf_sqrt_ninf(half %x) {
 
 define i1 @fcmp_sqrt_zero_ult_nzero(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ult_nzero(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2420,7 +2420,7 @@ define <2 x i1> @fcmp_sqrt_zero_ult_vec_mixed_zero(<2 x half> %x) {
 
 define i1 @fcmp_sqrt_zero_ole(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ole(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2430,7 +2430,7 @@ define i1 @fcmp_sqrt_zero_ole(half %x) {
 
 define i1 @fcmp_sqrt_zero_ule(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ule(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ule half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ule half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2440,7 +2440,7 @@ define i1 @fcmp_sqrt_zero_ule(half %x) {
 
 define i1 @fcmp_sqrt_zero_ogt(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ogt(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2450,7 +2450,7 @@ define i1 @fcmp_sqrt_zero_ogt(half %x) {
 
 define i1 @fcmp_sqrt_zero_ugt(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ugt(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp une half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp une half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2460,7 +2460,7 @@ define i1 @fcmp_sqrt_zero_ugt(half %x) {
 
 define i1 @fcmp_sqrt_zero_oge(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_oge(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp oge half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oge half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2479,7 +2479,7 @@ define i1 @fcmp_sqrt_zero_uge(half %x) {
 
 define i1 @fcmp_sqrt_zero_oeq(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_oeq(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oeq half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2489,7 +2489,7 @@ define i1 @fcmp_sqrt_zero_oeq(half %x) {
 
 define i1 @fcmp_sqrt_zero_ueq(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ueq(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ule half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ule half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2499,7 +2499,7 @@ define i1 @fcmp_sqrt_zero_ueq(half %x) {
 
 define i1 @fcmp_sqrt_zero_one(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_one(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2509,7 +2509,7 @@ define i1 @fcmp_sqrt_zero_one(half %x) {
 
 define i1 @fcmp_sqrt_zero_une(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_une(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp une half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp une half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2519,7 +2519,7 @@ define i1 @fcmp_sqrt_zero_une(half %x) {
 
 define i1 @fcmp_sqrt_zero_ord(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ord(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp oge half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp oge half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2529,7 +2529,7 @@ define i1 @fcmp_sqrt_zero_ord(half %x) {
 
 define i1 @fcmp_sqrt_zero_uno(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_uno(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2540,7 +2540,7 @@ define i1 @fcmp_sqrt_zero_uno(half %x) {
 ; Make sure that ninf is cleared.
 define i1 @fcmp_sqrt_zero_uno_fmf(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_uno_fmf(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)
@@ -2550,7 +2550,7 @@ define i1 @fcmp_sqrt_zero_uno_fmf(half %x) {
 
 define i1 @fcmp_sqrt_zero_uno_fmf_sqrt_ninf(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_uno_fmf_sqrt_ninf(
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ninf ult half [[X:%.*]], 0xH0000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ninf ult half [[X:%.*]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call ninf half @llvm.sqrt.f16(half %x)
@@ -2574,7 +2574,7 @@ define i1 @fcmp_sqrt_zero_ult_var(half %x, half %y) {
 define i1 @fcmp_sqrt_zero_ult_nonzero(half %x) {
 ; CHECK-LABEL: @fcmp_sqrt_zero_ult_nonzero(
 ; CHECK-NEXT:    [[SQRT:%.*]] = call half @llvm.sqrt.f16(half [[X:%.*]])
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[SQRT]], 0xH3C00
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ult half [[SQRT]], 1.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP]]
 ;
   %sqrt = call half @llvm.sqrt.f16(half %x)

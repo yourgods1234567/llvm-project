@@ -16,7 +16,7 @@ define void @test(ptr %nExp, float %0, i1 %cmp, float %1) {
 ; CHECK:       [[IF_END]]:
 ; CHECK-NEXT:    [[TMP6:%.*]] = phi float [ [[TMP1]], %[[IF_THEN]] ], [ [[TMP0]], %[[ENTRY]] ]
 ; CHECK-NEXT:    [[TMP7:%.*]] = phi float [ 0.000000e+00, %[[IF_THEN]] ], [ [[TMP1]], %[[ENTRY]] ]
-; CHECK-NEXT:    [[TMP8:%.*]] = phi float [ 0.000000e+00, %[[IF_THEN]] ], [ 0x7FF8000000000000, %[[ENTRY]] ]
+; CHECK-NEXT:    [[TMP8:%.*]] = phi float [ 0.000000e+00, %[[IF_THEN]] ], [ +qnan, %[[ENTRY]] ]
 ; CHECK-NEXT:    [[TMP9:%.*]] = phi float [ 0.000000e+00, %[[IF_THEN]] ], [ 1.000000e+00, %[[ENTRY]] ]
 ; CHECK-NEXT:    [[FA_SROA_9_0:%.*]] = phi float [ [[DIV_2_I_I]], %[[IF_THEN]] ], [ 0.000000e+00, %[[ENTRY]] ]
 ; CHECK-NEXT:    [[TMP22:%.*]] = phi <2 x float> [ [[TMP5]], %[[IF_THEN]] ], [ zeroinitializer, %[[ENTRY]] ]

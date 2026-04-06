@@ -67,10 +67,10 @@ void f4(_Atomic(float) *p) {
 // CIR: cir.store align(4) atomic(seq_cst) %{{.+}}, %{{.+}} : !cir.float, !cir.ptr<!cir.float>
 
 // LLVM-LABEL: @f4
-// LLVM: store atomic float 0x40091EB860000000, ptr %{{.+}} seq_cst, align 4
+// LLVM: store atomic float 3.140000e+00, ptr %{{.+}} seq_cst, align 4
 
 // OGCG-LABEL: @f4
-// OGCG: store atomic float 0x40091EB860000000, ptr %{{.+}} seq_cst, align 4
+// OGCG: store atomic float 3.140000e+00, ptr %{{.+}} seq_cst, align 4
 
 void load(int *ptr) {
   int x;

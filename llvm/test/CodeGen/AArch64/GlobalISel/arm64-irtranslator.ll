@@ -1826,7 +1826,7 @@ define <16 x i8> @test_shufflevector_v8s8_v16s8(<8 x i8> %arg1, <8 x i8> %arg2) 
 
 ; CHECK-LABEL: test_constant_vector
 ; CHECK: [[UNDEF:%[0-9]+]]:_(s16) = G_IMPLICIT_DEF
-; CHECK: [[F:%[0-9]+]]:_(s16) = G_FCONSTANT half 0xH3C00
+; CHECK: [[F:%[0-9]+]]:_(s16) = G_FCONSTANT half 1.000000e+00
 ; CHECK: [[M:%[0-9]+]]:_(<4 x s16>) = G_BUILD_VECTOR [[UNDEF]](s16), [[UNDEF]](s16), [[UNDEF]](s16), [[F]](s16)
 ; CHECK: $d0 = COPY [[M]](<4 x s16>)
 define <4 x half> @test_constant_vector() {

@@ -21,7 +21,7 @@ define <4 x i32> @test2() {
 
 define <2 x double> @test3() {
 ; CHECK-LABEL: @test3(
-; CHECK-NEXT:    ret <2 x double> <double 0x100000000, double 0x300000002>
+; CHECK-NEXT:    ret <2 x double> <double f0x0000000100000000, double f0x0000000300000002>
 ;
   %tmp3 = bitcast <4 x i32> < i32 0, i32 1, i32 2, i32 3 > to <2 x double>
   ret <2 x double> %tmp3
@@ -29,7 +29,7 @@ define <2 x double> @test3() {
 
 define <4 x float> @test4() {
 ; CHECK-LABEL: @test4(
-; CHECK-NEXT:    ret <4 x float> <float 0.000000e+00, float 0.000000e+00, float 0x36A0000000000000, float 0.000000e+00>
+; CHECK-NEXT:    ret <4 x float> <float 0.000000e+00, float 0.000000e+00, float 1.401300e-45, float 0.000000e+00>
 ;
   %tmp3 = bitcast <2 x i64> < i64 0, i64 1 > to <4 x float>
   ret <4 x float> %tmp3
@@ -86,7 +86,7 @@ define <1 x i1> @test10() {
 ; from MultiSource/Benchmarks/Bullet
 define <2 x float> @foo() {
 ; CHECK-LABEL: @foo(
-; CHECK-NEXT:    ret <2 x float> splat (float 0xFFFFFFFFE0000000)
+; CHECK-NEXT:    ret <2 x float> splat (float -nan(0x3FFFFF))
 ;
   %cast = bitcast i64 -1 to <2 x float>
   ret <2 x float> %cast
@@ -95,7 +95,7 @@ define <2 x float> @foo() {
 
 define <2 x double> @foo2() {
 ; CHECK-LABEL: @foo2(
-; CHECK-NEXT:    ret <2 x double> splat (double 0xFFFFFFFFFFFFFFFF)
+; CHECK-NEXT:    ret <2 x double> splat (double -nan(0x7FFFFFFFFFFFF))
 ;
   %cast = bitcast i128 -1 to <2 x double>
   ret <2 x double> %cast
@@ -103,7 +103,7 @@ define <2 x double> @foo2() {
 
 define <1 x float> @foo3() {
 ; CHECK-LABEL: @foo3(
-; CHECK-NEXT:    ret <1 x float> splat (float 0xFFFFFFFFE0000000)
+; CHECK-NEXT:    ret <1 x float> splat (float -nan(0x3FFFFF))
 ;
   %cast = bitcast i32 -1 to <1 x float>
   ret <1 x float> %cast
@@ -111,7 +111,7 @@ define <1 x float> @foo3() {
 
 define float @foo4() {
 ; CHECK-LABEL: @foo4(
-; CHECK-NEXT:    ret float 0xFFFFFFFFE0000000
+; CHECK-NEXT:    ret float -nan(0x3FFFFF)
 ;
   %cast = bitcast <1 x i32 ><i32 -1> to float
   ret float %cast
@@ -119,7 +119,7 @@ define float @foo4() {
 
 define double @foo5() {
 ; CHECK-LABEL: @foo5(
-; CHECK-NEXT:    ret double 0xFFFFFFFFFFFFFFFF
+; CHECK-NEXT:    ret double -nan(0x7FFFFFFFFFFFF)
 ;
   %cast = bitcast <2 x i32 ><i32 -1, i32 -1> to double
   ret double %cast
@@ -127,7 +127,7 @@ define double @foo5() {
 
 define <2 x double> @foo6() {
 ; CHECK-LABEL: @foo6(
-; CHECK-NEXT:    ret <2 x double> splat (double 0xFFFFFFFFFFFFFFFF)
+; CHECK-NEXT:    ret <2 x double> splat (double -nan(0x7FFFFFFFFFFFF))
 ;
   %cast = bitcast <4 x i32><i32 -1, i32 -1, i32 -1, i32 -1> to <2 x double>
   ret <2 x double> %cast
