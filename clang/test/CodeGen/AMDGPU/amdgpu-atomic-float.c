@@ -118,7 +118,7 @@ double test_double_pre_inc()
 // CHECK-LABEL: define dso_local half @test__Float16_post_inc(
 // CHECK-SAME: ) #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
-// CHECK-NEXT:    [[TMP0:%.*]] = atomicrmw fadd ptr addrspacecast (ptr addrspace(1) @test__Float16_post_inc.n to ptr), half 0xH3C00 seq_cst, align 2, !amdgpu.no.fine.grained.memory [[META3]], !amdgpu.no.remote.memory [[META3]]
+// CHECK-NEXT:    [[TMP0:%.*]] = atomicrmw fadd ptr addrspacecast (ptr addrspace(1) @test__Float16_post_inc.n to ptr), half 1.000000e+00 seq_cst, align 2, !amdgpu.no.fine.grained.memory [[META3]], !amdgpu.no.remote.memory [[META3]]
 // CHECK-NEXT:    ret half [[TMP0]]
 //
 _Float16 test__Float16_post_inc()
@@ -130,7 +130,7 @@ _Float16 test__Float16_post_inc()
 // CHECK-LABEL: define dso_local half @test__Float16_post_dc(
 // CHECK-SAME: ) #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
-// CHECK-NEXT:    [[TMP0:%.*]] = atomicrmw fsub ptr addrspacecast (ptr addrspace(1) @test__Float16_post_dc.n to ptr), half 0xH3C00 seq_cst, align 2, !amdgpu.no.fine.grained.memory [[META3]], !amdgpu.no.remote.memory [[META3]]
+// CHECK-NEXT:    [[TMP0:%.*]] = atomicrmw fsub ptr addrspacecast (ptr addrspace(1) @test__Float16_post_dc.n to ptr), half 1.000000e+00 seq_cst, align 2, !amdgpu.no.fine.grained.memory [[META3]], !amdgpu.no.remote.memory [[META3]]
 // CHECK-NEXT:    ret half [[TMP0]]
 //
 _Float16 test__Float16_post_dc()
@@ -142,8 +142,8 @@ _Float16 test__Float16_post_dc()
 // CHECK-LABEL: define dso_local half @test__Float16_pre_dc(
 // CHECK-SAME: ) #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
-// CHECK-NEXT:    [[TMP0:%.*]] = atomicrmw fsub ptr addrspacecast (ptr addrspace(1) @test__Float16_pre_dc.n to ptr), half 0xH3C00 seq_cst, align 2, !amdgpu.no.fine.grained.memory [[META3]], !amdgpu.no.remote.memory [[META3]]
-// CHECK-NEXT:    [[TMP1:%.*]] = fsub half [[TMP0]], 0xH3C00
+// CHECK-NEXT:    [[TMP0:%.*]] = atomicrmw fsub ptr addrspacecast (ptr addrspace(1) @test__Float16_pre_dc.n to ptr), half 1.000000e+00 seq_cst, align 2, !amdgpu.no.fine.grained.memory [[META3]], !amdgpu.no.remote.memory [[META3]]
+// CHECK-NEXT:    [[TMP1:%.*]] = fsub half [[TMP0]], 1.000000e+00
 // CHECK-NEXT:    ret half [[TMP1]]
 //
 _Float16 test__Float16_pre_dc()
@@ -155,8 +155,8 @@ _Float16 test__Float16_pre_dc()
 // CHECK-LABEL: define dso_local half @test__Float16_pre_inc(
 // CHECK-SAME: ) #[[ATTR0]] {
 // CHECK-NEXT:  [[ENTRY:.*:]]
-// CHECK-NEXT:    [[TMP0:%.*]] = atomicrmw fadd ptr addrspacecast (ptr addrspace(1) @test__Float16_pre_inc.n to ptr), half 0xH3C00 seq_cst, align 2, !amdgpu.no.fine.grained.memory [[META3]], !amdgpu.no.remote.memory [[META3]]
-// CHECK-NEXT:    [[TMP1:%.*]] = fadd half [[TMP0]], 0xH3C00
+// CHECK-NEXT:    [[TMP0:%.*]] = atomicrmw fadd ptr addrspacecast (ptr addrspace(1) @test__Float16_pre_inc.n to ptr), half 1.000000e+00 seq_cst, align 2, !amdgpu.no.fine.grained.memory [[META3]], !amdgpu.no.remote.memory [[META3]]
+// CHECK-NEXT:    [[TMP1:%.*]] = fadd half [[TMP0]], 1.000000e+00
 // CHECK-NEXT:    ret half [[TMP1]]
 //
 _Float16 test__Float16_pre_inc()

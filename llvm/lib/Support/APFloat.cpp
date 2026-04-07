@@ -3053,7 +3053,7 @@ bool IEEEFloat::convertFromStringSpecials(StringRef str) {
   if (str.size() < MIN_NAME_SIZE)
     return false;
 
-  if (str == "inf" || str == "INFINITY" || str == "+Inf") {
+  if (str == "inf" || str == "INFINITY" || str == "+Inf" || str == "+inf") {
     makeInf(false);
     return true;
   }
@@ -4516,6 +4516,13 @@ APFloat::opStatus IEEEFloat::next(bool nextDown) {
   return result;
 }
 
+APInt IEEEFloat::getNaNPayload() const {
+  assert(isNaN() && "Can only be called on NaN values");
+  // Number of bits in the payload, excluding the (maybe implied) integer bit.
+  unsigned Bits = semantics->precision - 1;
+  return APInt(Bits, ArrayRef(significandParts(), partCountForBits(Bits)));
+}
+
 APFloatBase::ExponentType IEEEFloat::exponentNaN() const {
   return ::exponentNaN(*semantics);
 }
@@ -5780,6 +5787,9 @@ DoubleAPFloat frexp(const DoubleAPFloat &Arg, int &Exp,
                        std::move(Second));
 }
 
+APInt DoubleAPFloat::getNaNPayload() const {
+  return Floats[0].getNaNPayload();
+}
 } // namespace detail
 
 APFloat::Storage::Storage(IEEEFloat F, const fltSemantics &Semantics) {

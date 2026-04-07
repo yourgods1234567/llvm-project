@@ -163,8 +163,8 @@ define i1 @test_fcmp_select_const_const(double %x) {
 
 define i1 @test_fcmp_select_var_const(double %x, double %y) {
 ; CHECK-LABEL: @test_fcmp_select_var_const(
-; CHECK-NEXT:    [[CMP1:%.*]] = fcmp ule double [[X:%.*]], 0x3E80000000000000
-; CHECK-NEXT:    [[TMP1:%.*]] = fcmp olt double [[Y:%.*]], 0x3E80000000000000
+; CHECK-NEXT:    [[CMP1:%.*]] = fcmp ule double [[X:%.*]], f0x3E80000000000000
+; CHECK-NEXT:    [[TMP1:%.*]] = fcmp olt double [[Y:%.*]], f0x3E80000000000000
 ; CHECK-NEXT:    [[CMP2:%.*]] = select i1 [[CMP1]], i1 true, i1 [[TMP1]]
 ; CHECK-NEXT:    ret i1 [[CMP2]]
 ;
@@ -176,8 +176,8 @@ define i1 @test_fcmp_select_var_const(double %x, double %y) {
 
 define i1 @test_fcmp_select_var_const_fmf(double %x, double %y) {
 ; CHECK-LABEL: @test_fcmp_select_var_const_fmf(
-; CHECK-NEXT:    [[CMP1:%.*]] = fcmp ule double [[X:%.*]], 0x3E80000000000000
-; CHECK-NEXT:    [[TMP1:%.*]] = fcmp nnan olt double [[Y:%.*]], 0x3E80000000000000
+; CHECK-NEXT:    [[CMP1:%.*]] = fcmp ule double [[X:%.*]], f0x3E80000000000000
+; CHECK-NEXT:    [[TMP1:%.*]] = fcmp nnan olt double [[Y:%.*]], f0x3E80000000000000
 ; CHECK-NEXT:    [[CMP2:%.*]] = select i1 [[CMP1]], i1 true, i1 [[TMP1]]
 ; CHECK-NEXT:    ret i1 [[CMP2]]
 ;
@@ -233,7 +233,7 @@ define double @test_fcmp_select_maxnum(double %x) {
 define i1 @test_fcmp_select_const_const_multiuse(double %x) {
 ; CHECK-LABEL: @test_fcmp_select_const_const_multiuse(
 ; CHECK-NEXT:    [[CMP1:%.*]] = fcmp ord double [[X:%.*]], 0.000000e+00
-; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[CMP1]], double 0xFFFFFFFFFFFFFFFF, double 0.000000e+00
+; CHECK-NEXT:    [[SEL:%.*]] = select i1 [[CMP1]], double -nan(0x7FFFFFFFFFFFF), double 0.000000e+00
 ; CHECK-NEXT:    call void @usef64(double [[SEL]])
 ; CHECK-NEXT:    [[CMP2:%.*]] = fcmp oeq double [[SEL]], 0.000000e+00
 ; CHECK-NEXT:    ret i1 [[CMP2]]
@@ -258,8 +258,8 @@ define i1 @test_fcmp_select_const_const_unordered(double %x) {
 
 define i1 @test_fcmp_select_var_const_unordered(double %x, double %y) {
 ; CHECK-LABEL: @test_fcmp_select_var_const_unordered(
-; CHECK-NEXT:    [[CMP1:%.*]] = fcmp ult double [[X:%.*]], 0x3E80000000000000
-; CHECK-NEXT:    [[TMP1:%.*]] = fcmp ugt double [[Y:%.*]], 0x3E80000000000000
+; CHECK-NEXT:    [[CMP1:%.*]] = fcmp ult double [[X:%.*]], f0x3E80000000000000
+; CHECK-NEXT:    [[TMP1:%.*]] = fcmp ugt double [[Y:%.*]], f0x3E80000000000000
 ; CHECK-NEXT:    [[CMP2:%.*]] = select i1 [[CMP1]], i1 [[TMP1]], i1 false
 ; CHECK-NEXT:    ret i1 [[CMP2]]
 ;

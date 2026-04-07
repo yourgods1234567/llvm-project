@@ -5,13 +5,13 @@ define i1 @degenerate() {
 ; CHECK-LABEL: define i1 @degenerate() {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <4 x fp128> zeroinitializer, i32 0
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt fp128 [[TMP0]], 0xL00000000000000000000000000000000
-; CHECK-NEXT:    [[CMP3:%.*]] = fcmp olt fp128 [[TMP0]], 0xL00000000000000000000000000000000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt fp128 [[TMP0]], 0.000000e+00
+; CHECK-NEXT:    [[CMP3:%.*]] = fcmp olt fp128 [[TMP0]], 0.000000e+00
 ; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[CMP]], [[CMP3]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <4 x fp128> zeroinitializer, i32 0
-; CHECK-NEXT:    [[CMP6:%.*]] = fcmp ogt fp128 [[TMP1]], 0xL00000000000000000000000000000000
+; CHECK-NEXT:    [[CMP6:%.*]] = fcmp ogt fp128 [[TMP1]], 0.000000e+00
 ; CHECK-NEXT:    [[OR_COND29:%.*]] = select i1 [[OR_COND]], i1 [[CMP6]], i1 false
-; CHECK-NEXT:    [[CMP10:%.*]] = fcmp olt fp128 [[TMP1]], 0xL00000000000000000000000000000000
+; CHECK-NEXT:    [[CMP10:%.*]] = fcmp olt fp128 [[TMP1]], 0.000000e+00
 ; CHECK-NEXT:    [[OR_COND30:%.*]] = select i1 [[OR_COND29]], i1 [[CMP10]], i1 false
 ; CHECK-NEXT:    ret i1 [[OR_COND30]]
 ;
@@ -33,13 +33,13 @@ define i1 @with_inputs(<4 x fp128> %a) {
 ; CHECK-SAME: (<4 x fp128> [[A:%.*]]) {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = extractelement <4 x fp128> [[A]], i32 0
-; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt fp128 [[TMP0]], 0xL00000000000000000000000000000000
-; CHECK-NEXT:    [[CMP3:%.*]] = fcmp olt fp128 [[TMP0]], 0xL00000000000000000000000000000000
+; CHECK-NEXT:    [[CMP:%.*]] = fcmp ogt fp128 [[TMP0]], 0.000000e+00
+; CHECK-NEXT:    [[CMP3:%.*]] = fcmp olt fp128 [[TMP0]], 0.000000e+00
 ; CHECK-NEXT:    [[OR_COND:%.*]] = and i1 [[CMP]], [[CMP3]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <4 x fp128> [[A]], i32 1
-; CHECK-NEXT:    [[CMP6:%.*]] = fcmp ogt fp128 [[TMP1]], 0xL00000000000000000000000000000000
+; CHECK-NEXT:    [[CMP6:%.*]] = fcmp ogt fp128 [[TMP1]], 0.000000e+00
 ; CHECK-NEXT:    [[OR_COND29:%.*]] = select i1 [[OR_COND]], i1 [[CMP6]], i1 false
-; CHECK-NEXT:    [[CMP10:%.*]] = fcmp olt fp128 [[TMP1]], 0xL00000000000000000000000000000000
+; CHECK-NEXT:    [[CMP10:%.*]] = fcmp olt fp128 [[TMP1]], 0.000000e+00
 ; CHECK-NEXT:    [[OR_COND30:%.*]] = select i1 [[OR_COND29]], i1 [[CMP10]], i1 false
 ; CHECK-NEXT:    ret i1 [[OR_COND30]]
 ;
