@@ -30538,41 +30538,27 @@ void AArch64TargetLowering::ReplaceNodeResults(
       }
 
       unsigned PredIntID;
-      switch (VT.SimpleTy) {
+      switch (VT.getScalarSizeInBits()) {
       default:
         llvm_unreachable("covered by previous switch");
-
-      case MVT::nxv32i8:
-      case MVT::nxv64i8:
+      case 8:
         PredIntID = Intrinsic::aarch64_sve_ptrue_c8;
         break;
-      case MVT::nxv16i16:
-      case MVT::nxv16f16:
-      case MVT::nxv16bf16:
-      case MVT::nxv32i16:
-      case MVT::nxv32f16:
-      case MVT::nxv32bf16:
+      case 16:
         PredIntID = Intrinsic::aarch64_sve_ptrue_c16;
         break;
-      case MVT::nxv8i32:
-      case MVT::nxv8f32:
-      case MVT::nxv16i32:
-      case MVT::nxv16f32:
+      case 32:
         PredIntID = Intrinsic::aarch64_sve_ptrue_c32;
         break;
-      case MVT::nxv4i64:
-      case MVT::nxv4f64:
-      case MVT::nxv8i64:
-      case MVT::nxv8f64:
+      case 64:
         PredIntID = Intrinsic::aarch64_sve_ptrue_c64;
         break;
       }
 
       SDValue Chain = LSNode->getChain();
       SDValue Addr = LSNode->getBasePtr();
-      SDValue Offset = LSNode->getOffset();
 
-      if (!Offset.isUndef())
+      if (!LSNode->getOffset().isUndef())
         return;
 
       SDLoc DL(N);
