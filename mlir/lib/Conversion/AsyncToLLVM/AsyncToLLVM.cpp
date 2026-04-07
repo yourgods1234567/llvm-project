@@ -1150,15 +1150,17 @@ public:
 
 void mlir::populateAsyncStructuralTypeConversionsAndLegality(
     TypeConverter &typeConverter, RewritePatternSet &patterns,
-    ConversionTarget &target) {
+    ConversionTarget &target, bool addStructuralYieldPattern) {
   typeConverter.addConversion([&](TokenType type) { return type; });
   typeConverter.addConversion([&](ValueType type) {
     Type converted = typeConverter.convertType(type.getValueType());
     return converted ? ValueType::get(converted) : converted;
   });
 
-  patterns.add<ConvertExecuteOpTypes, ConvertAwaitOpTypes, ConvertYieldOpTypes>(
+  patterns.add<ConvertExecuteOpTypes, ConvertAwaitOpTypes>(
       typeConverter, patterns.getContext());
+  if (addStructuralYieldPattern)
+    patterns.add<ConvertYieldOpTypes>(typeConverter, patterns.getContext());
 
   target.addDynamicallyLegalOp<AwaitOp, ExecuteOp, async::YieldOp>(
       [&](Operation *op) { return typeConverter.isLegal(op); });
