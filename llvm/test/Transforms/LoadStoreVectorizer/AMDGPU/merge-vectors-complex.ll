@@ -8,10 +8,8 @@ define void @merge_i32_v2i16_f32_v4i8(ptr addrspace(1) %ptr1, ptr addrspace(2) %
 ; CHECK-NEXT:    [[TMP1:%.*]] = load <16 x i8>, ptr addrspace(1) [[GEP1]], align 4
 ; CHECK-NEXT:    [[LOAD11:%.*]] = shufflevector <16 x i8> [[TMP1]], <16 x i8> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[TMP2:%.*]] = bitcast <4 x i8> [[LOAD11]] to i32
-; CHECK-NEXT:    [[LOAD22:%.*]] = shufflevector <16 x i8> [[TMP1]], <16 x i8> poison, <2 x i32> <i32 4, i32 5>
-; CHECK-NEXT:    [[TMP3:%.*]] = bitcast <2 x i8> [[LOAD22]] to i16
-; CHECK-NEXT:    [[TMP4:%.*]] = zext i16 [[TMP3]] to i32
-; CHECK-NEXT:    [[TMP5:%.*]] = bitcast i32 [[TMP4]] to <2 x i16>
+; CHECK-NEXT:    [[LOAD22:%.*]] = shufflevector <16 x i8> [[TMP1]], <16 x i8> poison, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <4 x i8> [[LOAD22]] to <2 x i16>
 ; CHECK-NEXT:    [[LOAD33:%.*]] = shufflevector <16 x i8> [[TMP1]], <16 x i8> poison, <4 x i32> <i32 8, i32 9, i32 10, i32 11>
 ; CHECK-NEXT:    [[TMP6:%.*]] = bitcast <4 x i8> [[LOAD33]] to float
 ; CHECK-NEXT:    [[LOAD44:%.*]] = shufflevector <16 x i8> [[TMP1]], <16 x i8> poison, <4 x i32> <i32 12, i32 13, i32 14, i32 15>

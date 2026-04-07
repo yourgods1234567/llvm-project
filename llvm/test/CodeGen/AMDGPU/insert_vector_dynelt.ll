@@ -2062,20 +2062,20 @@ define amdgpu_kernel void @double2_inselt(ptr addrspace(1) %out, <2 x double> %v
 ; GCN:       ; %bb.0: ; %entry
 ; GCN-NEXT:    s_load_dword s6, s[4:5], 0x44
 ; GCN-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x34
+; GCN-NEXT:    s_load_dwordx2 s[4:5], s[4:5], 0x24
 ; GCN-NEXT:    s_waitcnt lgkmcnt(0)
-; GCN-NEXT:    s_load_dwordx2 s[2:3], s[4:5], 0x24
-; GCN-NEXT:    v_mov_b32_e32 v2, 0
 ; GCN-NEXT:    s_cmp_eq_u32 s6, 1
-; GCN-NEXT:    s_cselect_b32 s4, 0x3ff00000, 0
+; GCN-NEXT:    s_cselect_b32 s3, 0x3ff00000, s3
+; GCN-NEXT:    s_cselect_b32 s2, 0, s2
 ; GCN-NEXT:    s_cmp_eq_u32 s6, 0
 ; GCN-NEXT:    s_cselect_b32 s1, 0x3ff00000, s1
 ; GCN-NEXT:    s_cselect_b32 s0, 0, s0
-; GCN-NEXT:    s_waitcnt lgkmcnt(0)
-; GCN-NEXT:    v_mov_b32_e32 v5, s3
+; GCN-NEXT:    v_mov_b32_e32 v4, s4
 ; GCN-NEXT:    v_mov_b32_e32 v0, s0
 ; GCN-NEXT:    v_mov_b32_e32 v1, s1
-; GCN-NEXT:    v_mov_b32_e32 v3, s4
-; GCN-NEXT:    v_mov_b32_e32 v4, s2
+; GCN-NEXT:    v_mov_b32_e32 v2, s2
+; GCN-NEXT:    v_mov_b32_e32 v3, s3
+; GCN-NEXT:    v_mov_b32_e32 v5, s5
 ; GCN-NEXT:    flat_store_dwordx4 v[4:5], v[0:3]
 ; GCN-NEXT:    s_endpgm
 ;

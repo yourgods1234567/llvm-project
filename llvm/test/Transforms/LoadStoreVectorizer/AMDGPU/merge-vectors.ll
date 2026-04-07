@@ -30,8 +30,10 @@ define amdgpu_kernel void @merge_v1i32_v1i32(ptr addrspace(1) nocapture %a, ptr 
 ; CHECK-SAME: ptr addrspace(1) captures(none) [[A:%.*]], ptr addrspace(1) readonly captures(none) [[B:%.*]]) #[[ATTR0]] {
 ; CHECK-NEXT:  [[ENTRY:.*:]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>, ptr addrspace(1) [[B]], align 4
-; CHECK-NEXT:    [[LD_C1:%.*]] = shufflevector <2 x i32> [[TMP0]], <2 x i32> poison, <1 x i32> zeroinitializer
-; CHECK-NEXT:    [[LD_C_IDX_12:%.*]] = shufflevector <2 x i32> [[TMP0]], <2 x i32> poison, <1 x i32> <i32 1>
+; CHECK-NEXT:    [[LD_C1:%.*]] = extractelement <2 x i32> [[TMP0]], i32 0
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i32 [[LD_C1]] to <1 x i32>
+; CHECK-NEXT:    [[LD_C_IDX_12:%.*]] = extractelement <2 x i32> [[TMP0]], i32 1
+; CHECK-NEXT:    [[TMP2:%.*]] = bitcast i32 [[LD_C_IDX_12]] to <1 x i32>
 ; CHECK-NEXT:    store <2 x i32> zeroinitializer, ptr addrspace(1) [[A]], align 4
 ; CHECK-NEXT:    ret void
 ;
@@ -145,6 +147,25 @@ entry:
 
   %ld.0 = load i32, ptr addrspace(1) %a
   %ld.1 = load <2 x i16>, ptr addrspace(1) %a.1
+
+  ret void
+}
+
+define amdgpu_kernel void @merge_load_v2i32_i16(ptr addrspace(1) nocapture %a) #0 {
+; CHECK-LABEL: define amdgpu_kernel void @merge_load_v2i32_i16(
+; CHECK-SAME: ptr addrspace(1) captures(none) [[A:%.*]]) #[[ATTR0]] {
+; CHECK-NEXT:  [[ENTRY:.*:]]
+; CHECK-NEXT:    [[TMP0:%.*]] = load <4 x i16>, ptr addrspace(1) [[A]], align 8
+; CHECK-NEXT:    [[LD_01:%.*]] = shufflevector <4 x i16> [[TMP0]], <4 x i16> poison, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK-NEXT:    [[TMP1:%.*]] = bitcast <4 x i16> [[LD_01]] to <2 x i32>
+; CHECK-NEXT:    [[LD_12:%.*]] = extractelement <4 x i16> [[TMP0]], i32 2
+; CHECK-NEXT:    ret void
+;
+entry:
+  %a.1 = getelementptr inbounds i32, ptr addrspace(1) %a, i32 1
+
+  %ld.0 = load <2 x i32>, ptr addrspace(1) %a
+  %ld.1 = load i16, ptr addrspace(1) %a.1
 
   ret void
 }
