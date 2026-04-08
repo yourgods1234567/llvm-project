@@ -1072,7 +1072,8 @@ void Preprocessor::LexTokensUntilEOF(std::vector<Token> *Tokens) {
 ///        token is a '<').
 /// \return \c true if we reached EOD or EOF while looking for a > token in
 ///         a concatenated header name and diagnosed it. \c false otherwise.
-bool Preprocessor::LexHeaderName(Token &FilenameTok, bool AllowMacroExpansion, bool SkipFirst) {
+bool Preprocessor::LexHeaderName(Token &FilenameTok, bool AllowMacroExpansion,
+                                 bool SkipFirst) {
   // Lex using header-name tokenization rules if tokens are being lexed from
   // a file. Just grab a token normally if we're in a macro expansion.
   if (!SkipFirst) {

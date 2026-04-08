@@ -3556,9 +3556,10 @@ static APSInt extractStringLiteralCharacter(EvalInfo &Info, const Expr *Lit,
       Info.Ctx.getAsConstantArrayType(S->getType());
   assert(CAT && "string literal isn't an array");
   QualType CharType = CAT->getElementType();
-  assert(((SLK == StringLiteralKind::Binary && CharType->isIntegralOrEnumerationType())
-      || (SLK != StringLiteralKind::Binary && CharType->isIntegerType()))
-    && "unexpected character type");
+  assert(((SLK == StringLiteralKind::Binary &&
+           CharType->isIntegralOrEnumerationType()) ||
+          (SLK != StringLiteralKind::Binary && CharType->isIntegerType())) &&
+         "unexpected character type");
   APSInt Value(Info.Ctx.getTypeSize(CharType),
                CharType->isUnsignedIntegerOrEnumerationType());
   if (Index < S->getLength())
@@ -10725,7 +10726,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       return Error(ResourceNameSizeArg);
     }
     if (ResourceNameSizeVal.getBitWidth() > 64) {
-      Info.FFDiag(ResourceNameSizeArg->getBeginLoc(), diag::err_ice_too_large) << OffsetArg << 64 << 1;
+      Info.FFDiag(ResourceNameSizeArg->getBeginLoc(), diag::err_ice_too_large)
+          << OffsetArg << 64 << 1;
       return false;
     }
     APValue ResourceNamePtrVal;
@@ -10738,24 +10740,28 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     const size_t SizeTySize = Info.Ctx.getTypeSize(SizeTy);
     const size_t WCharTySize = Info.Ctx.getTypeSize(WCharTy);
     const size_t IntTySize = Info.Ctx.getTypeSize(Info.Ctx.IntTy);
-    const QualType ResourceNameCharTy(ResourceNamePtrArg->getType()->getPointeeOrArrayElementType(), 0);
-    if (ResourceNameCharTy->isChar8Type() || ResourceNameCharTy->isCharType() || (ResourceNameCharTy->isWideCharType() && WCharTySize == 8)) {
+    const QualType ResourceNameCharTy(
+        ResourceNamePtrArg->getType()->getPointeeOrArrayElementType(), 0);
+    if (ResourceNameCharTy->isChar8Type() || ResourceNameCharTy->isCharType() ||
+        (ResourceNameCharTy->isWideCharType() && WCharTySize == 8)) {
       // Assume the ResourceName is directly usable as an 8-bit transmuation
       for (size_t Index = 0; Index < ResourceNameSize; ++Index) {
         APValue Char;
         if (!handleLValueToRValueConversion(Info, ResourceNamePtrArg,
-              ResourceNameCharTy, ResourceNamePtrLVal, Char)) {
+                                            ResourceNameCharTy,
+                                            ResourceNamePtrLVal, Char)) {
           return Error(ResourceNamePtrArg);
         }
-        ResourceName.push_back(static_cast<char>(static_cast<unsigned char>(Char.getInt().getExtValue())));
-        
+        ResourceName.push_back(static_cast<char>(
+            static_cast<unsigned char>(Char.getInt().getExtValue())));
+
         if (!HandleLValueArrayAdjustment(Info, ResourceNamePtrArg,
-            ResourceNamePtrLVal, ResourceNameCharTy, 1)) {
+                                         ResourceNamePtrLVal,
+                                         ResourceNameCharTy, 1)) {
           return Error(ResourceNamePtrArg);
         }
       }
-    }
-    else if (ResourceNameCharTy->isWideCharType()) {
+    } else if (ResourceNameCharTy->isWideCharType()) {
       // we assume either UTF-16, or UTF-32 based on the size of the string
       // transmute accordingly
       if (WCharTySize == 16) {
@@ -10763,47 +10769,53 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
         for (size_t Index = 0; Index < ResourceNameSize; ++Index) {
           APValue Char;
           if (!handleLValueToRValueConversion(Info, ResourceNamePtrArg,
-                ResourceNameCharTy, ResourceNamePtrLVal, Char)) {
+                                              ResourceNameCharTy,
+                                              ResourceNamePtrLVal, Char)) {
             return Error(ResourceNamePtrArg);
           }
-          ResourceName.push_back(static_cast<llvm::UTF16>(Char.getInt().getExtValue()));
-          
+          ResourceName.push_back(
+              static_cast<llvm::UTF16>(Char.getInt().getExtValue()));
+
           if (!HandleLValueArrayAdjustment(Info, ResourceNamePtrArg,
-              ResourceNamePtrLVal, ResourceNameCharTy, 1)) {
+                                           ResourceNamePtrLVal,
+                                           ResourceNameCharTy, 1)) {
             return Error(ResourceNamePtrArg);
           }
         }
-        if (!llvm::convertUTF16ToUTF8String(ResourceNameU16, ResourceName)){
+        if (!llvm::convertUTF16ToUTF8String(ResourceNameU16, ResourceName)) {
           // error: bad name conversion
           return Error(ResourceNamePtrArg);
         }
-      }
-      else if (WCharTySize == 32) {
+      } else if (WCharTySize == 32) {
         llvm::SmallVector<llvm::UTF32, 64> ResourceNameU32;
         for (size_t Index = 0; Index < ResourceNameSize; ++Index) {
           APValue Char;
           if (!handleLValueToRValueConversion(Info, ResourceNamePtrArg,
-                ResourceNameCharTy, ResourceNamePtrLVal, Char)) {
+                                              ResourceNameCharTy,
+                                              ResourceNamePtrLVal, Char)) {
             return false;
           }
-          ResourceName.push_back(static_cast<llvm::UTF32>(Char.getInt().getExtValue()));
-          
+          ResourceName.push_back(
+              static_cast<llvm::UTF32>(Char.getInt().getExtValue()));
+
           if (!HandleLValueArrayAdjustment(Info, ResourceNamePtrArg,
-              ResourceNamePtrLVal, ResourceNameCharTy, 1)) {
-                return false;
+                                           ResourceNamePtrLVal,
+                                           ResourceNameCharTy, 1)) {
+            return false;
           }
         }
         if (!llvm::convertUTF32ToUTF8String(ResourceNameU32, ResourceName)) {
           // error: bad name conversion
           return Error(ResourceNamePtrArg);
         }
+      } else {
+        llvm::report_fatal_error(
+            "The filename has a wide character type that cannot be converted "
+            "to a UTF-8/multibyte string");
       }
-      else {
-        llvm::report_fatal_error("The filename has a wide character type that cannot be converted to a UTF-8/multibyte string");
-      }
-    }
-    else {
-      llvm::report_fatal_error("The filename has an unusuable or unrecognizable character type");
+    } else {
+      llvm::report_fatal_error(
+          "The filename has an unusuable or unrecognizable character type");
     }
 
     uint64_t DataSize = 0;
@@ -10816,7 +10828,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       }
       APSInt StatusVal(llvm::APInt(IntTySize, Status, true), false);
       APValue StatusOutResult(StatusVal);
-      if (!handleAssignment(Info, StatusOutArg, StatusOutLVal, StatusOutArg->getType(), StatusOutResult)) {
+      if (!handleAssignment(Info, StatusOutArg, StatusOutLVal,
+                            StatusOutArg->getType(), StatusOutResult)) {
         return Error(StatusOutArg);
       }
       return true;
@@ -10827,7 +10840,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       return Error(OffsetArg);
     }
     if (OffsetVal.getBitWidth() > 64) {
-      Info.FFDiag(OffsetArg->getBeginLoc(), diag::err_ice_too_large) << OffsetArg << 64 << 0;
+      Info.FFDiag(OffsetArg->getBeginLoc(), diag::err_ice_too_large)
+          << OffsetArg << 64 << 0;
       return false;
     }
     DataOffset = OffsetVal.getZExtValue();
@@ -10838,14 +10852,17 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
         return Error(OffsetArg);
       }
       if (LimitVal.getBitWidth() > 64) {
-        Info.FFDiag(LimitArg->getBeginLoc(), diag::err_ice_too_large) << LimitArg << 64 << 0;
+        Info.FFDiag(LimitArg->getBeginLoc(), diag::err_ice_too_large)
+            << LimitArg << 64 << 0;
         return false;
       }
       uint64_t FullLimit = LimitVal.getZExtValue();
-      if (FullLimit > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+      if (FullLimit >
+          static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
         // error: implementation limit here since we can only
         // have a 63-bit unsigned number, not a 64-bit one
-        Info.FFDiag(LimitArg->getBeginLoc(), diag::err_ice_too_large) << FullLimit << 64 << 0;
+        Info.FFDiag(LimitArg->getBeginLoc(), diag::err_ice_too_large)
+            << FullLimit << 64 << 0;
         return false;
       }
       MaybeLimit = static_cast<int64_t>(FullLimit);
@@ -10853,8 +10870,9 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
 
     SourceManager &SM = Info.Ctx.getSourceManager();
     FileManager &FM = SM.getFileManager();
-    PreprocessorOptions const* MaybePPOpts = Info.Ctx.getCurrentPreprocessorOptions();
-    const std::vector<std::string>* MaybeSearchEntries = nullptr;
+    PreprocessorOptions const *MaybePPOpts =
+        Info.Ctx.getCurrentPreprocessorOptions();
+    const std::vector<std::string> *MaybeSearchEntries = nullptr;
     const std::vector<std::string> EmptySearchEntries(0);
     FileID ThisFileID = SM.getFileID(Info.CurrentCall->CallRange.getBegin());
     OptionalFileEntryRef ThisFile = std::nullopt;
@@ -10863,36 +10881,39 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     }
     if (MaybePPOpts) {
       MaybeSearchEntries = &MaybePPOpts->EmbedEntries;
-    }
-    else {
+    } else {
       MaybeSearchEntries = &EmptySearchEntries;
     }
-    OptionalFileEntryRef ResourceFile =
-      LookupFileWithStdVec(ResourceName, false, true, FM, *MaybeSearchEntries, ThisFile);
+    OptionalFileEntryRef ResourceFile = LookupFileWithStdVec(
+        ResourceName, false, true, FM, *MaybeSearchEntries, ThisFile);
     if (!ResourceFile) {
       return WriteOutStatus(FileNotFound);
     }
-    assert(Info.Ctx.InputDependencyPatterns && "using __builtin_std_embed requires the context to have a usable input dependency patterns");
-    StringRef ResourceSearchName = ResourceFile->getFileEntry().tryGetRealPathName();
+    assert(Info.Ctx.InputDependencyPatterns &&
+           "using __builtin_std_embed requires the context to have a usable "
+           "input dependency patterns");
+    StringRef ResourceSearchName =
+        ResourceFile->getFileEntry().tryGetRealPathName();
     if (ResourceSearchName.empty()) {
       ResourceSearchName = ResourceName;
     }
     if (!Info.Ctx.InputDependencyPatterns->Check(ResourceSearchName)) {
       // Not matching a dependency is also simply considered not
-      // finding the file. Consider possibly returnig a different value in the future.
+      // finding the file. Consider possibly returnig a different value in the
+      // future.
       return WriteOutStatus(FileNotFound);
     }
     size_t FullDataSize = ResourceFile->getSize();
-    DataSize = std::max<size_t>(0, std::min<size_t>(
-      DataOffset > FullDataSize
-      ? 0 : FullDataSize - DataOffset,
-      MaybeLimit ? *MaybeLimit : std::numeric_limits<size_t>::max()));
+    DataSize = std::max<size_t>(
+        0, std::min<size_t>(
+               DataOffset > FullDataSize ? 0 : FullDataSize - DataOffset,
+               MaybeLimit ? *MaybeLimit : std::numeric_limits<size_t>::max()));
 
     if (FullDataSize == 0 || DataSize == 0) {
       return WriteOutStatus(FileFoundAndEmpty);
     }
     llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> MaybeBinaryData =
-      FM.getBufferForFile(*ResourceFile, true, false, MaybeLimit, false);
+        FM.getBufferForFile(*ResourceFile, true, false, MaybeLimit, false);
     if (auto Err = MaybeBinaryData.getError()) {
       std::string ExtraMessage = Err.message();
       std::string ErrorMessage = "could not open the resource";
@@ -10900,15 +10921,20 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
         ErrorMessage += ", ";
         ErrorMessage += ExtraMessage;
       }
-      Info.FFDiag(ResourceNamePtrArg->getBeginLoc(), diag::err_cannot_open_file) << ResourceName << ErrorMessage;
+      Info.FFDiag(ResourceNamePtrArg->getBeginLoc(), diag::err_cannot_open_file)
+          << ResourceName << ErrorMessage;
       return false;
     }
     llvm::MemoryBuffer *BinaryData = MaybeBinaryData->get();
     if (!BinaryData) {
-      Info.FFDiag(ResourceNamePtrArg->getBeginLoc(), diag::err_cannot_open_file) << ResourceName << "found the resource but unable to read the binary data";
+      Info.FFDiag(ResourceNamePtrArg->getBeginLoc(), diag::err_cannot_open_file)
+          << ResourceName
+          << "found the resource but unable to read the binary data";
       return false;
     }
-    assert(BinaryData->getBufferSize() == FullDataSize && "The binary data for some reason has a data size that is different from the retrieved file size earlier");
+    assert(BinaryData->getBufferSize() == FullDataSize &&
+           "The binary data for some reason has a data size that is different "
+           "from the retrieved file size earlier");
 
     // Write out size
     LValue SizeOutLVal;
@@ -10917,7 +10943,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     }
     APSInt BackingArraySizeVal(llvm::APInt(SizeTySize, DataSize, false), true);
     APValue SizeOutResult(BackingArraySizeVal);
-    if (!handleAssignment(Info, SizeOutArg, SizeOutLVal, SizeOutArg->getType(), SizeOutResult)) {
+    if (!handleAssignment(Info, SizeOutArg, SizeOutLVal, SizeOutArg->getType(),
+                          SizeOutResult)) {
       return Error(SizeOutArg);
     }
 
@@ -10927,16 +10954,19 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     // right now, this is not doing too much on the face with caching or smart
     // deduplication in the compiler.
     StringRef TargetData(BinaryData->getBufferStart() + DataOffset, DataSize);
-    QualType BackingArrayTy = Info.Ctx.getConstantArrayType(
-        ArrElementTy, BackingArraySizeVal, nullptr, ArraySizeModifier::Normal, 0);
-    const ConstantArrayType *BackingArrayConstantArrayTy = cast<ConstantArrayType>(BackingArrayTy);
-    StringLiteral *DataLiteral = StringLiteral::Create(Info.Ctx, TargetData,
-      StringLiteralKind::Binary, false, BackingArrayTy, ArrayRef<SourceLocation>(&BuiltinLoc, 1));
+    QualType BackingArrayTy =
+        Info.Ctx.getConstantArrayType(ArrElementTy, BackingArraySizeVal,
+                                      nullptr, ArraySizeModifier::Normal, 0);
+    const ConstantArrayType *BackingArrayConstantArrayTy =
+        cast<ConstantArrayType>(BackingArrayTy);
+    StringLiteral *DataLiteral = StringLiteral::Create(
+        Info.Ctx, TargetData, StringLiteralKind::Binary, false, BackingArrayTy,
+        ArrayRef<SourceLocation>(&BuiltinLoc, 1));
     if (!EvaluateLValue(DataLiteral, Result, Info)) {
       return Error(E);
     }
     // inform the result we have put a string literal in there
-    Result.addArray(Info, E, BackingArrayConstantArrayTy); 
+    Result.addArray(Info, E, BackingArrayConstantArrayTy);
     return WriteOutStatus(FileFound);
   }
   default:
@@ -15612,7 +15642,8 @@ public:
     assert(E->getType()->isIntegralOrEnumerationType() &&
            "Invalid evaluation result.");
     auto Ty = E->getType();
-    assert(SI.isSigned() == Ty->isSignedIntegerOrEnumerationType() && "Invalid evaluation result.");
+    assert(SI.isSigned() == Ty->isSignedIntegerOrEnumerationType() &&
+           "Invalid evaluation result.");
     assert(SI.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
            "Invalid evaluation result.");
     Result = APValue(SI);

@@ -1194,8 +1194,10 @@ OptionalFileEntryRef Preprocessor::LookupEmbedFile(StringRef Filename,
                                                    bool isAngled,
                                                    bool OpenFile) {
   FileManager &FM = this->getFileManager();
-  OptionalFileEntryRef LookupFromFileHere = getCurrentFileLexer()->getFileEntry();
-  return LookupFileWithStdVec(Filename, isAngled, OpenFile, FM, PPOpts.EmbedEntries, LookupFromFileHere);
+  OptionalFileEntryRef LookupFromFileHere =
+      getCurrentFileLexer()->getFileEntry();
+  return LookupFileWithStdVec(Filename, isAngled, OpenFile, FM,
+                              PPOpts.EmbedEntries, LookupFromFileHere);
 }
 
 //===----------------------------------------------------------------------===//
@@ -4138,19 +4140,19 @@ void Preprocessor::HandleEmbedDirective(SourceLocation HashLoc,
 }
 
 void Preprocessor::HandleDependDirective(SourceLocation HashLoc,
-                                       Token &DependTok) {
+                                         Token &DependTok) {
   // Give the usual extension/compatibility warnings.
-  Diag(DependTok, diag::ext_pp_depend_directive)
-        << /*Clang*/ 1;
+  Diag(DependTok, diag::ext_pp_depend_directive) << /*Clang*/ 1;
   // It's always a clang extension: it will become a C++2c extension after
   // more WG21 work later. Remember to come back and tweak this!
 
-  // this unfortunately has no meaning but it's part of the grammar for the future so we should parse it normally
+  // this unfortunately has no meaning but it's part of the grammar for the
+  // future so we should parse it normally
   bool IsExported = false;
   Token PatternTok;
   Lex(PatternTok);
   if (PatternTok.is(tok::kw_export)) {
-      IsExported = true;
+    IsExported = true;
   }
 
   // Parse the pattern header-name, with a potential first skip
@@ -4172,12 +4174,10 @@ void Preprocessor::HandleDependDirective(SourceLocation HashLoc,
     DiscardUntilEndOfDirective();
     return;
   }
-  
-  
+
   SmallString<256> PatternBuffer;
   StringRef Pattern = getSpelling(PatternTok, PatternBuffer);
-  bool IsAngled =
-      GetIncludeFilenameSpelling(PatternTok.getLocation(), Pattern);
+  bool IsAngled = GetIncludeFilenameSpelling(PatternTok.getLocation(), Pattern);
   // Every pattern is local to where it was found, so prepend the current
   // directory of the file if it's a non-absolute path from the perspective of
   // this current header file
@@ -4187,10 +4187,12 @@ void Preprocessor::HandleDependDirective(SourceLocation HashLoc,
     FileID ThisFID = ThisFileLexer->getFileID();
     CurrentFile = SourceMgr.getFileEntryRefForID(ThisFID);
   }
-  const PatternFilter& Filter
-    = InputDependencyPatterns->Add(Pattern.str(), IsAngled, IsExported, getFileManager(), PPOpts.EmbedEntries, CurrentFile);
+  const PatternFilter &Filter = InputDependencyPatterns->Add(
+      Pattern.str(), IsAngled, IsExported, getFileManager(),
+      PPOpts.EmbedEntries, CurrentFile);
   if (Callbacks)
-    Callbacks->DependDirective(HashLoc, DependTok, Pattern, IsAngled, Filter, CurrentFile);
+    Callbacks->DependDirective(HashLoc, DependTok, Pattern, IsAngled, Filter,
+                               CurrentFile);
 }
 
 /// HandleCXXImportDirective - Handle the C++ modules import directives

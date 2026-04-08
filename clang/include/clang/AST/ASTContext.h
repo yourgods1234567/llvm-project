@@ -27,8 +27,8 @@
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeOrdering.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/InputDependencyCollection.h"
+#include "clang/Basic/LLVM.h"
 #include "clang/Basic/PartialDiagnostic.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/DenseMap.h"
@@ -574,7 +574,6 @@ class ASTContext : public RefCountedBase<ASTContext> {
   // embedded files
   PreprocessorOptions const *PPOpts = nullptr;
 
-
   ASTContext &this_() { return *this; }
 
 public:
@@ -816,7 +815,8 @@ public:
   mutable DeclarationNameTable DeclarationNames;
   IntrusiveRefCntPtr<ExternalASTSource> ExternalSource;
   ASTMutationListener *Listener = nullptr;
-  std::shared_ptr<InputDependencyCollection> InputDependencyPatterns = std::make_shared<InputDependencyCollection>();
+  std::shared_ptr<InputDependencyCollection> InputDependencyPatterns =
+      std::make_shared<InputDependencyCollection>();
 
   /// Returns the clang bytecode interpreter context.
   interp::Context &getInterpContext() const;
@@ -1426,7 +1426,7 @@ public:
   void setCurrentPreprocessorOptions(const PreprocessorOptions &NewPPOpts);
 
   /// Get the preprocessor options we are using. Can be null!
-  PreprocessorOptions const* getCurrentPreprocessorOptions() const;
+  PreprocessorOptions const *getCurrentPreprocessorOptions() const;
 
   /// Attach an external AST source to the AST context.
   ///

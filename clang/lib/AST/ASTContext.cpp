@@ -903,11 +903,13 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
   addTranslationUnitDecl();
 }
 
-void ASTContext::setCurrentPreprocessorOptions(const PreprocessorOptions &NewOpts) {
+void ASTContext::setCurrentPreprocessorOptions(
+    const PreprocessorOptions &NewOpts) {
   PPOpts = &NewOpts;
 }
 
-void ASTContext::setCurrentPreprocessorOptions(PreprocessorOptions const *NewOpts) {
+void ASTContext::setCurrentPreprocessorOptions(
+    PreprocessorOptions const *NewOpts) {
   PPOpts = NewOpts;
 }
 

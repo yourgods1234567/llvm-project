@@ -345,7 +345,8 @@ public:
   const TranslationUnitKind TUKind;
 
   /// The #depend dependency patterns seen in this translation unit
-  std::shared_ptr<InputDependencyCollection> InputDependencyPatterns = std::make_shared<InputDependencyCollection>();
+  std::shared_ptr<InputDependencyCollection> InputDependencyPatterns =
+      std::make_shared<InputDependencyCollection>();
 
   /// Returns a pointer into the given file's buffer that's guaranteed
   /// to be between tokens. The returned pointer is always before \p Start.

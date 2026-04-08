@@ -6859,7 +6859,8 @@ bool Sema::BuiltinCountedByRef(CallExpr *TheCall) {
 
 bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   const bool HasProperArgCount = !checkArgCountAtLeast(TheCall, 6);
-  const bool HasExtraLimitArg = !checkArgCountAtMost(TheCall, 7) && TheCall->getNumArgs() == 7;
+  const bool HasExtraLimitArg =
+      !checkArgCountAtMost(TheCall, 7) && TheCall->getNumArgs() == 7;
   if (!HasProperArgCount && !HasExtraLimitArg)
     return true;
 
@@ -6879,23 +6880,19 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   const uint64_t CharSize = Context.getCharWidth();
   // Status argument type
   QualType StatusRefTy = StatusRef->getType();
-  if ((!StatusRefTy->isIntegralOrUnscopedEnumerationType())
-      || StatusRefTy.isConstant(Context)
-      || !StatusRef->isLValue()) {
+  if ((!StatusRefTy->isIntegralOrUnscopedEnumerationType()) ||
+      StatusRefTy.isConstant(Context) || !StatusRef->isLValue()) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-      << StatusRef << "__builtin_std_embed"
-      << StatusRef->getSourceRange();
+        << StatusRef << "__builtin_std_embed" << StatusRef->getSourceRange();
     return true;
   }
 
   // Size argument type
   QualType SizeRefTy = SizeRef->getType();
-  if ((!SizeRefTy->isIntegralOrUnscopedEnumerationType())
-      || SizeRefTy.isConstant(Context)
-      || !SizeRef->isLValue()) {
+  if ((!SizeRefTy->isIntegralOrUnscopedEnumerationType()) ||
+      SizeRefTy.isConstant(Context) || !SizeRef->isLValue()) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-      << SizeRef << "__builtin_std_embed"
-      << SizeRef->getSourceRange();
+        << SizeRef << "__builtin_std_embed" << SizeRef->getSourceRange();
     return true;
   }
 
@@ -6905,30 +6902,26 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   // it to be treated as an RValue, and we need to peel that off so it can be
   // treated as an LValue, if possible.
   QualType PtrRefTy = PtrRef->getType();
-  if (!PtrRefTy->isPointerType()
-      || PtrRefTy.isConstant(Context)) {
+  if (!PtrRefTy->isPointerType() || PtrRefTy.isConstant(Context)) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-      << PtrRefTy << "__builtin_std_embed"
-      << PtrRef->getSourceRange();
+        << PtrRefTy << "__builtin_std_embed" << PtrRef->getSourceRange();
     return true;
   }
   QualType ArrElementTy = PtrRefTy->getPointeeType();
-  if (!ArrElementTy.isConstant(Context)
-      || !(Context.getTypeSize(ArrElementTy) == CharSize
-        && Context.getTypeAlign(ArrElementTy) == CharSize
-        && ArrElementTy->isIntegralOrEnumerationType())) {
+  if (!ArrElementTy.isConstant(Context) ||
+      !(Context.getTypeSize(ArrElementTy) == CharSize &&
+        Context.getTypeAlign(ArrElementTy) == CharSize &&
+        ArrElementTy->isIntegralOrEnumerationType())) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-      << PtrRef << "__builtin_std_embed"
-      << PtrRef->getSourceRange();
+        << PtrRef << "__builtin_std_embed" << PtrRef->getSourceRange();
     return true;
   }
 
-  if (!(ArrElementTy->isIntegralOrEnumerationType()
-        && Context.getTypeSize(ArrElementTy) == CharSize
-        && Context.getTypeAlign(ArrElementTy) == CharSize)) {
+  if (!(ArrElementTy->isIntegralOrEnumerationType() &&
+        Context.getTypeSize(ArrElementTy) == CharSize &&
+        Context.getTypeAlign(ArrElementTy) == CharSize)) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-      << PtrRef << "__builtin_std_embed"
-      << PtrRef->getSourceRange();
+        << PtrRef << "__builtin_std_embed" << PtrRef->getSourceRange();
     return true;
   }
 
@@ -6937,60 +6930,66 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   QualType ResourceNameSizeTy = ResourceNameSize->getType();
   if (!ResourceNameSizeTy->isIntegralOrEnumerationType()) {
     Expr *ResourceNameSizeMutable = const_cast<Expr *>(ResourceNameSize);
-    ExprResult ImplicitResourceNameSizeFixupResult = PerformImplicitConversion(ResourceNameSizeMutable, SizeType, AssignmentAction::Passing);
+    ExprResult ImplicitResourceNameSizeFixupResult = PerformImplicitConversion(
+        ResourceNameSizeMutable, SizeType, AssignmentAction::Passing);
     if (!ImplicitResourceNameSizeFixupResult.isUsable()) {
-      Diag(TheCall->getBeginLoc(), diag::err_typecheck_converted_constant_expression)
-        << ResourceNameSizeTy << SizeType;
+      Diag(TheCall->getBeginLoc(),
+           diag::err_typecheck_converted_constant_expression)
+          << ResourceNameSizeTy << SizeType;
       return true;
     }
     // The implicit conversion worked -- adjust the builtin's argument.
-    TheCall->setArg(ResourceNameSizeIndex, ImplicitResourceNameSizeFixupResult.get());
+    TheCall->setArg(ResourceNameSizeIndex,
+                    ImplicitResourceNameSizeFixupResult.get());
   }
 
   // Pointer to an appropriate string type
   // (char, wchar_t, or char8_t)
   QualType ResourceNamePtrTy = ResourceNamePtr->getType();
   if (!ResourceNamePtrTy->isPointerType()) {
-    const QualType AllowedTypes[3] = {
-      Context.getPointerType(Context.CharTy),
-      Context.getPointerType(Context.WCharTy),
-      Context.getPointerType(Context.Char8Ty)
-    };
-    Expr *ResourceNamePtrMutable =  const_cast<Expr *>(ResourceNamePtr);
+    const QualType AllowedTypes[3] = {Context.getPointerType(Context.CharTy),
+                                      Context.getPointerType(Context.WCharTy),
+                                      Context.getPointerType(Context.Char8Ty)};
+    Expr *ResourceNamePtrMutable = const_cast<Expr *>(ResourceNamePtr);
     ExprResult ImplicitResourceNamePtrFixupResult;
-    for (const QualType& DesiredType : AllowedTypes) {
-      ImplicitResourceNamePtrFixupResult = PerformImplicitConversion(ResourceNamePtrMutable, DesiredType, AssignmentAction::Passing);
+    for (const QualType &DesiredType : AllowedTypes) {
+      ImplicitResourceNamePtrFixupResult = PerformImplicitConversion(
+          ResourceNamePtrMutable, DesiredType, AssignmentAction::Passing);
       if (ImplicitResourceNamePtrFixupResult.isUsable()) {
         break;
       }
     }
     if (!ImplicitResourceNamePtrFixupResult.isUsable()) {
-      Diag(ResourceNamePtr->getBeginLoc(), diag::err_typecheck_converted_constant_expression)
-         << ResourceNamePtrTy << "a pointer to char, wchar_t, or char8_t";
+      Diag(ResourceNamePtr->getBeginLoc(),
+           diag::err_typecheck_converted_constant_expression)
+          << ResourceNamePtrTy << "a pointer to char, wchar_t, or char8_t";
       return true;
     }
-    TheCall->setArg(ResourceNamePtrIndex, ImplicitResourceNamePtrFixupResult.get());
+    TheCall->setArg(ResourceNamePtrIndex,
+                    ImplicitResourceNamePtrFixupResult.get());
     ResourceNamePtr = TheCall->getArg(ResourceNamePtrIndex);
     ResourceNamePtrTy = ResourceNamePtr->getType();
   }
-  QualType ResourceNameCharTy(ResourceNamePtrTy->getPointeeOrArrayElementType(), 0);
-  if (!ResourceNameCharTy->isCharType()
-      && !ResourceNameCharTy->isChar8Type()
-      && !ResourceNameCharTy->isWideCharType()) {
-      Diag(ResourceNamePtr->getBeginLoc(), diag::err_typecheck_convert_incompatible_pointer)
+  QualType ResourceNameCharTy(ResourceNamePtrTy->getPointeeOrArrayElementType(),
+                              0);
+  if (!ResourceNameCharTy->isCharType() && !ResourceNameCharTy->isChar8Type() &&
+      !ResourceNameCharTy->isWideCharType()) {
+    Diag(ResourceNamePtr->getBeginLoc(),
+         diag::err_typecheck_convert_incompatible_pointer)
         << 1 << 1 << 1 << 0;
-      return true;
-    
+    return true;
   }
 
   // Check offset is an integer-convertible argument
   QualType OffsetTy = Offset->getType();
   if (!OffsetTy->isIntegralOrEnumerationType()) {
-    Expr *OffsetMutable =  const_cast<Expr *>(Offset);
-    ExprResult ImplicitOffsetFixupResult = PerformImplicitConversion(OffsetMutable, SizeType, AssignmentAction::Passing);
+    Expr *OffsetMutable = const_cast<Expr *>(Offset);
+    ExprResult ImplicitOffsetFixupResult = PerformImplicitConversion(
+        OffsetMutable, SizeType, AssignmentAction::Passing);
     if (!ImplicitOffsetFixupResult.isUsable()) {
-      Diag(TheCall->getBeginLoc(), diag::err_typecheck_converted_constant_expression)
-        << ResourceNameSizeTy << SizeType;
+      Diag(TheCall->getBeginLoc(),
+           diag::err_typecheck_converted_constant_expression)
+          << ResourceNameSizeTy << SizeType;
       return true;
     }
     // The implicit conversion worked -- adjust the builtin's argument.
@@ -7001,11 +7000,13 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
     // If present, final argument is offset
     QualType LimitTy = Limit->getType();
     if (!LimitTy->isIntegralOrEnumerationType()) {
-      Expr *LimitMutable =  const_cast<Expr *>(Limit);
-      ExprResult ImplicitLimitFixupResult = PerformImplicitConversion(LimitMutable, SizeType, AssignmentAction::Passing);
+      Expr *LimitMutable = const_cast<Expr *>(Limit);
+      ExprResult ImplicitLimitFixupResult = PerformImplicitConversion(
+          LimitMutable, SizeType, AssignmentAction::Passing);
       if (!ImplicitLimitFixupResult.isUsable()) {
-        Diag(TheCall->getBeginLoc(), diag::err_typecheck_converted_constant_expression)
-        << ResourceNameSizeTy << SizeType;
+        Diag(TheCall->getBeginLoc(),
+             diag::err_typecheck_converted_constant_expression)
+            << ResourceNameSizeTy << SizeType;
         return true;
       }
       // The implicit conversion worked -- adjust the builtin's argument.

@@ -106,15 +106,16 @@ struct DepCollectorPPCallbacks : public PPCallbacks {
     // Files that actually exist are handled by FileChanged.
   }
 
-  enum IsRecursive : bool {
-    Flat = false,
-    Recursive = true
-  };
+  enum IsRecursive : bool { Flat = false, Recursive = true };
 
-  static inline void DoSearch(FileManager& FM, const PatternFilter& Filter, DependencyCollector& DepCollector, StringRef Dir, IsRecursive Recurse) {
+  static inline void DoSearch(FileManager &FM, const PatternFilter &Filter,
+                              DependencyCollector &DepCollector, StringRef Dir,
+                              IsRecursive Recurse) {
     std::error_code EC;
-    for (llvm::vfs::directory_iterator FileIt = FM.getVirtualFileSystem().dir_begin(Dir, EC), FileEnd = {};
-          FileIt != FileEnd && !EC; FileIt.increment(EC)) {
+    for (llvm::vfs::directory_iterator
+             FileIt = FM.getVirtualFileSystem().dir_begin(Dir, EC),
+             FileEnd = {};
+         FileIt != FileEnd && !EC; FileIt.increment(EC)) {
       const auto &File = *FileIt;
       switch (File.type()) {
       case llvm::sys::fs::file_type::directory_file: {
@@ -147,25 +148,29 @@ struct DepCollectorPPCallbacks : public PPCallbacks {
                        OptionalFileEntryRef CurrentFile) override {
     if (Pattern.empty())
       return;
-    FileManager& FM = PP.getFileManager();
-    llvm::vfs::FileSystem& VFS = FM.getVirtualFileSystem();
+    FileManager &FM = PP.getFileManager();
+    llvm::vfs::FileSystem &VFS = FM.getVirtualFileSystem();
     if (Filter.SearchRoot.empty()) {
       // nothing we can do for ourselves here, just check the file directly and
       // leave
       if (Filter.RootHandling == RootPatternScanType::None) {
         // it's either a directory or a file; add the dependency as-is
-        DepCollector.maybeAddDependency(Filter.Input,
-                                        /*FromModule*/ false,
-                                        /*IsSystem*/ false,
-                                        /*IsModuleFile*/ false,
-                                        /*IsMissing*/ !VFS.exists(Filter.Pattern));
+        DepCollector.maybeAddDependency(
+            Filter.Input,
+            /*FromModule*/ false,
+            /*IsSystem*/ false,
+            /*IsModuleFile*/ false,
+            /*IsMissing*/ !VFS.exists(Filter.Pattern));
         return;
       }
       // if there's no search root, simply search from the current file's
       // working directory (if it's quoted)
       if (!IsAngled && CurrentFile) {
         StringRef CurrentDir = CurrentFile->getDir().getName();
-        DoSearch(FM, Filter, DepCollector, CurrentDir, Filter.RootHandling == RootPatternScanType::Directory ? Flat : Recursive);
+        DoSearch(FM, Filter, DepCollector, CurrentDir,
+                 Filter.RootHandling == RootPatternScanType::Directory
+                     ? Flat
+                     : Recursive);
       }
       return;
     }
@@ -185,7 +190,9 @@ struct DepCollectorPPCallbacks : public PPCallbacks {
     } else {
       if (VFS.exists(Filter.PatternRoot)) {
         DoSearch(FM, Filter, DepCollector, Filter.PatternRoot,
-          Filter.RootHandling == RootPatternScanType::Directory ? Flat : Recursive);
+                 Filter.RootHandling == RootPatternScanType::Directory
+                     ? Flat
+                     : Recursive);
       }
     }
   }
