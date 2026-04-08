@@ -5474,6 +5474,82 @@ manner as the above four builtins, except that ``_M_function_name`` is populated
 with ``__PRETTY_FUNCTION__`` rather than ``__FUNCTION__``.
 
 
+Data embedding builtin ``__builtin_std_embed``
+----------------------------------------------
+
+For use with `p1040 <https://wg21.link/p1040>`'s ``std::embed`` directive. It
+is conceptually (but not exactly) represented by the following overloads:
+
+.. code-block:: c++
+
+  template <class Byte, class Char>
+  Byte const* __builtin_std_embed(int& status,
+                               size_t& size, T const* type_hint_ptr,
+                               size_t resource_name_size,
+                               Char const* resource_name_ptr,
+                               size_t offset);
+
+  template <class Byte, class Char>
+  Byte const* __builtin_std_embed(int& status,
+                               size_t& size, T const* type_hint_ptr,
+                               size_t resource_name_size,
+                               Char const* resource_name_ptr,
+                               size_t offset, size_t limit);
+
+The first argument is an output parameter status object. It will be
+filled with ``0`` is the file is not found or a suitable ``#depend`` clause
+does not bless the file that is found, ``1`` if the file is found, and ``2``
+if the file is found but it is empty. (These are the same values as the macros
+``__STDC_EMBED_NOT_FOUND__``, ``__STDC_EMBED_FOUND__``, and
+``__STDC_EMBED_EMPTY__``, respectively.)
+
+The second argument is an output parameter for the number of elements pointed
+to by the return type. If ``limit`` is provided, this value will be less than
+or equal to ``limit``.
+
+The third argument is a type hint for the type to return. It must be a pointer
+to a ``const`` type, and ``Byte`` must an integral or enumeration type with an
+alignment and size of ``1`` (e.g. ``char``, ``unsigned char``, ``std::byte``,
+etc.). A future extension can possibly allow for additional types, possibly
+all types which are considered "trivial" types.
+
+The fourth and fifth arguments describe a plain, wide, or ``char8_t`` range as
+as string. ``Char`` can be one of ``char``, ``wchar_t``, or ``char8_t`` to
+represent a string in the literal encoding, wide literal encoding, or UTF-8
+encoding respectively. While they have these stated encodings, the plain,
+wide (when ``sizeof(wchar_t) == 1``), and ``char8_t`` strings are
+passed as-is to internal file handling solutions. ``wchar_t`` string ranges
+where it is 16-bits wide or 32-bits wide assume it is encoded as UTF-16 or
+UTF-32, respectively, and attempt to transcode to UTF-8. This means some
+files may not be representable when using wide strings. This behavior is
+subject to change, for example if the ``-fexec-charset=Encoding-Name`` or
+``-fwide-exec-charset=Encoding-Name`` options are implemented. It is also
+subject to change based on other factors, such as whether it is advantageous
+to produce a hard error on failed conversion or try the search anyway using
+canonical replacement characters (such as ``'\u{FFFD}''`` or ``'?'```).
+
+The sixth argument is the offset in bytes into the file. It can be set to
+``0`` to have no effect. This represents the number of ``Byte`` objects
+that will be discarded from the start of the file stream.
+
+The last argument is optional, and represents a fixed upper limit on the count
+of ``Byte`` objects that the returned value will point to. Less values can be
+pointed to than what ``limit`` describes.
+
+The ``offset`` value is applied before any ``limit`` is taken into
+consideration. The file name represented by the string range is searched in the
+same way as ``#embed`` files, with the caveat that any file not blessed by
+``#depend`` will be treated as a file that is not found. All searches done are
+searches as-if done by a quoted header name for a ``#embed`` directive.
+
+The data returned may not be unique, may prefix into other data, and has no
+guarantee that caching may apply. That is, calling ``__builtin_std_embed`` with
+the exact same arguments twice may return two different pointers or the same
+pointer, and is subject to everything from optimization level, implementation
+effort, and whether or not it is sunny outside right now. Block devices such
+as ``/dev/urandom`` can possibly be supported in the future.
+
+
 Alignment builtins
 ------------------
 Clang provides builtins to support checking and adjusting alignment of

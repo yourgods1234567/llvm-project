@@ -30,84 +30,118 @@ consteval span<const T> embed(u8string_view resource_idenfier,
   size_t offset = 0,
   optional<size_t> limit = nullopt);
 
+  template <class T, size_t Limit>
+consteval span<const T, Limit> embed(string_view resource_idenfier,
+  size_t offset = 0);
+
+  template <class T, size_t Limit>
+consteval span<const , Limit> embed(wstring_view resource_idenfier,
+  size_t offset = 0);
+
+  template <class T, size_t Limit>
+consteval span<const T, Limit> embed(u8string_view resource_idenfier,
+  size_t offset = 0);
+
 } // namespace std
 
 */
 
-#if __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
-#  include <__cxx03/__config>
-#else
-#  include <__config>
-#  include <__cstddef/byte.h>
-#  include <__type_traits/is_enum.h>
-#  include <__type_traits/is_integral.h>
-#  include <__type_traits/is_same.h>
-#  include <optional>
-#  include <span>
-#  include <string_view>
-#  include <version>
+#include <__assert>
+#include <__config>
+#include <__cstddef/byte.h>
+#include <__type_traits/is_enum.h>
+#include <__type_traits/is_integral.h>
+#include <__type_traits/is_same.h>
+#include <__verbose_abort>
+#include <optional>
+#include <span>
+#include <stdexcept>
+#include <string_view>
+#include <version>
 
-#  if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
-#    pragma GCC system_header
-#  endif
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+#  pragma GCC system_header
+#endif
 
-_LIBCPP_PUSH_MACROS
-#  include <__undef_macros>
-
-#  if !defined(_LIBCPP_HAS_EMBED)
-#    if __has_builtin(__builtin_std_embed)
-#      define _LIBCPP_HAS_EMBED 1
-#    else
-#      define _LIBCPP_HAS_EMBED 0
-#    endif
-#  endif
-
-#  if _LIBCPP_HAS_EMBED != 0
+// FIXME: the versioning stuff out of Clang is... Not Great! __cplusplus is still like 202400L for -std=c++2c, which is
+// not even in the ballpark of correct.
+#if 1 //_LIBCPP_STD_VER > 26 && __has_builtin(__builtin_std_embed)
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace __embed_detail {
-template <typename _Byte, typename _StrView>
-consteval span<const _Byte>
-__embed(const _StrView& __resource_identifier, size_t __offset = 0, optional<size_t> __limit = nullopt) {
+template <typename _Byte, size_t _Extent, typename _StrView>
+consteval _LIBCPP_HIDE_FROM_ABI span<const _Byte, _Extent>
+__embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]] optional<size_t> __limit) {
   static_assert(sizeof(_Byte) == 1 && alignof(_Byte) == 1 && (is_integral<_Byte>::value || is_enum<_Byte>::value),
                 "embed data type must be a character type with a size and alignment of 1");
   size_t __size      = 0;
   _Byte const* __ptr = nullptr;
-  if (__limit) {
+  int __status       = -1;
+  if constexpr (_Extent != std::dynamic_extent) {
     __ptr = __builtin_std_embed(
-        __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, *__limit);
+        __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, _Extent);
   } else {
-    __ptr = __builtin_std_embed(__size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset);
+    if (__limit) {
+      __ptr = __builtin_std_embed(
+          __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, *__limit);
+    } else {
+      __ptr = __builtin_std_embed(
+          __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset);
+    }
   }
-  return span<const _Byte>(__ptr, __size);
+  if (__status == __STDC_EMBED_NOT_FOUND__) {
+    throw std::domain_error("file not found");
+  }
+  if constexpr (_Extent != std::dynamic_extent) {
+    if (_Extent > __size) {
+      _LIBCPP_VERBOSE_ABORT("the fixed-size span extent is larger than the resource data size");
+    }
+    __size = _Extent;
+  }
+  if (__status == __STDC_EMBED_EMPTY__) {
+    return span<const _Byte, _Extent>();
+  }
+  _LIBCPP_ASSERT(__status == __STDC_EMBED_FOUND__, "return status of embed is the proper __STDC_EMBED_FOUND__ value");
+  return span<const _Byte, _Extent>(__ptr, __size);
 }
 } // namespace __embed_detail
 
 template <typename _Byte>
 consteval span<const _Byte>
 embed(string_view __resource_identifier, size_t __offset = 0, optional<size_t> __limit = nullopt) {
-  return __embed_detail::__embed<_Byte>(__resource_identifier, __offset, __limit);
+  return __embed_detail::__embed<_Byte, dynamic_extent>(__resource_identifier, __offset, __limit);
 }
 
 template <typename _Byte>
 consteval span<const _Byte>
 embed(wstring_view __resource_identifier, size_t __offset = 0, optional<size_t> __limit = nullopt) {
-  return __embed_detail::__embed<_Byte>(__resource_identifier, __offset, __limit);
+  return __embed_detail::__embed<_Byte, dynamic_extent>(__resource_identifier, __offset, __limit);
 }
 
 template <typename _Byte>
 consteval span<const _Byte>
 embed(u8string_view __resource_identifier, size_t __offset = 0, optional<size_t> __limit = nullopt) {
-  return __embed_detail::__embed<_Byte>(__resource_identifier, __offset, __limit);
+  return __embed_detail::__embed<_Byte, dynamic_extent>(__resource_identifier, __offset, __limit);
+}
+
+template <typename _Byte, size_t _Limit>
+consteval span<const _Byte, _Limit> embed(string_view __resource_identifier, size_t __offset = 0) {
+  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, _Limit);
+}
+
+template <typename _Byte, size_t _Limit>
+consteval span<const _Byte, _Limit> embed(wstring_view __resource_identifier, size_t __offset = 0) {
+  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, _Limit);
+}
+
+template <typename _Byte, size_t _Limit>
+consteval span<const _Byte, _Limit> embed(u8string_view __resource_identifier, size_t __offset = 0) {
+  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, _Limit);
 }
 
 _LIBCPP_END_NAMESPACE_STD
 
-#  endif
-
-_LIBCPP_POP_MACROS
-
-#endif // __cplusplus < 201103L && defined(_LIBCPP_USE_FROZEN_CXX03_HEADERS)
+#endif // _LIBCPP_STD_VER > 26 && __has_builtin(__builtin_std_embed)
 
 #endif // _LIBCPP_EMBED

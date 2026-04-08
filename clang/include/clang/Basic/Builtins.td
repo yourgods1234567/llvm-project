@@ -1273,7 +1273,7 @@ def GetVtablePointer : LangBuiltin<"CXX_LANG"> {
 def StdEmbed : Builtin {
   let Spellings = ["__builtin_std_embed"];
   let Attributes = [NoThrow, Const, Consteval];
-  let Prototype = "void const*(size_t&, ...)";
+  let Prototype = "void const*(int&, size_t&, ...)";
 }
 
 // GCC exception builtins

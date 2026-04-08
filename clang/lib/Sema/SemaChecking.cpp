@@ -6858,21 +6858,35 @@ bool Sema::BuiltinCountedByRef(CallExpr *TheCall) {
 }
 
 bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
-  const bool HasProperArgCount = !checkArgCountAtLeast(TheCall, 5);
-  const bool HasExtraLimitArg = !checkArgCountAtMost(TheCall, 6) && TheCall->getNumArgs() == 6;
+  const bool HasProperArgCount = !checkArgCountAtLeast(TheCall, 6);
+  const bool HasExtraLimitArg = !checkArgCountAtMost(TheCall, 7) && TheCall->getNumArgs() == 7;
   if (!HasProperArgCount && !HasExtraLimitArg)
     return true;
 
-  const Expr *SizeRef = TheCall->getArg(0);
-  const Expr *PtrRef = TheCall->getArg(1);
-  const unsigned int ResourceNameSizeIndex = 2;
+  const Expr *StatusRef = TheCall->getArg(0);
+  const Expr *SizeRef = TheCall->getArg(1);
+  const unsigned int PtrRefIndex = 2;
+  const Expr *PtrRef = TheCall->getArg(PtrRefIndex);
+  const unsigned int ResourceNameSizeIndex = 3;
   const Expr *ResourceNameSize = TheCall->getArg(ResourceNameSizeIndex);
-  const unsigned int ResourceNamePtrIndex = 3;
+  const unsigned int ResourceNamePtrIndex = 4;
   const Expr *ResourceNamePtr = TheCall->getArg(ResourceNamePtrIndex);
-  const unsigned int OffsetIndex = 4;
+  const unsigned int OffsetIndex = 5;
   const Expr *Offset = TheCall->getArg(OffsetIndex);
-  const unsigned int LimitIndex = 5;
+  const unsigned int LimitIndex = 6;
   const Expr *Limit = HasExtraLimitArg ? TheCall->getArg(LimitIndex) : nullptr;
+
+  const uint64_t CharSize = Context.getCharWidth();
+  // Status argument type
+  QualType StatusRefTy = StatusRef->getType();
+  if ((!StatusRefTy->isIntegralOrUnscopedEnumerationType())
+      || StatusRefTy.isConstant(Context)
+      || !StatusRef->isLValue()) {
+    Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
+      << StatusRef << "__builtin_std_embed"
+      << StatusRef->getSourceRange();
+    return true;
+  }
 
   // Size argument type
   QualType SizeRefTy = SizeRef->getType();
@@ -6886,23 +6900,29 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   }
 
   // value pointer, has to be non-constant (but pointer to `const`).
-  // tells us what the type for the builtin return is, serves no other purpose.
+  // tells us what the type for the builtin return is as well.
+  // note we have to strip it because the `...` in the Builtins.td causes
+  // it to be treated as an RValue, and we need to peel that off so it can be
+  // treated as an LValue, if possible.
   QualType PtrRefTy = PtrRef->getType();
-  if (!PtrRefTy->isPointerType()) {
+  if (!PtrRefTy->isPointerType()
+      || PtrRefTy.isConstant(Context)) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
       << PtrRefTy << "__builtin_std_embed"
       << PtrRef->getSourceRange();
     return true;
   }
   QualType ArrElementTy = PtrRefTy->getPointeeType();
-  if (!ArrElementTy.isConstant(Context)) {
+  if (!ArrElementTy.isConstant(Context)
+      || !(Context.getTypeSize(ArrElementTy) == CharSize
+        && Context.getTypeAlign(ArrElementTy) == CharSize
+        && ArrElementTy->isIntegralOrEnumerationType())) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
       << PtrRef << "__builtin_std_embed"
       << PtrRef->getSourceRange();
     return true;
   }
 
-  const uint64_t CharSize = Context.getCharWidth();
   if (!(ArrElementTy->isIntegralOrEnumerationType()
         && Context.getTypeSize(ArrElementTy) == CharSize
         && Context.getTypeAlign(ArrElementTy) == CharSize)) {
@@ -6963,7 +6983,7 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
     
   }
 
-  // Check the integer-convertible argument is offset
+  // Check offset is an integer-convertible argument
   QualType OffsetTy = Offset->getType();
   if (!OffsetTy->isIntegralOrEnumerationType()) {
     Expr *OffsetMutable =  const_cast<Expr *>(Offset);

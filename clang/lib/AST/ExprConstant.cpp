@@ -10701,17 +10701,22 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     }
   }
   case Builtin::BI__builtin_std_embed: {
-    const Expr *SizeOutArg = E->getArg(0);
-    const Expr *PtrSpecifierArg = E->getArg(1);
-    const Expr *ResourceNameSizeArg = E->getArg(2);
-    const Expr *ResourceNamePtrArg = E->getArg(3);
-    const Expr *OffsetArg = E->getArg(4);
-    const Expr *LimitArg = E->getNumArgs() == 6 ? E->getArg(5) : nullptr;
+    constexpr uint64_t FileNotFound = 0;
+    constexpr uint64_t FileFound = 1;
+    constexpr uint64_t FileFoundAndEmpty = 2;
 
-    QualType ArrElementTy = PtrSpecifierArg->getType()->getPointeeType();
+    const Expr *StatusOutArg = E->getArg(0);
+    const Expr *SizeOutArg = E->getArg(1);
+    const Expr *PtrOutArg = E->getArg(2);
+    const Expr *ResourceNameSizeArg = E->getArg(3);
+    const Expr *ResourceNamePtrArg = E->getArg(4);
+    const Expr *OffsetArg = E->getArg(5);
+    const Expr *LimitArg = E->getNumArgs() == 7 ? E->getArg(6) : nullptr;
+
+    QualType ArrElementTy = PtrOutArg->getType()->getPointeeType();
 
     LValue ResourceNamePtrLVal;
-    if (!evaluatePointer(ResourceNamePtrArg, ResourceNamePtrLVal)) {
+    if (!EvaluatePointer(ResourceNamePtrArg, ResourceNamePtrLVal, Info)) {
       return Error(ResourceNamePtrArg);
     }
 
@@ -10732,6 +10737,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     const QualType WCharTy = Info.Ctx.getWideCharType();
     const size_t SizeTySize = Info.Ctx.getTypeSize(SizeTy);
     const size_t WCharTySize = Info.Ctx.getTypeSize(WCharTy);
+    const size_t IntTySize = Info.Ctx.getTypeSize(Info.Ctx.IntTy);
     const QualType ResourceNameCharTy(ResourceNamePtrArg->getType()->getPointeeOrArrayElementType(), 0);
     if (ResourceNameCharTy->isChar8Type() || ResourceNameCharTy->isCharType() || (ResourceNameCharTy->isWideCharType() && WCharTySize == 8)) {
       // Assume the ResourceName is directly usable as an 8-bit transmuation
@@ -10803,7 +10809,19 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     uint64_t DataSize = 0;
     uint64_t DataOffset = 0;
     std::optional<int64_t> MaybeLimit = std::nullopt;
-    
+    auto WriteOutStatus = [&](uint64_t Status) -> bool {
+      LValue StatusOutLVal;
+      if (!EvaluateLValue(StatusOutArg, StatusOutLVal, Info)) {
+        return Error(StatusOutArg);
+      }
+      APSInt StatusVal(llvm::APInt(IntTySize, Status, true), false);
+      APValue StatusOutResult(StatusVal);
+      if (!handleAssignment(Info, StatusOutArg, StatusOutLVal, StatusOutArg->getType(), StatusOutResult)) {
+        return Error(StatusOutArg);
+      }
+      return true;
+    };
+
     APSInt OffsetVal;
     if (!EvaluateInteger(OffsetArg, OffsetVal, Info)) {
       return Error(OffsetArg);
@@ -10852,18 +10870,26 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     OptionalFileEntryRef ResourceFile =
       LookupFileWithStdVec(ResourceName, false, true, FM, *MaybeSearchEntries, ThisFile);
     if (!ResourceFile) {
-      Info.FFDiag(ResourceNamePtrArg->getBeginLoc(), diag::err_cannot_open_file) << ResourceName << "cannot find a matching resource to open";
-      return false;
+      return WriteOutStatus(FileNotFound);
     }
-    if (Info.Ctx.InputDependencyPatterns) {
-      StringRef ResourceSearchName = ResourceFile->getFileEntry().tryGetRealPathName();
-      if (ResourceSearchName.empty()) {
-        ResourceSearchName = ResourceName;
-      }
-      if (!Info.Ctx.InputDependencyPatterns->Check(ResourceSearchName)) {
-        Info.FFDiag(ResourceNamePtrArg->getBeginLoc(), diag::err_cannot_open_file) << ResourceName << "no '#depend' directive matches the found resource";
-        return false;
-      }
+    assert(Info.Ctx.InputDependencyPatterns && "using __builtin_std_embed requires the context to have a usable input dependency patterns");
+    StringRef ResourceSearchName = ResourceFile->getFileEntry().tryGetRealPathName();
+    if (ResourceSearchName.empty()) {
+      ResourceSearchName = ResourceName;
+    }
+    if (!Info.Ctx.InputDependencyPatterns->Check(ResourceSearchName)) {
+      // Not matching a dependency is also simply considered not
+      // finding the file. Consider possibly returnig a different value in the future.
+      return WriteOutStatus(FileNotFound);
+    }
+    size_t FullDataSize = ResourceFile->getSize();
+    DataSize = std::max<size_t>(0, std::min<size_t>(
+      DataOffset > FullDataSize
+      ? 0 : FullDataSize - DataOffset,
+      MaybeLimit ? *MaybeLimit : std::numeric_limits<size_t>::max()));
+
+    if (FullDataSize == 0 || DataSize == 0) {
+      return WriteOutStatus(FileFoundAndEmpty);
     }
     llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> MaybeBinaryData =
       FM.getBufferForFile(*ResourceFile, true, false, MaybeLimit, false);
@@ -10882,11 +10908,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       Info.FFDiag(ResourceNamePtrArg->getBeginLoc(), diag::err_cannot_open_file) << ResourceName << "found the resource but unable to read the binary data";
       return false;
     }
-    size_t FullDataSize = BinaryData->getBufferSize();
-    DataSize = std::max<size_t>(0, std::min<size_t>(
-      DataOffset > FullDataSize
-      ? 0 : FullDataSize - DataOffset,
-      MaybeLimit ? *MaybeLimit : std::numeric_limits<size_t>::max()));
+    assert(BinaryData->getBufferSize() == FullDataSize && "The binary data for some reason has a data size that is different from the retrieved file size earlier");
 
     // Write out size
     LValue SizeOutLVal;
@@ -10915,7 +10937,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     }
     // inform the result we have put a string literal in there
     Result.addArray(Info, E, BackingArrayConstantArrayTy); 
-    return true;
+    return WriteOutStatus(FileFound);
   }
   default:
     return false;
@@ -15590,9 +15612,7 @@ public:
     assert(E->getType()->isIntegralOrEnumerationType() &&
            "Invalid evaluation result.");
     auto Ty = E->getType();
-    if (SI.isSigned() != Ty->isSignedIntegerOrEnumerationType()) {
-      assert(false && "Invalid evaluation result.");
-    }
+    assert(SI.isSigned() == Ty->isSignedIntegerOrEnumerationType() && "Invalid evaluation result.");
     assert(SI.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
            "Invalid evaluation result.");
     Result = APValue(SI);
