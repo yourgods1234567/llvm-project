@@ -211,6 +211,11 @@ New Compiler Flags
   higher), accurate source locations are used; otherwise, a heuristic fallback
   is used with a note suggesting how to enable debug info for better accuracy.
 
+- There are a new pair of flags for riscv32 called ``-mzilsd-word-align`` and
+  ``-mzilsd-strict-align`` which control whether Zilsd accesses are allowed to
+  be aligned to 4-byte alignment rather than fully unaligned or fully (8-byte)
+  aligned.
+
 Deprecated Compiler Flags
 -------------------------
 
