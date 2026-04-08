@@ -152,13 +152,21 @@ bool VPlanTransforms::tryToConvertVPInstructionsToVPRecipes(
   return true;
 }
 
+/// Helper to hold data required by SinkStoreInfo.
+struct SinkStoreData {
+  PredicatedScalarEvolution &PSE;
+  const Loop &L;
+  VPTypeAnalysis &TypeInfo;
+  SinkStoreData(PredicatedScalarEvolution &PSE, const Loop &L,
+                VPTypeAnalysis &TypeInfo)
+      : PSE(PSE), L(L), TypeInfo(TypeInfo) {};
+};
+
 /// Helper for extra no-alias checks via known-safe recipe and SCEV.
 class SinkStoreInfo {
   SmallPtrSet<VPRecipeBase *, 4> ExcludeRecipes;
   VPReplicateRecipe &GroupLeader;
-  PredicatedScalarEvolution &PSE;
-  const Loop &L;
-  VPTypeAnalysis &TypeInfo;
+  SinkStoreData Data;
 
   // Return true if \p A and \p B are known to not alias for all VFs in the
   // plan, checked via the distance between the accesses
@@ -168,21 +176,23 @@ class SinkStoreInfo {
       return false;
 
     VPValue *AddrA = A->getOperand(1);
-    const SCEV *SCEVA = vputils::getSCEVExprForVPValue(AddrA, PSE, &L);
+    const SCEV *SCEVA =
+        vputils::getSCEVExprForVPValue(AddrA, Data.PSE, &Data.L);
     VPValue *AddrB = B->getOperand(1);
-    const SCEV *SCEVB = vputils::getSCEVExprForVPValue(AddrB, PSE, &L);
+    const SCEV *SCEVB =
+        vputils::getSCEVExprForVPValue(AddrB, Data.PSE, &Data.L);
     if (isa<SCEVCouldNotCompute>(SCEVA) || isa<SCEVCouldNotCompute>(SCEVB))
       return false;
 
     const APInt *Distance;
-    ScalarEvolution &SE = *PSE.getSE();
+    ScalarEvolution &SE = *Data.PSE.getSE();
     if (!match(SE.getMinusSCEV(SCEVA, SCEVB), m_scev_APInt(Distance)))
       return false;
 
     const DataLayout &DL = SE.getDataLayout();
-    Type *TyA = TypeInfo.inferScalarType(A->getOperand(0));
+    Type *TyA = Data.TypeInfo.inferScalarType(A->getOperand(0));
     uint64_t SizeA = DL.getTypeStoreSize(TyA);
-    Type *TyB = TypeInfo.inferScalarType(B->getOperand(0));
+    Type *TyB = Data.TypeInfo.inferScalarType(B->getOperand(0));
     uint64_t SizeB = DL.getTypeStoreSize(TyB);
 
     // Use the maximum store size to ensure no overlap from either direction.
@@ -203,7 +213,11 @@ public:
                 VPReplicateRecipe &GroupLeader, PredicatedScalarEvolution &PSE,
                 const Loop &L, VPTypeAnalysis &TypeInfo)
       : ExcludeRecipes(ExcludeRecipes.begin(), ExcludeRecipes.end()),
-        GroupLeader(GroupLeader), PSE(PSE), L(L), TypeInfo(TypeInfo) {}
+        GroupLeader(GroupLeader), Data(PSE, L, TypeInfo) {}
+  SinkStoreInfo(ArrayRef<VPReplicateRecipe *> ExcludeRecipes,
+                VPReplicateRecipe &GroupLeader, const SinkStoreData &Data)
+      : ExcludeRecipes(ExcludeRecipes.begin(), ExcludeRecipes.end()),
+        GroupLeader(GroupLeader), Data(Data) {}
 
   /// Return true if \p R should be skipped during alias checking, either
   /// because it's in the exclude set or because no-alias can be proven via
@@ -314,9 +328,10 @@ static bool cannotHoistOrSinkRecipe(const VPRecipeBase &R,
 static bool
 cannotHoistOrSinkRecipe(VPRecipeBase &R,
                         ArrayRef<SmallVector<VPReplicateRecipe *, 4>> MemGroups,
-                        VPBasicBlock *FirstBB, VPBasicBlock *LastBB) {
-  if (!isa<VPReplicateRecipe>(R) || !R.mayReadFromMemory())
-    return cannotHoistOrSinkRecipe(R);
+                        VPBasicBlock *FirstBB, VPBasicBlock *LastBB,
+                        std::optional<SinkStoreData> StoreData = {}) {
+  if (!isa<VPReplicateRecipe>(R) || !R.mayReadOrWriteMemory())
+    return cannotHoistOrSinkRecipe(R, StoreData.has_value());
 
   auto FilteredMemGroup =
       make_filter_range(MemGroups, [&R](ArrayRef<VPReplicateRecipe *> Group) {
@@ -328,9 +343,15 @@ cannotHoistOrSinkRecipe(VPRecipeBase &R,
          "Recipe expected to be found in exactly one MemGroup");
   auto MemGroup = *FilteredMemGroup.begin();
 
+  std::optional<SinkStoreInfo> SinkInfo =
+      StoreData.has_value() ? std::make_optional(SinkStoreInfo(
+                                  MemGroup, *MemGroup.front(), *StoreData))
+                            : std::nullopt;
+
   // Check that the load doesn't alias with stores between FirstBB and LastBB.
   auto MemLoc = vputils::getMemoryLocation(*MemGroup.front());
-  return !MemLoc || !canHoistOrSinkWithNoAliasCheck(*MemLoc, FirstBB, LastBB);
+  return !MemLoc ||
+         !canHoistOrSinkWithNoAliasCheck(*MemLoc, FirstBB, LastBB, SinkInfo);
 }
 
 static bool sinkScalarOperands(VPlan &Plan) {
@@ -2741,12 +2762,20 @@ void VPlanTransforms::licm(VPlan &Plan, PredicatedScalarEvolution &PSE,
 #ifndef NDEBUG
   VPDominatorTree VPDT(Plan);
 #endif
+  // Collect stores, as sink candidates.
+  auto StoreGroups =
+      collectGroupedReplicateMemOps<Instruction::Store>(Plan, PSE, &L);
+
   // Sink recipes with in the vector loop region to a unique successor of the
   // loop region.
+  VPTypeAnalysis TypeInfo(Plan);
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
            vp_post_order_shallow(LoopRegion->getEntry()))) {
     for (VPRecipeBase &R : make_early_inc_range(reverse(*VPBB))) {
-      if (cannotHoistOrSinkRecipe(R, /*Sinking=*/true))
+      if (cannotHoistOrSinkRecipe(R, StoreGroups,
+                                  LoopRegion->getEntryBasicBlock(),
+                                  LoopRegion->getExitingBasicBlock(),
+                                  SinkStoreData(PSE, L, TypeInfo)))
         continue;
 
       if (auto *RepR = dyn_cast<VPReplicateRecipe>(&R)) {

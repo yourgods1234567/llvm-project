@@ -84,17 +84,17 @@ define void @test2(ptr %a, ptr noalias %b) {
 ; CHECK-NEXT:    [[TMP7:%.*]] = shl nuw i64 [[TMP3]], 1
 ; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 1600, [[TMP7]]
 ; CHECK-NEXT:    [[N_VEC:%.*]] = sub i64 1600, [[N_MOD_VF]]
-; CHECK-NEXT:    tail call void @llvm.assume(i1 [[MASKCOND]])
-; CHECK-NEXT:    tail call void @llvm.assume(i1 [[MASKCOND4]])
 ; CHECK-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; CHECK:       [[VECTOR_BODY]]:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[MASKCOND]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = getelementptr inbounds float, ptr [[A]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr inbounds float, ptr [[TMP10]], i64 [[TMP3]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <vscale x 2 x float>, ptr [[TMP10]], align 4
 ; CHECK-NEXT:    [[WIDE_LOAD3:%.*]] = load <vscale x 2 x float>, ptr [[TMP13]], align 4
 ; CHECK-NEXT:    [[TMP14:%.*]] = fadd <vscale x 2 x float> [[WIDE_LOAD]], splat (float 1.000000e+00)
 ; CHECK-NEXT:    [[TMP15:%.*]] = fadd <vscale x 2 x float> [[WIDE_LOAD3]], splat (float 1.000000e+00)
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[MASKCOND4]])
 ; CHECK-NEXT:    [[TMP16:%.*]] = getelementptr inbounds float, ptr [[B]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP19:%.*]] = getelementptr inbounds float, ptr [[TMP16]], i64 [[TMP3]]
 ; CHECK-NEXT:    store <vscale x 2 x float> [[TMP14]], ptr [[TMP16]], align 4

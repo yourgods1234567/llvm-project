@@ -367,15 +367,15 @@ define void @multi_exit(ptr %dst, ptr %src.1, ptr %src.2, i64 %A, i64 %B) #0 {
 ; CHECK-NEXT:    [[TMP24:%.*]] = getelementptr inbounds i64, ptr [[SRC_1]], i32 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[TMP25:%.*]] = getelementptr inbounds i64, ptr [[TMP24]], i64 2
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <2 x i64>, ptr [[TMP25]], align 8, !alias.scope [[META9:![0-9]+]]
+; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 4
+; CHECK-NEXT:    [[TMP30:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
+; CHECK-NEXT:    br i1 [[TMP30]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], !llvm.loop [[LOOP11:![0-9]+]]
+; CHECK:       [[MIDDLE_BLOCK]]:
 ; CHECK-NEXT:    [[TMP26:%.*]] = icmp eq <2 x i64> [[WIDE_LOAD]], zeroinitializer
 ; CHECK-NEXT:    [[TMP27:%.*]] = and <2 x i1> [[BROADCAST_SPLAT]], [[TMP26]]
 ; CHECK-NEXT:    [[TMP28:%.*]] = zext <2 x i1> [[TMP27]] to <2 x i8>
 ; CHECK-NEXT:    [[TMP29:%.*]] = extractelement <2 x i8> [[TMP28]], i32 1
-; CHECK-NEXT:    store i8 [[TMP29]], ptr [[DST]], align 1, !alias.scope [[META11:![0-9]+]], !noalias [[META13:![0-9]+]]
-; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP30:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
-; CHECK-NEXT:    br i1 [[TMP30]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], !llvm.loop [[LOOP14:![0-9]+]]
-; CHECK:       [[MIDDLE_BLOCK]]:
+; CHECK-NEXT:    store i8 [[TMP29]], ptr [[DST]], align 1, !alias.scope [[META12:![0-9]+]], !noalias [[META14:![0-9]+]]
 ; CHECK-NEXT:    br label %[[SCALAR_PH]]
 ; CHECK:       [[SCALAR_PH]]:
 ;
@@ -496,8 +496,6 @@ define i64 @cost_assume(ptr %end, i64 %N) {
 ; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[TMP2]], 8
 ; CHECK-NEXT:    [[N_VEC:%.*]] = sub i64 [[TMP2]], [[N_MOD_VF]]
 ; CHECK-NEXT:    [[TMP3:%.*]] = icmp ne i64 [[N]], 0
-; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
-; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
 ; CHECK-NEXT:    br label %[[VECTOR_BODY:.*]]
 ; CHECK:       [[VECTOR_BODY]]:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
@@ -509,6 +507,14 @@ define i64 @cost_assume(ptr %end, i64 %N) {
 ; CHECK-NEXT:    [[TMP8]] = add <2 x i64> [[VEC_PHI2]], splat (i64 1)
 ; CHECK-NEXT:    [[TMP9]] = add <2 x i64> [[VEC_PHI3]], splat (i64 1)
 ; CHECK-NEXT:    [[TMP10]] = add <2 x i64> [[VEC_PHI4]], splat (i64 1)
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
+; CHECK-NEXT:    tail call void @llvm.assume(i1 [[TMP3]])
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 8
 ; CHECK-NEXT:    [[TMP13:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
 ; CHECK-NEXT:    br i1 [[TMP13]], label %[[MIDDLE_BLOCK:.*]], label %[[VECTOR_BODY]], !llvm.loop [[LOOP18:![0-9]+]]
