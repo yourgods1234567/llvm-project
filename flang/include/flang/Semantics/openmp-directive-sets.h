@@ -306,7 +306,6 @@ static const OmpDirectiveSet workShareSet{
         Directive::OMPD_workshare,
         Directive::OMPD_parallel_workshare,
         Directive::OMPD_parallel_sections,
-        Directive::OMPD_scope,
         Directive::OMPD_sections,
         Directive::OMPD_single,
     } | allDoSet,

@@ -1087,6 +1087,10 @@ void OmpStructureChecker::Enter(const parser::OmpBlockConstruct &x) {
     CheckWorkdistributeBlockStmts(block, beginSpec.source);
     break;
   case llvm::omp::Directive::OMPD_scope:
+    HasInvalidWorksharingNesting(
+        std::get<parser::OmpDirectiveName>(beginSpec.t),
+        llvm::omp::nestedWorkshareErrSet);
+    break;
   case llvm::omp::Directive::OMPD_single:
     // TODO: This check needs to be extended while implementing nesting of
     // regions checks.

@@ -394,6 +394,10 @@ static LogicalResult checkImplementationStatus(Operation &op) {
         checkPrivate(op, result);
         checkReduction(op, result);
       })
+      .Case([&](omp::ScopeOp op) {
+        checkAllocate(op, result);
+        checkReduction(op, result);
+      })
       .Case([&](omp::SingleOp op) {
         checkAllocate(op, result);
         checkPrivate(op, result);
@@ -1422,6 +1426,18 @@ inlineOmpRegionCleanup(llvm::SmallVectorImpl<Region *> &cleanupRegions,
   return success();
 }
 
+// Returns true when tree-based reduction should be suppressed (isNoTree).
+// With nowait, the tree path has an internal barrier that defeats nowait
+// semantics.
+static bool
+needsNoTreeReduction(bool isNowait,
+                     ArrayRef<omp::DeclareReductionOp> reductionDecls) {
+  return isNowait &&
+         llvm::any_of(reductionDecls, [](omp::DeclareReductionOp decl) {
+           return decl.getAtomicReductionRegion().empty();
+         });
+}
+
 // TODO: not used by ParallelOp
 template <class OP>
 static LogicalResult createReductionsAndCleanup(
@@ -1430,7 +1446,8 @@ static LogicalResult createReductionsAndCleanup(
     llvm::OpenMPIRBuilder::InsertPointTy &allocaIP,
     SmallVectorImpl<omp::DeclareReductionOp> &reductionDecls,
     ArrayRef<llvm::Value *> privateReductionVariables, ArrayRef<bool> isByRef,
-    bool isNowait = false, bool isTeamsReduction = false) {
+    bool isNowait = false, bool isTeamsReduction = false,
+    bool isNoTree = false) {
   // Process the reductions if required.
   if (op.getNumReductionVars() == 0)
     return success();
@@ -1456,7 +1473,8 @@ static LogicalResult createReductionsAndCleanup(
   builder.SetInsertPoint(tempTerminator);
   llvm::OpenMPIRBuilder::InsertPointOrErrorTy contInsertPoint =
       ompBuilder->createReductions(builder.saveIP(), allocaIP, reductionInfos,
-                                   isByRef, isNowait, isTeamsReduction);
+                                   isByRef, isNowait, isTeamsReduction,
+                                   isNoTree);
 
   if (failed(handleError(contInsertPoint, *op)))
     return failure();
@@ -1465,7 +1483,7 @@ static LogicalResult createReductionsAndCleanup(
     return op->emitOpError() << "failed to convert reductions";
 
   llvm::OpenMPIRBuilder::InsertPointTy afterIP = *contInsertPoint;
-  if (!isTeamsReduction) {
+  if (!isTeamsReduction && !isNoTree) {
     llvm::OpenMPIRBuilder::InsertPointOrErrorTy barrierIP =
         ompBuilder->createBarrier(*contInsertPoint, llvm::omp::OMPD_for);
 
@@ -1930,6 +1948,93 @@ convertOmpSections(Operation &opInst, llvm::IRBuilderBase &builder,
   return createReductionsAndCleanup(
       sectionsOp, builder, moduleTranslation, allocaIP, reductionDecls,
       privateReductionVariables, isByRef, sectionsOp.getNowait());
+}
+
+/// Converts an OpenMP scope construct into LLVM IR.
+static LogicalResult
+convertOmpScope(omp::ScopeOp &scopeOp, llvm::IRBuilderBase &builder,
+                LLVM::ModuleTranslation &moduleTranslation) {
+  using InsertPointTy = llvm::OpenMPIRBuilder::InsertPointTy;
+  llvm::OpenMPIRBuilder *ompBuilder = moduleTranslation.getOpenMPBuilder();
+
+  if (failed(checkImplementationStatus(*scopeOp)))
+    return failure();
+
+  llvm::ArrayRef<bool> isByRef = getIsByRef(scopeOp.getReductionByref());
+  assert(isByRef.size() == scopeOp.getNumReductionVars());
+
+  PrivateVarsInfo privateVarsInfo(scopeOp);
+
+  SmallVector<omp::DeclareReductionOp> reductionDecls;
+  collectReductionDecls(scopeOp, reductionDecls);
+  InsertPointTy allocaIP = findAllocaInsertPoint(builder, moduleTranslation);
+
+  SmallVector<llvm::Value *> privateReductionVariables(
+      scopeOp.getNumReductionVars());
+  DenseMap<Value, llvm::Value *> reductionVariableMap;
+
+  MutableArrayRef<BlockArgument> reductionArgs =
+      cast<omp::BlockArgOpenMPOpInterface>(*scopeOp).getReductionBlockArgs();
+
+  // Allocate private vars before the scope body
+  llvm::Expected<llvm::BasicBlock *> afterAllocas = allocatePrivateVars(
+      builder, moduleTranslation, privateVarsInfo, allocaIP);
+  if (failed(handleError(afterAllocas, *scopeOp)))
+    return failure();
+
+  if (failed(allocAndInitializeReductionVars(
+          scopeOp, reductionArgs, builder, moduleTranslation, allocaIP,
+          reductionDecls, privateReductionVariables, reductionVariableMap,
+          isByRef)))
+    return failure();
+
+  auto bodyCB = [&](InsertPointTy allocaIP,
+                    InsertPointTy codeGenIP) -> llvm::Error {
+    builder.restoreIP(codeGenIP);
+
+    if (handleError(
+            initPrivateVars(builder, moduleTranslation, privateVarsInfo),
+            *scopeOp)
+            .failed())
+      return llvm::make_error<PreviouslyReportedError>();
+
+    if (failed(copyFirstPrivateVars(
+            scopeOp, builder, moduleTranslation, privateVarsInfo.mlirVars,
+            privateVarsInfo.llvmVars, privateVarsInfo.privatizers,
+            scopeOp.getPrivateNeedsBarrier())))
+      return llvm::make_error<PreviouslyReportedError>();
+
+    return convertOmpOpRegions(scopeOp.getRegion(), "omp.scope.region", builder,
+                               moduleTranslation)
+        .takeError();
+  };
+
+  auto finiCB = [&](InsertPointTy codeGenIP) -> llvm::Error {
+    InsertPointTy oldIP = builder.saveIP();
+    builder.restoreIP(codeGenIP);
+    if (failed(cleanupPrivateVars(builder, moduleTranslation, scopeOp.getLoc(),
+                                  privateVarsInfo.llvmVars,
+                                  privateVarsInfo.privatizers)))
+      return llvm::make_error<PreviouslyReportedError>();
+    builder.restoreIP(oldIP);
+    return llvm::Error::success();
+  };
+
+  llvm::OpenMPIRBuilder::LocationDescription ompLoc(builder);
+  llvm::OpenMPIRBuilder::InsertPointOrErrorTy afterIP =
+      ompBuilder->createScope(ompLoc, bodyCB, finiCB, scopeOp.getNowait());
+
+  if (failed(handleError(afterIP, *scopeOp)))
+    return failure();
+
+  builder.restoreIP(*afterIP);
+
+  // Process the reductions if required.
+  bool isNoTree = needsNoTreeReduction(scopeOp.getNowait(), reductionDecls);
+  return createReductionsAndCleanup(
+      scopeOp, builder, moduleTranslation, allocaIP, reductionDecls,
+      privateReductionVariables, isByRef, scopeOp.getNowait(),
+      /*isTeamsReduction=*/false, isNoTree);
 }
 
 /// Converts an OpenMP single construct into LLVM IR using OpenMPIRBuilder.
@@ -7977,6 +8082,9 @@ LogicalResult OpenMPDialectLLVMIRTranslationInterface::convertOperation(
           })
           .Case([&](omp::SectionsOp) {
             return convertOmpSections(*op, builder, moduleTranslation);
+          })
+          .Case([&](omp::ScopeOp op) {
+            return convertOmpScope(op, builder, moduleTranslation);
           })
           .Case([&](omp::SingleOp op) {
             return convertOmpSingle(op, builder, moduleTranslation);

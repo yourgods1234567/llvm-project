@@ -2395,10 +2395,11 @@ public:
   /// or direct value.
   /// \param IsTeamsReduction   Optional flag set if it is a teams
   ///                           reduction.
-  LLVM_ABI InsertPointOrErrorTy createReductions(
-      const LocationDescription &Loc, InsertPointTy AllocaIP,
-      ArrayRef<ReductionInfo> ReductionInfos, ArrayRef<bool> IsByRef,
-      bool IsNoWait = false, bool IsTeamsReduction = false);
+  LLVM_ABI InsertPointOrErrorTy
+  createReductions(const LocationDescription &Loc, InsertPointTy AllocaIP,
+                   ArrayRef<ReductionInfo> ReductionInfos,
+                   ArrayRef<bool> IsByRef, bool IsNoWait = false,
+                   bool IsTeamsReduction = false, bool IsNoTree = false);
 
   ///}
 
@@ -3018,6 +3019,19 @@ public:
                FinalizeCallbackTy FiniCB, bool IsNowait,
                ArrayRef<llvm::Value *> CPVars = {},
                ArrayRef<llvm::Function *> CPFuncs = {});
+
+  /// Generator for '#omp scope'
+  ///
+  /// \param Loc The source location description.
+  /// \param BodyGenCB Callback that will generate the region code.
+  /// \param FiniCB Callback to finalize variable copies.
+  /// \param IsNowait If false, a barrier is emitted.
+  ///
+  /// \returns The insertion position *after* the scope.
+  LLVM_ABI InsertPointOrErrorTy createScope(const LocationDescription &Loc,
+                                            BodyGenCallbackTy BodyGenCB,
+                                            FinalizeCallbackTy FiniCB,
+                                            bool IsNowait);
 
   /// Generator for '#omp master'
   ///
