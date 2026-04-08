@@ -59,8 +59,13 @@ void HIPSPV::Linker::constructLinkAndEmitSpirvCommand(
   // Link LLVM bitcode.
   ArgStringList LinkArgs{};
 
-  for (auto Input : Inputs)
-    LinkArgs.push_back(Input.getFilename());
+  // The new offload driver can pass non-filename InputInfo entries (e.g.
+  // Nothing/InputArg placeholders) alongside the real bitcode inputs. Calling
+  // getFilename() on those reads garbage from the union; only forward genuine
+  // filename inputs to llvm-link.
+  for (const auto &Input : Inputs)
+    if (Input.isFilename())
+      LinkArgs.push_back(Input.getFilename());
 
   // Add static device libraries using the common helper function.
   // This handles unbundling archives (.a) containing bitcode bundles.
