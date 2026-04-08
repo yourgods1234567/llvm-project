@@ -17,7 +17,7 @@ define i32 @test1(ptr nocapture %a, ptr nocapture readonly %b) {
 
 ; CHECK-NOTBAA-LABEL: @test1
 ; CHECK-NOTBAA: entry:
-; CHECK-NOTBAA: icmp ult i64
+; CHECK-NOTBAA: icmp ugt i64
 ; CHECK-NOTBAA-NOT: icmp
 ; CHECK-NOTBAA: br i1 {{.+}}, label %for.body, label %vector.body
 
@@ -49,7 +49,7 @@ for.end:                                          ; preds = %for.body
 define i32 @test2(ptr nocapture readonly %a, ptr nocapture readonly %b, ptr nocapture %c) {
 ; CHECK-LABEL: @test2
 ; CHECK: entry:
-; CHECK: icmp ult i64
+; CHECK: icmp ugt i64
 ; CHECK-NOT: icmp
 ; CHECK: br i1 {{.+}}, label %for.body, label %vector.body
 
@@ -60,8 +60,8 @@ define i32 @test2(ptr nocapture readonly %a, ptr nocapture readonly %b, ptr noca
 
 ; CHECK-NOTBAA-LABEL: @test2
 ; CHECK-NOTBAA: entry:
-; CHECK-NOTBAA: icmp ult i64
-; CHECK-NOTBAA: icmp ult i64
+; CHECK-NOTBAA: icmp ugt i64
+; CHECK-NOTBAA: icmp ugt i64
 ; CHECK-NOTBAA-NOT: icmp
 ; CHECK-NOTBAA: br i1 {{.+}}, label %for.body, label %vector.body
 

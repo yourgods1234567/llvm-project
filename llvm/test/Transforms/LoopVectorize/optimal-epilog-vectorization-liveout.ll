@@ -196,7 +196,8 @@ define ptr @test_ptr_iv_live_out(ptr %start, ptr %end, ptr %dst) {
 ; CHECK-NEXT:    br i1 [[IDENT_CHECK]], label %[[VEC_EPILOG_SCALAR_PH]], label %[[VECTOR_MEMCHECK:.*]]
 ; CHECK:       [[VECTOR_MEMCHECK]]:
 ; CHECK-NEXT:    [[TMP8:%.*]] = sub i64 [[DST3]], [[START2]]
-; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP8]], 8
+; CHECK-NEXT:    [[TMP14:%.*]] = sub i64 [[TMP8]], 1
+; CHECK-NEXT:    [[DIFF_CHECK:%.*]] = icmp ult i64 [[TMP14]], 7
 ; CHECK-NEXT:    br i1 [[DIFF_CHECK]], label %[[VEC_EPILOG_SCALAR_PH]], label %[[VECTOR_PH:.*]]
 ; CHECK:       [[VECTOR_PH]]:
 ; CHECK-NEXT:    [[N_MOD_VF:%.*]] = urem i64 [[TMP3]], 2
