@@ -131,6 +131,7 @@ struct DepCollectorPPCallbacks : public PPCallbacks {
                                           /*FromModule*/ false,
                                           /*IsSystem*/ false,
                                           /*IsModuleFile*/ false,
+                                          /*IsDirectModuleImport*/ false,
                                           /*IsMissing*/ false);
         }
         break;
@@ -160,6 +161,7 @@ struct DepCollectorPPCallbacks : public PPCallbacks {
             /*FromModule*/ false,
             /*IsSystem*/ false,
             /*IsModuleFile*/ false,
+            /*IsDirectModuleImport*/ false,
             /*IsMissing*/ !VFS.exists(Filter.Pattern));
         return;
       }
@@ -185,6 +187,7 @@ struct DepCollectorPPCallbacks : public PPCallbacks {
                                         /*FromModule*/ false,
                                         /*IsSystem*/ false,
                                         /*IsModuleFile*/ false,
+                                        /*IsDirectModuleImport*/ false,
                                         /*IsMissing*/ false);
       }
     } else {
