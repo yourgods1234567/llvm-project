@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 //  Shared error-handling, format-registry cache, and summary-file abstraction
-//  used by clang-ssaf-linker and clang-ssaf-format.
+//  used by clang-ssaf tools.
 //
 //  All declarations live in the clang::ssaf namespace.
 //
@@ -66,26 +66,28 @@ void initTool(int argc, const char **argv, llvm::StringRef Version,
 // Data Structures
 //===----------------------------------------------------------------------===//
 
-struct SummaryFile {
+struct FormatFile {
   std::string Path;
   SerializationFormat *Format = nullptr;
 
-  /// Validates an input path and returns a SummaryFile.
+  /// Validates an input path and returns a FormatFile.
   ///
-  /// Checks that the path exists, is a regular file, and is readable, then
-  /// resolves the serialization format from the file extension.
+  /// Checks that the path exists and is a regular file, then resolves the
+  /// serialization format from the file extension. Read permission is not
+  /// checked here because llvm::sys::fs::AccessMode does not support Read; read
+  /// errors are caught when the file is opened during deserialization.
   ///
   /// Calls fail() and exits on any validation error.
-  static SummaryFile fromInputPath(llvm::StringRef Path);
+  static FormatFile fromInputPath(llvm::StringRef Path);
 
-  /// Validates an output path and returns a SummaryFile.
+  /// Validates an output path and returns a FormatFile.
   ///
   /// Checks that the output file does not already exist, that the parent
   /// directory exists and is writable, then resolves the serialization format
   /// from the file extension.
   ///
   /// Calls fail() and exits on any validation error.
-  static SummaryFile fromOutputPath(llvm::StringRef Path);
+  static FormatFile fromOutputPath(llvm::StringRef Path);
 };
 
 } // namespace clang::ssaf

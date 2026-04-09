@@ -22,8 +22,7 @@
 #include <memory>
 #include <string>
 
-using namespace clang;
-using namespace ssaf;
+using namespace clang::ssaf;
 
 namespace fs = llvm::sys::fs;
 namespace path = llvm::sys::path;
@@ -103,21 +102,39 @@ SerializationFormat *getFormatForExtension(llvm::StringRef Extension) {
   return Result;
 }
 
+FormatFile fromPath(llvm::StringRef Path) {
+  llvm::StringRef Extension = path::extension(Path);
+  if (Extension.empty()) {
+    fail(ErrorMessages::CannotValidatePath, Path,
+         ErrorMessages::ExtensionNotSupplied);
+  }
+
+  Extension = Extension.drop_front();
+  SerializationFormat *Format = getFormatForExtension(Extension);
+  if (!Format) {
+    std::string BadExtension =
+        llvm::formatv(ErrorMessages::NoFormatForExtension, Extension);
+    fail(ErrorMessages::CannotValidatePath, Path, BadExtension);
+  }
+
+  return {Path.str(), Format};
+}
+
 } // namespace
 
-llvm::StringRef ssaf::getToolName() { return ToolName; }
+llvm::StringRef clang::ssaf::getToolName() { return ToolName; }
 
-[[noreturn]] void ssaf::fail(const char *Msg) {
+[[noreturn]] void clang::ssaf::fail(const char *Msg) {
   llvm::WithColor::error(llvm::errs(), ToolName) << Msg << "\n";
   llvm::sys::Process::Exit(1);
 }
 
-[[noreturn]] void ssaf::fail(llvm::Error Err) {
+[[noreturn]] void clang::ssaf::fail(llvm::Error Err) {
   std::string Message = llvm::toString(std::move(Err));
-  ssaf::fail(Message.data());
+  clang::ssaf::fail(Message.data());
 }
 
-void ssaf::loadPlugins(llvm::ArrayRef<std::string> Paths) {
+void clang::ssaf::loadPlugins(llvm::ArrayRef<std::string> Paths) {
   for (const std::string &PluginPath : Paths) {
     std::string ErrMsg;
     if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(PluginPath.c_str(),
@@ -127,9 +144,9 @@ void ssaf::loadPlugins(llvm::ArrayRef<std::string> Paths) {
   }
 }
 
-void ssaf::initTool(int argc, const char **argv, llvm::StringRef Version,
-                    llvm::cl::OptionCategory &Category,
-                    llvm::StringRef ToolHeading) {
+void clang::ssaf::initTool(int argc, const char **argv, llvm::StringRef Version,
+                           llvm::cl::OptionCategory &Category,
+                           llvm::StringRef ToolHeading) {
   // path::stem strips the .exe extension on Windows so ToolName is consistent.
   ToolName = path::stem(argv[0]);
 
@@ -147,22 +164,42 @@ void ssaf::initTool(int argc, const char **argv, llvm::StringRef Version,
   llvm::cl::ParseCommandLineOptions(argc, argv, Overview);
 }
 
-SummaryFile fromPath(llvm::StringRef Path) {
-  llvm::StringRef Extension = path::extension(Path);
-  if (Extension.empty()) {
+clang::ssaf::FormatFile
+clang::ssaf::FormatFile::fromInputPath(llvm::StringRef Path) {
+  if (!fs::exists(Path)) {
     fail(ErrorMessages::CannotValidatePath, Path,
-         ErrorMessages::ExtensionNotSupplied);
+         ErrorMessages::PathDoesNotExist);
   }
 
-  Extension = Extension.drop_front();
-  SerializationFormat *Format = getFormatForExtension(Extension);
-  if (!Format) {
-    std::string BadExtension =
-        llvm::formatv(ErrorMessages::NoFormatForExtension, Extension);
-    fail(ErrorMessages::CannotValidatePath, Path, BadExtension);
+  if (!fs::is_regular_file(Path)) {
+    fail(ErrorMessages::CannotValidatePath, Path,
+         ErrorMessages::PathIsNotAFile);
   }
 
-  return {Path.str(), Format};
+  return fromPath(Path);
+}
+
+clang::ssaf::FormatFile
+clang::ssaf::FormatFile::fromOutputPath(llvm::StringRef Path) {
+  if (fs::exists(Path)) {
+    fail(ErrorMessages::CannotValidatePath, Path,
+         ErrorMessages::FileAlreadyExists);
+  }
+
+  llvm::StringRef ParentDir = path::parent_path(Path);
+  llvm::StringRef DirToCheck = ParentDir.empty() ? "." : ParentDir;
+
+  if (!fs::exists(DirToCheck)) {
+    fail(ErrorMessages::CannotValidatePath, Path,
+         ErrorMessages::OutputDirectoryMissing);
+  }
+
+  if (fs::access(DirToCheck, fs::AccessMode::Write)) {
+    fail(ErrorMessages::CannotValidatePath, Path,
+         ErrorMessages::OutputDirectoryNotWritable);
+  }
+
+  return fromPath(Path);
 }
 
 SummaryFile SummaryFile::fromInputPath(llvm::StringRef Path) {
