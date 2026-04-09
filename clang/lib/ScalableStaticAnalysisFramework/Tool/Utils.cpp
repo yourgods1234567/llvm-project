@@ -201,39 +201,3 @@ clang::ssaf::FormatFile::fromOutputPath(llvm::StringRef Path) {
 
   return fromPath(Path);
 }
-
-SummaryFile SummaryFile::fromInputPath(llvm::StringRef Path) {
-  if (!fs::exists(Path)) {
-    fail(ErrorMessages::CannotValidatePath, Path,
-         ErrorMessages::PathDoesNotExist);
-  }
-
-  if (!fs::is_regular_file(Path)) {
-    fail(ErrorMessages::CannotValidatePath, Path,
-         ErrorMessages::PathIsNotAFile);
-  }
-
-  return fromPath(Path);
-}
-
-SummaryFile SummaryFile::fromOutputPath(llvm::StringRef Path) {
-  if (fs::exists(Path)) {
-    fail(ErrorMessages::CannotValidatePath, Path,
-         ErrorMessages::FileAlreadyExists);
-  }
-
-  llvm::StringRef ParentDir = path::parent_path(Path);
-  llvm::StringRef DirToCheck = ParentDir.empty() ? "." : ParentDir;
-
-  if (!fs::exists(DirToCheck)) {
-    fail(ErrorMessages::CannotValidatePath, Path,
-         ErrorMessages::OutputDirectoryMissing);
-  }
-
-  if (fs::access(DirToCheck, fs::AccessMode::Write)) {
-    fail(ErrorMessages::CannotValidatePath, Path,
-         ErrorMessages::OutputDirectoryNotWritable);
-  }
-
-  return fromPath(Path);
-}
