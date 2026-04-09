@@ -42,3 +42,17 @@
 
 ; CHECK: @legacy = global float 1.000000e-01
 @legacy = global float 0x3FB99999A0000000
+
+; PPC special cases
+; CHECK: @ppc.1 = global ppc_fp128 +inf
+@ppc.1 = global ppc_fp128 f0x00000000000000007ff0000000000000
+; CHECK: @ppc.2 = global ppc_fp128 f0x80000000000000017FF0000000000000
+@ppc.2 = global ppc_fp128 f0x80000000000000017ff0000000000000
+; CHECK: @ppc.3 = global ppc_fp128 +snan(0x1)
+@ppc.3 = global ppc_fp128 f0x00000000000000007ff0000000000001
+; CHECK: @ppc.4 = global ppc_fp128 f0x00000000000000017FF0000000000001
+@ppc.4 = global ppc_fp128 f0x00000000000000017ff0000000000001
+; CHECK: @ppc.5 = global ppc_fp128 +nan(0x1)
+@ppc.5 = global ppc_fp128 f0x00000000000000007ff8000000000001
+; CHECK: @ppc.6 = global ppc_fp128 f0x0FFFF000010000007FF8000000000001
+@ppc.6 = global ppc_fp128 f0x0ffff000010000007ff8000000000001

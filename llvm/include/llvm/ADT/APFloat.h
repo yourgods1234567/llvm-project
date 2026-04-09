@@ -678,6 +678,7 @@ public:
   LLVM_ABI cmpResult compareAbsoluteValue(const IEEEFloat &) const;
 
   APInt getNaNPayload() const;
+
 private:
   /// \name Simple Queries
   /// @{

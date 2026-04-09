@@ -1542,33 +1542,44 @@ static void WriteFullHexAPInt(raw_ostream &Out, const APInt &Val) {
   unsigned NumDigits = std::max((Val.getBitWidth() + 3) / 4, 1U);
   Out << "0x";
   for (unsigned i = 0; i < NumDigits - Bits.size(); i++)
-    Out << "0";
+    Out << '0';
   Out << Bits;
 }
 
 static void writeAPFloatInternal(raw_ostream &Out, const APFloat &APF) {
-  // Check for special values in APFloat.
-  if (APF.isInfinity()) {
-    Out << (APF.isNegative() ? "-" : "+") << "inf";
-    return;
-  } else if (APF.isNaN()) {
-    Out << (APF.isNegative() ? "-" : "+");
-    APInt Payload = APF.getNaNPayload();
-    // The quiet bit of a NaN is the highest bit of the payload, so the
-    // preferred QNaN value happens to be the sign mask value.
-    if (Payload.isSignMask()) {
-      Out << "qnan";
-    } else {
-      if (APF.isSignaling())
-        Out << "s";
-      Out << "nan(";
-      // Clear out the signaling/quiet bit of the payload for output.
-      Payload.clearBit(Payload.getBitWidth() - 1);
-      // Trim the string to exclude leading 0's.
-      WriteFullHexAPInt(Out, Payload.trunc(Payload.getActiveBits()));
-      Out << ")";
+  bool ForceBitwiseOutput = false;
+  if (&APF.getSemantics() == &APFloat::PPCDoubleDouble()) {
+    // ppc_fp128 types are double-double. The special cases set the second
+    // (high) double to +0.0, so if the high word is nonzero, force the use of
+    // bitwise output.
+    APInt HiWord = APF.bitcastToAPInt().lshr(64);
+    ForceBitwiseOutput = !HiWord.isZero();
+  }
+
+  if (!ForceBitwiseOutput) {
+    // Check for special values in APFloat.
+    if (APF.isInfinity()) {
+      Out << (APF.isNegative() ? '-' : '+') << "inf";
+      return;
+    } else if (APF.isNaN()) {
+      Out << (APF.isNegative() ? '-' : '+');
+      APInt Payload = APF.getNaNPayload();
+      // The quiet bit of a NaN is the highest bit of the payload, so the
+      // preferred QNaN value happens to be the sign mask value.
+      if (Payload.isSignMask()) {
+        Out << "qnan";
+      } else {
+        if (APF.isSignaling())
+          Out << 's';
+        Out << "nan(";
+        // Clear out the signaling/quiet bit of the payload for output.
+        Payload.clearBit(Payload.getBitWidth() - 1);
+        // Trim the string to exclude leading 0's.
+        WriteFullHexAPInt(Out, Payload.trunc(Payload.getActiveBits()));
+        Out << ")";
+      }
+      return;
     }
-    return;
   }
 
   // Try for a decimal string output. If the value is convertible back to the
@@ -1582,7 +1593,7 @@ static void writeAPFloatInternal(raw_ostream &Out, const APFloat &APF) {
   }
 
   // Fallback to the hexadecimal format representing the bit string exactly.
-  Out << "f";
+  Out << 'f';
   APInt API = APF.bitcastToAPInt();
   WriteFullHexAPInt(Out, API);
 }
