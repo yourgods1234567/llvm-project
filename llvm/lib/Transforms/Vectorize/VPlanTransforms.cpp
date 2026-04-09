@@ -152,13 +152,21 @@ bool VPlanTransforms::tryToConvertVPInstructionsToVPRecipes(
   return true;
 }
 
-/// Helper for extra no-alias checks via known-safe recipe and SCEV.
-class SinkStoreInfo {
-  const SmallPtrSetImpl<VPRecipeBase *> &ExcludeRecipes;
-  VPReplicateRecipe &GroupLeader;
+/// Helper to hold data required by SinkStoreInfo.
+struct SinkStoreData {
   PredicatedScalarEvolution &PSE;
   const Loop &L;
   VPTypeAnalysis &TypeInfo;
+  SinkStoreData(PredicatedScalarEvolution &PSE, const Loop &L,
+                VPTypeAnalysis &TypeInfo)
+      : PSE(PSE), L(L), TypeInfo(TypeInfo) {};
+};
+
+/// Helper for extra no-alias checks via known-safe recipe and SCEV.
+class SinkStoreInfo {
+  SmallPtrSet<VPRecipeBase *, 4> ExcludeRecipes;
+  VPReplicateRecipe &GroupLeader;
+  SinkStoreData Data;
 
   // Return true if \p A and \p B are known to not alias for all VFs in the
   // plan, checked via the distance between the accesses
@@ -168,21 +176,23 @@ class SinkStoreInfo {
       return false;
 
     VPValue *AddrA = A->getOperand(1);
-    const SCEV *SCEVA = vputils::getSCEVExprForVPValue(AddrA, PSE, &L);
+    const SCEV *SCEVA =
+        vputils::getSCEVExprForVPValue(AddrA, Data.PSE, &Data.L);
     VPValue *AddrB = B->getOperand(1);
-    const SCEV *SCEVB = vputils::getSCEVExprForVPValue(AddrB, PSE, &L);
+    const SCEV *SCEVB =
+        vputils::getSCEVExprForVPValue(AddrB, Data.PSE, &Data.L);
     if (isa<SCEVCouldNotCompute>(SCEVA) || isa<SCEVCouldNotCompute>(SCEVB))
       return false;
 
     const APInt *Distance;
-    ScalarEvolution &SE = *PSE.getSE();
+    ScalarEvolution &SE = *Data.PSE.getSE();
     if (!match(SE.getMinusSCEV(SCEVA, SCEVB), m_scev_APInt(Distance)))
       return false;
 
     const DataLayout &DL = SE.getDataLayout();
-    Type *TyA = TypeInfo.inferScalarType(A->getOperand(0));
+    Type *TyA = Data.TypeInfo.inferScalarType(A->getOperand(0));
     uint64_t SizeA = DL.getTypeStoreSize(TyA);
-    Type *TyB = TypeInfo.inferScalarType(B->getOperand(0));
+    Type *TyB = Data.TypeInfo.inferScalarType(B->getOperand(0));
     uint64_t SizeB = DL.getTypeStoreSize(TyB);
 
     // Use the maximum store size to ensure no overlap from either direction.
@@ -199,11 +209,15 @@ class SinkStoreInfo {
   }
 
 public:
-  SinkStoreInfo(const SmallPtrSetImpl<VPRecipeBase *> &ExcludeRecipes,
+  SinkStoreInfo(ArrayRef<VPReplicateRecipe *> ExcludeRecipes,
                 VPReplicateRecipe &GroupLeader, PredicatedScalarEvolution &PSE,
                 const Loop &L, VPTypeAnalysis &TypeInfo)
-      : ExcludeRecipes(ExcludeRecipes), GroupLeader(GroupLeader), PSE(PSE),
-        L(L), TypeInfo(TypeInfo) {}
+      : ExcludeRecipes(ExcludeRecipes.begin(), ExcludeRecipes.end()),
+        GroupLeader(GroupLeader), Data(PSE, L, TypeInfo) {}
+  SinkStoreInfo(ArrayRef<VPReplicateRecipe *> ExcludeRecipes,
+                VPReplicateRecipe &GroupLeader, const SinkStoreData &Data)
+      : ExcludeRecipes(ExcludeRecipes.begin(), ExcludeRecipes.end()),
+        GroupLeader(GroupLeader), Data(Data) {}
 
   /// Return true if \p R should be skipped during alias checking, either
   /// because it's in the exclude set or because no-alias can be proven via
@@ -258,7 +272,9 @@ template <unsigned Opcode>
 static SmallVector<SmallVector<VPReplicateRecipe *, 4>>
 collectGroupedReplicateMemOps(
     VPlan &Plan, PredicatedScalarEvolution &PSE, const Loop *L,
-    function_ref<bool(VPReplicateRecipe *)> FilterFn) {
+    function_ref<bool(VPReplicateRecipe *)> FilterFn = [](VPReplicateRecipe *) {
+      return true;
+    }) {
   static_assert(Opcode == Instruction::Load || Opcode == Instruction::Store,
                 "Only Load and Store opcodes supported");
   constexpr bool IsLoad = (Opcode == Instruction::Load);
@@ -289,22 +305,53 @@ collectGroupedReplicateMemOps(
   return Groups;
 }
 
-/// Return true if we do not know how to (mechanically) hoist or sink \p R out
-/// of a loop region.
-static bool cannotHoistOrSinkRecipe(const VPRecipeBase &R) {
+/// Return true if we do not know how to (mechanically) hoist or sink a
+/// non-memory recipe \p R out of a loop region.
+static bool cannotHoistOrSinkRecipe(const VPRecipeBase &R,
+                                    bool Sinking = false) {
   // Assumes don't alias anything or throw; as long as they're guaranteed to
-  // execute, they're safe to hoist.
+  // execute, they're safe to hoist. They should however not be sunk, as it
+  // would destroy information.
   if (match(&R, m_Intrinsic<Intrinsic::assume>()))
-    return false;
+    return Sinking;
 
-  // TODO: Relax checks in the future, e.g. we could also hoist reads, if their
-  // memory location is not modified in the vector loop.
   if (R.mayHaveSideEffects() || R.mayReadFromMemory() || R.isPhi())
     return true;
 
   // Allocas cannot be hoisted.
   auto *RepR = dyn_cast<VPReplicateRecipe>(&R);
   return RepR && RepR->getOpcode() == Instruction::Alloca;
+}
+
+/// Return true if we do not know how to (mechanically) hoist or sink a
+/// non-memory or memory recipe \p R out of a loop region.
+static bool
+cannotHoistOrSinkRecipe(VPRecipeBase &R,
+                        ArrayRef<SmallVector<VPReplicateRecipe *, 4>> MemGroups,
+                        VPBasicBlock *FirstBB, VPBasicBlock *LastBB,
+                        std::optional<SinkStoreData> StoreData = {}) {
+  if (!isa<VPReplicateRecipe>(R) || !R.mayReadOrWriteMemory())
+    return cannotHoistOrSinkRecipe(R, StoreData.has_value());
+
+  auto FilteredMemGroup =
+      make_filter_range(MemGroups, [&R](ArrayRef<VPReplicateRecipe *> Group) {
+        return is_contained(Group, &R);
+      });
+  if (FilteredMemGroup.empty())
+    return true;
+  assert(std::distance(FilteredMemGroup.begin(), FilteredMemGroup.end()) == 1 &&
+         "Recipe expected to be found in exactly one MemGroup");
+  auto MemGroup = *FilteredMemGroup.begin();
+
+  std::optional<SinkStoreInfo> SinkInfo =
+      StoreData.has_value() ? std::make_optional(SinkStoreInfo(
+                                  MemGroup, *MemGroup.front(), *StoreData))
+                            : std::nullopt;
+
+  // Check that the load doesn't alias with stores between FirstBB and LastBB.
+  auto MemLoc = vputils::getMemoryLocation(*MemGroup.front());
+  return !MemLoc ||
+         !canHoistOrSinkWithNoAliasCheck(*MemLoc, FirstBB, LastBB, SinkInfo);
 }
 
 static bool sinkScalarOperands(VPlan &Plan) {
@@ -325,7 +372,8 @@ static bool sinkScalarOperands(VPlan &Plan) {
     if (!isa<VPReplicateRecipe, VPScalarIVStepsRecipe>(Candidate))
       return;
 
-    if (Candidate->getParent() == SinkTo || cannotHoistOrSinkRecipe(*Candidate))
+    if (Candidate->getParent() == SinkTo ||
+        cannotHoistOrSinkRecipe(*Candidate, /*Sinking=*/true))
       return;
 
     if (auto *RepR = dyn_cast<VPReplicateRecipe>(Candidate))
@@ -2337,7 +2385,7 @@ sinkRecurrenceUsersAfterPrevious(VPFirstOrderRecurrencePHIRecipe *FOR,
         VPDT.properlyDominates(Previous, SinkCandidate))
       return true;
 
-    if (cannotHoistOrSinkRecipe(*SinkCandidate))
+    if (cannotHoistOrSinkRecipe(*SinkCandidate, /*Sinking=*/true))
       return false;
 
     WorkList.push_back(SinkCandidate);
@@ -2680,9 +2728,13 @@ void VPlanTransforms::cse(VPlan &Plan) {
   }
 }
 
-/// Move loop-invariant recipes out of the vector loop region in \p Plan.
-static void licm(VPlan &Plan) {
+void VPlanTransforms::licm(VPlan &Plan, PredicatedScalarEvolution &PSE,
+                           const Loop &L) {
   VPBasicBlock *Preheader = Plan.getVectorPreheader();
+
+  // Collect loads, as hoist candidates.
+  auto LoadGroups =
+      collectGroupedReplicateMemOps<Instruction::Load>(Plan, PSE, &L);
 
   // Hoist any loop invariant recipes from the vector loop region to the
   // preheader. Preform a shallow traversal of the vector loop region, to
@@ -2695,7 +2747,9 @@ static void licm(VPlan &Plan) {
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
            vp_depth_first_shallow(LoopRegion->getEntry()))) {
     for (VPRecipeBase &R : make_early_inc_range(*VPBB)) {
-      if (cannotHoistOrSinkRecipe(R))
+      if (cannotHoistOrSinkRecipe(R, LoadGroups,
+                                  LoopRegion->getEntryBasicBlock(),
+                                  LoopRegion->getExitingBasicBlock()))
         continue;
       if (any_of(R.operands(), [](VPValue *Op) {
             return !Op->isDefinedOutsideLoopRegions();
@@ -2708,13 +2762,20 @@ static void licm(VPlan &Plan) {
 #ifndef NDEBUG
   VPDominatorTree VPDT(Plan);
 #endif
-  // Sink recipes with no users inside the vector loop region if all users are
-  // in the same exit block of the region.
-  // TODO: Extend to sink recipes from inner loops.
+  // Collect stores, as sink candidates.
+  auto StoreGroups =
+      collectGroupedReplicateMemOps<Instruction::Store>(Plan, PSE, &L);
+
+  // Sink recipes with in the vector loop region to a unique successor of the
+  // loop region.
+  VPTypeAnalysis TypeInfo(Plan);
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
            vp_post_order_shallow(LoopRegion->getEntry()))) {
     for (VPRecipeBase &R : make_early_inc_range(reverse(*VPBB))) {
-      if (cannotHoistOrSinkRecipe(R))
+      if (cannotHoistOrSinkRecipe(R, StoreGroups,
+                                  LoopRegion->getEntryBasicBlock(),
+                                  LoopRegion->getExitingBasicBlock(),
+                                  SinkStoreData(PSE, L, TypeInfo)))
         continue;
 
       if (auto *RepR = dyn_cast<VPReplicateRecipe>(&R)) {
@@ -2732,42 +2793,36 @@ static void licm(VPlan &Plan) {
       // TODO: Use R.definedValues() instead of casting to VPSingleDefRecipe to
       // support recipes with multiple defined values (e.g., interleaved loads).
       auto *Def = cast<VPSingleDefRecipe>(&R);
-      // Skip recipes without users as we cannot determine a sink block.
-      // TODO: Clone sinkable recipes without users to all exit blocks to reduce
-      // their execution frequency.
-      if (Def->getNumUsers() == 0)
-        continue;
 
+      // Cannot sink the recipe if the user is defined in a loop region or a
+      // non-successor of the vector loop region. Cannot sink if user is a phi
+      // either.
       VPBasicBlock *SinkBB = nullptr;
-      // Cannot sink the recipe if any user
-      //  * is defined in any loop region, or
-      //  * is a phi, or
-      //  * multiple users in different blocks.
-      if (any_of(Def->users(), [&SinkBB](VPUser *U) {
+      if (any_of(Def->users(), [&SinkBB, &LoopRegion](VPUser *U) {
             auto *UserR = cast<VPRecipeBase>(U);
             VPBasicBlock *Parent = UserR->getParent();
-            // TODO: If the user is a PHI node, we should check the block of
-            // incoming value. Support PHI node users if needed.
-            if (UserR->isPhi() || Parent->getEnclosingLoopRegion())
-              return true;
             // TODO: Support sinking when users are in multiple blocks.
             if (SinkBB && SinkBB != Parent)
               return true;
             SinkBB = Parent;
-            return false;
+            // TODO: If the user is a PHI node, we should check the block of
+            // incoming value.
+            return UserR->isPhi() || Parent->getEnclosingLoopRegion() ||
+                   Parent->getSinglePredecessor() != LoopRegion;
           }))
         continue;
 
-      // Only sink to dedicated exit blocks of the loop region.
-      if (SinkBB->getSinglePredecessor() != LoopRegion)
+      // Attempt to set SinkBB to the LoopRegion's single successor, if one
+      // wasn't found.
+      if (!SinkBB && !(SinkBB = cast_or_null<VPBasicBlock>(
+                           LoopRegion->getSingleSuccessor())))
         continue;
 
-      // TODO: This will need to be a check instead of a assert after
-      // conditional branches in vectorized loops are supported.
+      // This will need to be a check instead of a assert after conditional
+      // branches in vectorized loops are supported.
       assert(VPDT.properlyDominates(VPBB, SinkBB) &&
              "Defining block must dominate sink block");
-      // TODO: Clone the recipe if users are on multiple exit paths, instead of
-      // just moving.
+      // TODO: Clone the recipe if users are on multiple exit paths.
       Def->moveBefore(*SinkBB, SinkBB->getFirstNonPhi());
     }
   }
@@ -2925,9 +2980,7 @@ void VPlanTransforms::optimize(VPlan &Plan) {
   RUN_VPLAN_PASS(removeDeadRecipes, Plan);
 
   RUN_VPLAN_PASS(createAndOptimizeReplicateRegions, Plan);
-  RUN_VPLAN_PASS(hoistInvariantLoads, Plan);
   RUN_VPLAN_PASS(mergeBlocksIntoPredecessors, Plan);
-  RUN_VPLAN_PASS(licm, Plan);
 }
 
 // Add a VPActiveLaneMaskPHIRecipe and related recipes to \p Plan and replace
@@ -4722,54 +4775,6 @@ void VPlanTransforms::materializeBroadcasts(VPlan &Plan) {
   }
 }
 
-void VPlanTransforms::hoistInvariantLoads(VPlan &Plan) {
-  VPRegionBlock *LoopRegion = Plan.getVectorLoopRegion();
-
-  // Collect candidate loads with invariant addresses and noalias scopes
-  // metadata and memory-writing recipes with noalias metadata.
-  SmallVector<std::pair<VPRecipeBase *, MemoryLocation>> CandidateLoads;
-  SmallVector<MemoryLocation> Stores;
-  for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(
-           vp_depth_first_shallow(LoopRegion->getEntry()))) {
-    for (VPRecipeBase &R : *VPBB) {
-      // Only handle single-scalar replicated loads with invariant addresses.
-      if (auto *RepR = dyn_cast<VPReplicateRecipe>(&R)) {
-        if (RepR->isPredicated() || !RepR->isSingleScalar() ||
-            RepR->getOpcode() != Instruction::Load)
-          continue;
-
-        VPValue *Addr = RepR->getOperand(0);
-        if (Addr->isDefinedOutsideLoopRegions()) {
-          MemoryLocation Loc = *vputils::getMemoryLocation(*RepR);
-          if (!Loc.AATags.Scope)
-            continue;
-          CandidateLoads.push_back({RepR, Loc});
-        }
-      }
-      if (R.mayWriteToMemory()) {
-        auto Loc = vputils::getMemoryLocation(R);
-        if (!Loc || !Loc->AATags.Scope || !Loc->AATags.NoAlias)
-          return;
-        Stores.push_back(*Loc);
-      }
-    }
-  }
-
-  VPBasicBlock *Preheader = Plan.getVectorPreheader();
-  for (auto &[LoadRecipe, LoadLoc] : CandidateLoads) {
-    // Hoist the load to the preheader if it doesn't alias with any stores
-    // according to the noalias metadata. Other loads should have been hoisted
-    // by other passes
-    const AAMDNodes &LoadAA = LoadLoc.AATags;
-    if (all_of(Stores, [&](const MemoryLocation &StoreLoc) {
-          return !ScopedNoAliasAAResult::mayAliasInScopes(
-              LoadAA.Scope, StoreLoc.AATags.NoAlias);
-        })) {
-      LoadRecipe->moveBefore(*Preheader, Preheader->getFirstNonPhi());
-    }
-  }
-}
-
 // Collect common metadata from a group of replicate recipes by intersecting
 // metadata from all recipes in the group.
 static VPIRMetadata getCommonMetadata(ArrayRef<VPReplicateRecipe *> Recipes) {
@@ -4899,25 +4904,6 @@ void VPlanTransforms::hoistPredicatedLoads(VPlan &Plan,
   }
 }
 
-static bool
-canSinkStoreWithNoAliasCheck(ArrayRef<VPReplicateRecipe *> StoresToSink,
-                             PredicatedScalarEvolution &PSE, const Loop &L,
-                             VPTypeAnalysis &TypeInfo) {
-  auto StoreLoc = vputils::getMemoryLocation(*StoresToSink.front());
-  if (!StoreLoc || !StoreLoc->AATags.Scope)
-    return false;
-
-  // When sinking a group of stores, all members of the group alias each other.
-  // Skip them during the alias checks.
-  SmallPtrSet<VPRecipeBase *, 4> StoresToSinkSet(StoresToSink.begin(),
-                                                 StoresToSink.end());
-
-  VPBasicBlock *FirstBB = StoresToSink.front()->getParent();
-  VPBasicBlock *LastBB = StoresToSink.back()->getParent();
-  SinkStoreInfo SinkInfo(StoresToSinkSet, *StoresToSink[0], PSE, L, TypeInfo);
-  return canHoistOrSinkWithNoAliasCheck(*StoreLoc, FirstBB, LastBB, SinkInfo);
-}
-
 void VPlanTransforms::sinkPredicatedStores(VPlan &Plan,
                                            PredicatedScalarEvolution &PSE,
                                            const Loop *L) {
@@ -4929,7 +4915,18 @@ void VPlanTransforms::sinkPredicatedStores(VPlan &Plan,
   VPTypeAnalysis TypeInfo(Plan);
 
   for (auto &Group : Groups) {
-    if (!canSinkStoreWithNoAliasCheck(Group, PSE, *L, TypeInfo))
+    // Try to use the earliest (most dominating) store to replace all others.
+    VPReplicateRecipe *EarliestStore = Group.front();
+    VPBasicBlock *FirstBB = Group.front()->getParent();
+    VPBasicBlock *LastBB = Group.back()->getParent();
+    auto StoreLoc = vputils::getMemoryLocation(*EarliestStore);
+
+    // When sinking a group of stores, all members of the group alias each
+    // other. Skip them during the alias checks.
+    if (!StoreLoc ||
+        !canHoistOrSinkWithNoAliasCheck(
+            *StoreLoc, FirstBB, LastBB,
+            SinkStoreInfo(Group, *EarliestStore, PSE, *L, TypeInfo)))
       continue;
 
     // Use the last (most dominated) store's location for the unconditional
