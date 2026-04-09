@@ -21,6 +21,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
@@ -1944,6 +1945,9 @@ Instruction *InstCombinerImpl::visitSExt(SExtInst &Sext) {
           return replaceInstUsesWith(Sext, Builder.CreateVScale(DestTy));
     }
   }
+
+  if (Instruction *Folded = foldVecCmpOnHalfElementSize(Sext))
+    return Folded;
 
   return nullptr;
 }

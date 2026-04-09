@@ -1287,6 +1287,200 @@ Value *InstCombinerImpl::foldUsingDistributiveLaws(BinaryOperator &I) {
   return SimplifySelectsFeedingBinaryOp(I, LHS, RHS);
 }
 
+// Folds patterns which uses comparisons on <2N x iM> type for a <N x i2M>
+// equality comparison.
+//
+// (A1, ..., AN) -> (A1Lower, A1Upper, ..., ANLower, ANUpper)
+// (B1, ..., BN) -> (B1Lower, B1Upper, ..., BNLower, BNUpper)
+// (Result1, ..., ResultN) -> (Result1, Result1, ..., ResultN, ResultN)
+//
+// where,
+//
+// ResultX = EqLowerX & EqUpperX
+// EqLowerX = AXLower == BXLower
+// EqUpperX = AXUpper == BXUpper
+//
+// Bitwise AND between the upper and lower parts can be achived by performing
+// the operation between the original and shuffled equality vector.
+static Value *foldVecCmpEqOnHalfElementSize(Instruction &I,
+                                            FixedVectorType *ResultVecType,
+                                            InstCombiner::BuilderTy &Builder) {
+  // Check pattern existance
+  Value *L, *R;
+  CmpPredicate Pred;
+  ArrayRef<int> Mask;
+
+  auto Equal = m_SExtOrSelf(m_ICmp(Pred, m_Value(L), m_Value(R)));
+  auto Shuffle = m_SExtOrSelf(m_Shuffle(Equal, m_Poison(), m_Mask(Mask)));
+  if (!match(&I,
+             m_SExtOrSelf(m_CombineOr(m_c_And(Equal, Shuffle),
+                                      m_Select(Equal, Shuffle, m_Zero())))) ||
+      Pred != CmpInst::ICMP_EQ)
+    return nullptr;
+
+  auto *OldVecType = cast<FixedVectorType>(L->getType());
+
+  if (OldVecType != ResultVecType)
+    return nullptr;
+
+  // Example shuffle mask: {1, 0, 3, 2}
+  for (int I = 0; I < static_cast<int>(Mask.size()); I += 2)
+    if (Mask[I] != I + 1 || Mask[I + 1] != I)
+      return nullptr;
+
+  LLVM_DEBUG(dbgs() << "IC: Folding Vn2im CmpEq using V2nim CmpEq pattern"
+                    << '\n');
+
+  // Perform folding
+  unsigned int OldElementCount = OldVecType->getElementCount().getFixedValue();
+  unsigned int OldElementWidth = OldVecType->getScalarSizeInBits();
+  Type *NewElementType = IntegerType::get(I.getContext(), OldElementWidth * 2);
+  Type *NewVecType =
+      VectorType::get(NewElementType, OldElementCount / 2, false);
+  Value *BitCastL = Builder.CreateBitCast(L, NewVecType);
+  Value *BitCastR = Builder.CreateBitCast(R, NewVecType);
+  Value *Cmp = Builder.CreateICmp(Pred, BitCastL, BitCastR);
+  Value *SExt = Builder.CreateSExt(Cmp, NewVecType);
+  Value *BitCastCmp = Builder.CreateBitCast(SExt, OldVecType);
+
+  return BitCastCmp;
+}
+
+// Folds patterns which uses comparisons on <2N x iM> type for a <N x i2M>
+// greater / less than comparison.
+//
+// (A1, ..., AN) -> (A1Lower, A1Upper, ..., ANLower, ANUpper)
+// (B1, ..., BN) -> (B1Lower, B1Upper, ..., BNLower, BNUpper)
+// (Result1, ..., ResultN) -> (Result1, Result1, ..., ResultN, ResultN)
+//
+// where,
+//
+// ResultX = (GtLowerX & EqUpperX) | (GtUpperX)
+// GtLowerX = AXLower OP BXLower
+// GtUpperX = AXUpper OP BXUpper
+// EqUpperX = AXUpper EQ BXUpper
+//
+// Upper and lower parts are obtained through vector shuffles.
+//
+// Note that comparison of the lower parts are always unsigned comparisons
+// regardless of the resulting signedness. Also note that, unsigned comparison
+// can be derived from signed comparison by flipping the MSB of both operands.
+static Value *foldVecCmpGtOnHalfElementSize(Instruction &I,
+                                            FixedVectorType *ResultVecType,
+                                            bool IsBigEndian,
+                                            InstCombiner::BuilderTy &Builder) {
+  // Check pattern existance
+  Value *A, *B, *Greater1, *Greater2;
+  CmpPredicate PredEq;
+  ArrayRef<int> MaskLower, MaskUpper1, MaskUpper2;
+
+  auto GreaterLower = m_SExtOrSelf(m_Shuffle(m_SExtOrSelf(m_Value(Greater1)),
+                                             m_Poison(), m_Mask(MaskLower)));
+  auto GreaterUpper = m_SExtOrSelf(m_Shuffle(m_SExtOrSelf(m_Value(Greater2)),
+                                             m_Poison(), m_Mask(MaskUpper1)));
+  auto EqUpper = m_SExtOrSelf(
+      m_Shuffle(m_SExtOrSelf(m_c_ICmp(PredEq, m_Value(A), m_Value(B))),
+                m_Poison(), m_Mask(MaskUpper2)));
+  auto And =
+      m_SExtOrSelf(m_CombineOr(m_c_And(GreaterLower, EqUpper),
+                               m_Select(EqUpper, GreaterLower, m_Zero())));
+  auto Or = m_SExtOrSelf(m_c_Or(And, GreaterUpper));
+
+  if (!match(&I, Or) || Greater1 != Greater2 || MaskUpper1 != MaskUpper2 ||
+      PredEq != ICmpInst::ICMP_EQ)
+    return nullptr;
+
+  auto *OldVecType = cast<FixedVectorType>(A->getType());
+
+  if (OldVecType != ResultVecType)
+    return nullptr;
+
+  // For little endian,
+  // example lower shuffle mask: {0, 0, 2, 2},
+  // example upper shuffle mask: {1, 1, 3, 3}
+  for (int I = 0; I < static_cast<int>(MaskLower.size()); I += 2) {
+    int LowerIdx = IsBigEndian ? I + 1 : I;
+    int UpperIdx = IsBigEndian ? I : I + 1;
+    if (MaskLower[I] != LowerIdx || MaskLower[I + 1] != LowerIdx ||
+        MaskUpper1[I] != UpperIdx || MaskUpper1[I + 1] != UpperIdx)
+      return nullptr;
+  }
+
+  // Check greater comparison
+  ConstantInt *Zero =
+      ConstantInt::get(IntegerType::getInt32Ty(I.getContext()), 0);
+  ConstantInt *MsbFlip =
+      ConstantInt::get(IntegerType::getInt32Ty(I.getContext()), 0x80000000);
+  Value *MsbFlipLower1 = nullptr, *MsbFlipLower2 = nullptr;
+  CmpPredicate PredGt;
+
+  auto UGt = m_c_ICmp(PredGt, m_Specific(A), m_Specific(B));
+  auto UGtAlt = m_c_ICmp(
+      PredGt, m_c_Xor(m_Specific(A), m_ConstantSplat(m_ConstantInt(MsbFlip))),
+      m_c_Xor(m_Specific(B), m_ConstantSplat(m_ConstantInt(MsbFlip))));
+  auto SGt = m_c_ICmp(PredGt, m_c_Xor(m_Specific(A), m_Value(MsbFlipLower1)),
+                      m_c_Xor(m_Specific(B), m_Value(MsbFlipLower2)));
+
+  if (!(match(Greater1, UGt) &&
+        (PredGt == ICmpInst::ICMP_UGT || PredGt == ICmpInst::ICMP_ULT)) &&
+      !((match(Greater1, SGt) || match(Greater1, UGtAlt)) &&
+        (PredGt == ICmpInst::ICMP_SGT || PredGt == ICmpInst::ICMP_SLT)))
+    return nullptr;
+
+  unsigned int OldElementCount = OldVecType->getElementCount().getFixedValue();
+
+  if (MsbFlipLower1) {
+    auto *MsbFlipLower = dyn_cast<ConstantDataVector>(MsbFlipLower1);
+    if (!MsbFlipLower || MsbFlipLower2 != MsbFlipLower)
+      return nullptr;
+
+    // For little endian,
+    // example MSB flip lower mask: {0x80000000, 0, 0x80000000, 0}
+    for (int I = 0; I < static_cast<int>(OldElementCount); I += 2) {
+      int LowerIdx = IsBigEndian ? I + 1 : I;
+      int UpperIdx = IsBigEndian ? I : I + 1;
+      if (MsbFlipLower->getAggregateElement(LowerIdx) != MsbFlip ||
+          MsbFlipLower->getAggregateElement(UpperIdx) != Zero)
+        return nullptr;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "IC: Folding Vn2im CmpGt using V2nim CmpGt pattern"
+                    << '\n');
+
+  // Perform folding
+  unsigned int OldElementWidth = OldVecType->getScalarSizeInBits();
+  Type *NewElementType = IntegerType::get(I.getContext(), OldElementWidth * 2);
+  Type *NewVecType =
+      VectorType::get(NewElementType, OldElementCount / 2, false);
+  Value *BitCastA = Builder.CreateBitCast(A, NewVecType);
+  Value *BitCastB = Builder.CreateBitCast(B, NewVecType);
+  Value *Cmp = Builder.CreateICmp(PredGt, BitCastA, BitCastB);
+  Value *SExt = Builder.CreateSExt(Cmp, NewVecType);
+  Value *BitCastCmp = Builder.CreateBitCast(SExt, OldVecType);
+
+  return BitCastCmp;
+}
+
+// Folds patterns which uses comparisons on <2N x iM> type for a <N x i2M>
+// comparison.
+Instruction *InstCombinerImpl::foldVecCmpOnHalfElementSize(Instruction &I) {
+  auto *ResultVecType = dyn_cast<FixedVectorType>(I.getType());
+
+  if (!ResultVecType || !ResultVecType->getElementType()->isIntegerTy() ||
+      ResultVecType->getElementCount().getFixedValue() % 2 != 0)
+    return nullptr;
+
+  if (Value *V = foldVecCmpEqOnHalfElementSize(I, ResultVecType, Builder))
+    return replaceInstUsesWith(I, V);
+
+  if (Value *V = foldVecCmpGtOnHalfElementSize(I, ResultVecType,
+                                               DL.isBigEndian(), Builder))
+    return replaceInstUsesWith(I, V);
+
+  return nullptr;
+}
+
 static std::optional<std::pair<Value *, Value *>>
 matchSymmetricPhiNodesPair(PHINode *LHS, PHINode *RHS) {
   if (LHS->getParent() != RHS->getParent())
