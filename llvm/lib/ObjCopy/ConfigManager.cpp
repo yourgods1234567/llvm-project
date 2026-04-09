@@ -107,9 +107,8 @@ Expected<const XCOFFConfig &> ConfigManager::getXCOFFConfig() const {
       Common.StripDebug || Common.StripNonAlloc || Common.StripSections ||
       Common.Weaken || Common.StripUnneeded ||
       Common.CompressionType != DebugCompressionType::None ||
-      Common.DecompressDebugSections ||
-      Common.GapFill != 0 || Common.PadTo != 0 ||
-      Common.ChangeSectionLMAValAll != 0 ||
+      Common.DecompressDebugSections || Common.GapFill != 0 ||
+      Common.PadTo != 0 || Common.ChangeSectionLMAValAll != 0 ||
       !Common.ChangeSectionAddress.empty() || !Common.ExtractSection.empty()) {
     return createStringError(
         llvm::errc::invalid_argument,
@@ -133,9 +132,8 @@ ConfigManager::getDXContainerConfig() const {
       Common.StripDebug || Common.StripNonAlloc || Common.StripSections ||
       Common.StripUnneeded ||
       Common.CompressionType != DebugCompressionType::None ||
-      Common.DecompressDebugSections ||
-      Common.GapFill != 0 || Common.PadTo != 0 ||
-      Common.ChangeSectionLMAValAll != 0 ||
+      Common.DecompressDebugSections || Common.GapFill != 0 ||
+      Common.PadTo != 0 || Common.ChangeSectionLMAValAll != 0 ||
       !Common.ChangeSectionAddress.empty()) {
     return createStringError(llvm::errc::invalid_argument,
                              "option is not supported for DXContainer");
