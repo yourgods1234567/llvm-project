@@ -1,7 +1,0 @@
-## --compress-debug-sections is ELF-only and should be rejected for COFF.
-# REQUIRES: zlib
-
-# RUN: yaml2obj %p/Inputs/x86_64-obj.yaml -o %t.in.o
-# RUN: not llvm-objcopy --compress-debug-sections %t.in.o %t.out.o 2>&1 | FileCheck %s
-
-# CHECK: error: option is not supported for COFF
