@@ -76,8 +76,10 @@ Expected<const WasmConfig &> ConfigManager::getWasmConfig() const {
       !Common.SymbolsToWeaken.empty() || !Common.SymbolsToKeepGlobal.empty() ||
       !Common.SectionsToRename.empty() || !Common.SetSectionAlignment.empty() ||
       !Common.SetSectionFlags.empty() || !Common.SetSectionType.empty() ||
-      !Common.SymbolsToRename.empty() || Common.GapFill != 0 ||
-      Common.PadTo != 0 || Common.ChangeSectionLMAValAll != 0 ||
+      !Common.SymbolsToRename.empty() ||
+      Common.CompressionType != DebugCompressionType::None ||
+      Common.GapFill != 0 || Common.PadTo != 0 ||
+      Common.ChangeSectionLMAValAll != 0 ||
       !Common.ChangeSectionAddress.empty() || !Common.ExtractSection.empty())
     return createStringError(llvm::errc::invalid_argument,
                              "only flags for section dumping, removal, and "
