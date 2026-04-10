@@ -30617,10 +30617,9 @@ SDValue X86TargetLowering::LowerWin64_i128OP(SDValue Op, SelectionDAG &DAG) cons
   TargetLowering::CallLoweringInfo CLI(DAG);
   CLI.setDebugLoc(dl)
       .setChain(InChain)
-      .setLibCallee(
-          DAG.getLibcalls().getLibcallImplCallingConv(LCImpl),
-          EVT(MVT::v2i64).getTypeForEVT(*DAG.getContext()), Callee,
-          std::move(Args))
+      .setLibCallee(DAG.getLibcalls().getLibcallImplCallingConv(LCImpl),
+                    EVT(MVT::v2i64).getTypeForEVT(*DAG.getContext()), Callee,
+                    std::move(Args))
       .setInRegister()
       .setSExtResult(isSigned)
       .setZExtResult(!isSigned);
@@ -30636,8 +30635,8 @@ void X86TargetLowering::LowerWin64_i128DIVREM(SDNode *N, SelectionDAG &DAG,
   EVT VT = N->getValueType(0);
   assert(VT == MVT::i128 && "Unexpected type");
 
-  bool isSigned = N->getOpcode() == ISD::SDIVREM;
-  RTLIB::Libcall LC = isSigned ? RTLIB::SDIVREM_I128 : RTLIB::UDIVREM_I128;
+  bool IsSigned = N->getOpcode() == ISD::SDIVREM;
+  RTLIB::Libcall LC = IsSigned ? RTLIB::SDIVREM_I128 : RTLIB::UDIVREM_I128;
   RTLIB::LibcallImpl LCImpl = DAG.getLibcalls().getLibcallImpl(LC);
 
   SDLoc dl(N);
@@ -30645,8 +30644,8 @@ void X86TargetLowering::LowerWin64_i128DIVREM(SDNode *N, SelectionDAG &DAG,
   // If no fused divrem libcall is available, fall back to separate div and rem.
   // This goes through LowerWin64_i128OP with the correct pointer-arg ABI.
   if (LCImpl == RTLIB::Unsupported) {
-    unsigned DivOp = isSigned ? ISD::SDIV : ISD::UDIV;
-    unsigned RemOp = isSigned ? ISD::SREM : ISD::UREM;
+    unsigned DivOp = IsSigned ? ISD::SDIV : ISD::UDIV;
+    unsigned RemOp = IsSigned ? ISD::SREM : ISD::UREM;
     Quot = DAG.getNode(DivOp, dl, VT, N->getOperand(0), N->getOperand(1));
     Rem = DAG.getNode(RemOp, dl, VT, N->getOperand(0), N->getOperand(1));
     return;
@@ -30670,9 +30669,9 @@ void X86TargetLowering::LowerWin64_i128DIVREM(SDNode *N, SelectionDAG &DAG,
   }
 
   // Allocate a stack slot for the remainder output pointer.
+  SDValue RemPtr = DAG.CreateStackTemporary(MVT::i128, 16);
+  int RemFI = cast<FrameIndexSDNode>(RemPtr.getNode())->getIndex();
   MachineFunction &MF = DAG.getMachineFunction();
-  int RemFI = MF.getFrameInfo().CreateStackObject(16, Align(16), false);
-  SDValue RemPtr = DAG.getFrameIndex(RemFI, getPointerTy(DAG.getDataLayout()));
   Args.emplace_back(RemPtr, PointerType::get(*DAG.getContext(), 0));
 
   SDValue Callee =
@@ -30681,13 +30680,12 @@ void X86TargetLowering::LowerWin64_i128DIVREM(SDNode *N, SelectionDAG &DAG,
   TargetLowering::CallLoweringInfo CLI(DAG);
   CLI.setDebugLoc(dl)
       .setChain(InChain)
-      .setLibCallee(
-          DAG.getLibcalls().getLibcallImplCallingConv(LCImpl),
-          EVT(MVT::v2i64).getTypeForEVT(*DAG.getContext()), Callee,
-          std::move(Args))
+      .setLibCallee(DAG.getLibcalls().getLibcallImplCallingConv(LCImpl),
+                    EVT(MVT::v2i64).getTypeForEVT(*DAG.getContext()), Callee,
+                    std::move(Args))
       .setInRegister()
-      .setSExtResult(isSigned)
-      .setZExtResult(!isSigned);
+      .setSExtResult(IsSigned)
+      .setZExtResult(!IsSigned);
 
   std::pair<SDValue, SDValue> CallInfo = LowerCallTo(CLI);
   Quot = DAG.getBitcast(VT, CallInfo.first);
