@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPUMCResourceInfo.h"
+#include "SIMachineFunctionInfo.h"
 #include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -298,9 +299,37 @@ void MCResourceInfo::gatherResourceInfo(
     }
   };
 
+  auto SetToLocal = [&](int64_t LocalValue, ResourceInfoKind RIK) {
+    MCSymbol *Sym = getSymbol(FnSym->getName(), RIK, OutContext, IsLocal);
+    LLVM_DEBUG(
+        dbgs() << "MCResUse:   " << Sym->getName() << ": Adding " << LocalValue
+               << ", no further propagation as indirect callee found within\n");
+    Sym->setVariableValue(MCConstantExpr::create(LocalValue, OutContext));
+  };
+
   LLVM_DEBUG(dbgs() << "MCResUse: " << FnSym->getName() << '\n');
-  SetMaxReg(MaxVGPRSym, FRI.NumVGPR, RIK_NumVGPR);
-  SetMaxReg(MaxAGPRSym, FRI.NumAGPR, RIK_NumAGPR);
+
+  CallingConv::ID CC = MF.getFunction().getCallingConv();
+
+  // When DynamicVGPR is enabled, chain functions should not propagate VGPR
+  // counts from other chain callees since each chain function can have its own
+  // VGPR allocation, but should still propagate from non-chain callees.
+  if (MF.getInfo<SIMachineFunctionInfo>()->isDynamicVGPREnabled() &&
+      (CC == CallingConv::AMDGPU_CS_Chain || CC == CallingConv::AMDGPU_CS)) {
+    SmallVector<const Function *, 16> NonChainCallees;
+    for (const Function *Callee : FRI.Callees) {
+      if (!AMDGPU::isChainCC(Callee->getCallingConv()) &&
+          !Callee->isDeclaration())
+        NonChainCallees.push_back(Callee);
+    }
+    assignResourceInfoExpr(FRI.NumVGPR, RIK_NumVGPR, AMDGPUMCExpr::AGVK_Max, MF,
+                           NonChainCallees, OutContext);
+    assignResourceInfoExpr(FRI.NumAGPR, RIK_NumAGPR, AMDGPUMCExpr::AGVK_Max, MF,
+                           NonChainCallees, OutContext);
+  } else {
+    SetMaxReg(MaxVGPRSym, FRI.NumVGPR, RIK_NumVGPR);
+    SetMaxReg(MaxAGPRSym, FRI.NumAGPR, RIK_NumAGPR);
+  }
   SetMaxReg(MaxSGPRSym, FRI.NumExplicitSGPR, RIK_NumSGPR);
   SetMaxReg(MaxNamedBarrierSym, FRI.NumNamedBarrier, RIK_NumNamedBarrier);
 
@@ -354,14 +383,6 @@ void MCResourceInfo::gatherResourceInfo(
     }
     Sym->setVariableValue(localConstExpr);
   }
-
-  auto SetToLocal = [&](int64_t LocalValue, ResourceInfoKind RIK) {
-    MCSymbol *Sym = getSymbol(FnSym->getName(), RIK, OutContext, IsLocal);
-    LLVM_DEBUG(
-        dbgs() << "MCResUse:   " << Sym->getName() << ": Adding " << LocalValue
-               << ", no further propagation as indirect callee found within\n");
-    Sym->setVariableValue(MCConstantExpr::create(LocalValue, OutContext));
-  };
 
   if (!FRI.HasIndirectCall) {
     assignResourceInfoExpr(FRI.UsesVCC, ResourceInfoKind::RIK_UsesVCC,
