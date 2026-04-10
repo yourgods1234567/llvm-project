@@ -668,9 +668,13 @@ static void removeRedundantInductionCasts(VPlan &Plan) {
           break;
         }
       }
+      // Cast recipe may have been removed by earlier simplifications.
+      if (!FoundUserCast)
+        break;
       FindMyCast = FoundUserCast;
     }
-    FindMyCast->replaceAllUsesWith(IV);
+    if (FindMyCast != IV)
+      FindMyCast->replaceAllUsesWith(IV);
   }
 }
 
@@ -3681,6 +3685,16 @@ void VPlanTransforms::createInterleaveGroups(
   // single VPInterleaveRecipe at its insertion point.
   VPDominatorTree VPDT(Plan);
   for (const auto *IG : InterleaveGroups) {
+    // Skip interleave groups where members don't have recipes. This can happen
+    // when removeDeadRecipes removes recipes that are part of interleave groups
+    // but have no users.
+    if (llvm::any_of(llvm::seq(IG->getFactor()),
+                     [IG, &RecipeBuilder](unsigned I) {
+                       Instruction *Member = IG->getMember(I);
+                       return Member && !RecipeBuilder.hasRecipe(Member);
+                     }))
+      continue;
+
     auto *Start =
         cast<VPWidenMemoryRecipe>(RecipeBuilder.getRecipe(IG->getMember(0)));
     VPIRMetadata InterleaveMD(*Start);
