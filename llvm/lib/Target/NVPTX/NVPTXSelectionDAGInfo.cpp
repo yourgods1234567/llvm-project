@@ -7,11 +7,89 @@
 //===----------------------------------------------------------------------===//
 
 #include "NVPTXSelectionDAGInfo.h"
+#include "llvm/ADT/FoldingSet.h"
+#include "llvm/CodeGen/ISDOpcodes.h"
+#include "llvm/CodeGen/SelectionDAG.h"
+#include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/IR/DebugLoc.h"
+#include "llvm/Support/CodeGen.h"
+#include <memory>
 
 #define GET_SDNODE_DESC
 #include "NVPTXGenSDNodeInfo.inc"
 
 using namespace llvm;
+
+// ---------------------------------------------------------------------------
+// DebugLoc-aware CSE map for NVPTX
+// ---------------------------------------------------------------------------
+
+/// Appends DebugLoc data to ID at -O0, so nodes at different source locations
+/// are not merged.  Constants are always CSE'd regardless of location.
+static void profileDebugLoc(FoldingSetNodeID &ID, unsigned Opcode,
+                            const DebugLoc &DL, const SelectionDAG &DAG) {
+  if (DAG.getOptLevel() != CodeGenOptLevel::None)
+    return;
+  if (!DL)
+    return;
+  switch (Opcode) {
+  case ISD::UNDEF:
+  case ISD::Constant:
+  case ISD::ConstantFP:
+  case ISD::TargetConstant:
+  case ISD::TargetConstantFP:
+    return; // Always CSE constants regardless of location.
+  default:
+    DL.Profile(ID);
+  }
+}
+
+/// Profile specialization: must key nodes identically to FindNodeOrInsertPos.
+namespace llvm {
+template <>
+struct ContextualFoldingSetTrait<SDNode, SelectionDAG *>
+    : public DefaultContextualFoldingSetTrait<SDNode, SelectionDAG *> {
+  static void Profile(SDNode &N, FoldingSetNodeID &ID, SelectionDAG *DAG) {
+    N.Profile(ID);
+    profileDebugLoc(ID, N.getOpcode(), N.getDebugLoc(), *DAG);
+  }
+};
+} // namespace llvm
+
+namespace {
+
+/// CSE map that at -O0 keys each node by both its DAG structure and its
+/// DebugLoc, so identical operations at different source lines stay distinct.
+class NVPTXSDNodeCSEMap final : public SDNodeCSEMap {
+  ContextualFoldingSet<SDNode, SelectionDAG *> FS;
+
+public:
+  explicit NVPTXSDNodeCSEMap(SelectionDAG *DAG) : FS(DAG) {}
+
+  SDNode *FindNodeOrInsertPos(const FoldingSetNodeID &ID, unsigned Opcode,
+                              const SDLoc &DL, void *&InsertPos) override {
+    FoldingSetNodeID AugID = ID;
+    profileDebugLoc(AugID, Opcode, DL.getDebugLoc(), *FS.getContext());
+    return FS.FindNodeOrInsertPos(AugID, InsertPos);
+  }
+
+  void InsertNode(SDNode *N, void *InsertPos) override {
+    FS.InsertNode(N, InsertPos);
+  }
+
+  bool RemoveNode(SDNode *N) override { return FS.RemoveNode(N); }
+
+  SDNode *GetOrInsertNode(SDNode *N) override { return FS.GetOrInsertNode(N); }
+
+  void clear() override { FS.clear(); }
+};
+
+} // namespace
+
+std::unique_ptr<SDNodeCSEMap>
+NVPTXSelectionDAGInfo::createCSEMap(SelectionDAG &DAG) const {
+  return std::make_unique<NVPTXSDNodeCSEMap>(&DAG);
+}
 
 NVPTXSelectionDAGInfo::NVPTXSelectionDAGInfo()
     : SelectionDAGGenTargetInfo(NVPTXGenSDNodeInfo) {}

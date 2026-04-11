@@ -46,6 +46,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <tuple>
@@ -216,6 +217,26 @@ public:
 
 LLVM_ABI void checkForCycles(const SelectionDAG *DAG, bool force = false);
 
+/// Abstract CSE map for SDNodes.  Targets can override
+/// SelectionDAGTargetInfo::createCSEMap() to supply a custom implementation.
+class SDNodeCSEMap {
+public:
+  virtual ~SDNodeCSEMap() = default;
+
+  /// Look up ID in the CSE map, or prepare an insertion point.
+  /// Opcode and DL are forwarded so the implementation can apply
+  /// target-specific CSE policies.
+  virtual SDNode *FindNodeOrInsertPos(const FoldingSetNodeID &ID,
+                                      unsigned Opcode, const SDLoc &DL,
+                                      void *&InsertPos) = 0;
+  virtual void InsertNode(SDNode *N, void *InsertPos) = 0;
+  /// Returns true if N was present.
+  virtual bool RemoveNode(SDNode *N) = 0;
+  /// Insert N, or return the existing equal node.
+  virtual SDNode *GetOrInsertNode(SDNode *N) = 0;
+  virtual void clear() = 0;
+};
+
 /// This is used to represent a portion of an LLVM function in a low-level
 /// Data Dependence DAG representation suitable for instruction selection.
 /// This DAG is constructed as the first step of instruction selection in order
@@ -280,9 +301,9 @@ class SelectionDAG {
   /// Pool allocation for nodes.
   NodeAllocatorType NodeAllocator;
 
-  /// This structure is used to memoize nodes, automatically performing
-  /// CSE with existing nodes when a duplicate is requested.
-  FoldingSet<SDNode> CSEMap;
+  /// CSE map for SDNode deduplication; created by
+  /// SelectionDAGTargetInfo::createCSEMap().
+  std::unique_ptr<SDNodeCSEMap> CSEMap;
 
   /// Pool allocation for machine-opcode SDNode operands.
   BumpPtrAllocator OperandAllocator;
@@ -2783,16 +2804,11 @@ private:
   void allnodes_clear();
 
   /// Look up the node specified by ID in CSEMap.  If it exists, return it.  If
-  /// not, return the insertion token that will make insertion faster.  This
-  /// overload is for nodes other than Constant or ConstantFP, use the other one
-  /// for those.
-  SDNode *FindNodeOrInsertPos(const FoldingSetNodeID &ID, void *&InsertPos);
-
-  /// Look up the node specified by ID in CSEMap.  If it exists, return it.  If
-  /// not, return the insertion token that will make insertion faster.  Performs
-  /// additional processing for constant nodes.
+  /// not, return the insertion token that will make insertion faster.
+  /// Opcode is used by target CSE policies to apply node-kind-specific rules.
+  /// Use SDLoc() for DL when there is no associated debug location.
   SDNode *FindNodeOrInsertPos(const FoldingSetNodeID &ID, const SDLoc &DL,
-                              void *&InsertPos);
+                              void *&InsertPos, unsigned Opcode);
 
   /// Maps to auto-CSE operations.
   std::vector<CondCodeSDNode*> CondCodeNodes;
