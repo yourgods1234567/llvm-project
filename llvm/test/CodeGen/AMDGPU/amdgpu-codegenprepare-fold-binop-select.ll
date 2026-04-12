@@ -268,10 +268,10 @@ define i32 @select_sdiv_rhs_opaque_const0_i32(i1 %cond) {
 ; GCN-NEXT:    v_mov_b32_e32 v2, s4
 ; GCN-NEXT:    v_cndmask_b32_e32 v0, v1, v2, vcc
 ; GCN-NEXT:    s_mov_b32 s4, 0x30c30c31
-; GCN-NEXT:    v_mul_hi_i32 v0, v0, s4
-; GCN-NEXT:    v_lshrrev_b32_e32 v1, 31, v0
-; GCN-NEXT:    v_ashrrev_i32_e32 v0, 3, v0
-; GCN-NEXT:    v_add_u32_e32 v0, vcc, v0, v1
+; GCN-NEXT:    v_mul_hi_i32 v1, v0, s4
+; GCN-NEXT:    v_ashrrev_i32_e32 v0, 31, v0
+; GCN-NEXT:    v_ashrrev_i32_e32 v1, 3, v1
+; GCN-NEXT:    v_sub_u32_e32 v0, vcc, v1, v0
 ; GCN-NEXT:    s_setpc_b64 s[30:31]
   %select = select i1 %cond, i32 ptrtoint (ptr addrspace(1) @gv to i32), i32 234234
   %op = sdiv i32 %select, 42
@@ -298,10 +298,10 @@ define i32 @select_sdiv_rhs_opaque_const1_i32(i1 %cond) {
 ; GCN-NEXT:    v_mov_b32_e32 v2, s4
 ; GCN-NEXT:    v_cndmask_b32_e32 v0, v2, v1, vcc
 ; GCN-NEXT:    s_mov_b32 s4, 0x30c30c31
-; GCN-NEXT:    v_mul_hi_i32 v0, v0, s4
-; GCN-NEXT:    v_lshrrev_b32_e32 v1, 31, v0
-; GCN-NEXT:    v_ashrrev_i32_e32 v0, 3, v0
-; GCN-NEXT:    v_add_u32_e32 v0, vcc, v0, v1
+; GCN-NEXT:    v_mul_hi_i32 v1, v0, s4
+; GCN-NEXT:    v_ashrrev_i32_e32 v0, 31, v0
+; GCN-NEXT:    v_ashrrev_i32_e32 v1, 3, v1
+; GCN-NEXT:    v_sub_u32_e32 v0, vcc, v1, v0
 ; GCN-NEXT:    s_setpc_b64 s[30:31]
   %select = select i1 %cond, i32 42000, i32 ptrtoint (ptr addrspace(1) @gv to i32)
   %op = sdiv i32 %select, 42

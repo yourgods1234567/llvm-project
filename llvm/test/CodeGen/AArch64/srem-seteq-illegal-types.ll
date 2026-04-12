@@ -24,9 +24,9 @@ define i1 @test_srem_even(i4 %X) nounwind {
 ; CHECK-LABEL: test_srem_even:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    sbfx w8, w0, #0, #4
-; CHECK-NEXT:    add w8, w8, w8, lsl #1
-; CHECK-NEXT:    lsr w9, w8, #4
-; CHECK-NEXT:    add w8, w9, w8, lsr #31
+; CHECK-NEXT:    add w9, w8, w8, lsl #1
+; CHECK-NEXT:    lsr w9, w9, #4
+; CHECK-NEXT:    sub w8, w9, w8, lsr #3
 ; CHECK-NEXT:    mov w9, #6 // =0x6
 ; CHECK-NEXT:    msub w8, w8, w9, w0
 ; CHECK-NEXT:    and w8, w8, #0xf
@@ -61,28 +61,30 @@ define <3 x i1> @test_srem_vec(<3 x i33> %X) nounwind {
 ; CHECK-NEXT:    sbfx x8, x0, #0, #33
 ; CHECK-NEXT:    sbfx x10, x1, #0, #33
 ; CHECK-NEXT:    movk x9, #29127, lsl #16
-; CHECK-NEXT:    mov x13, #-7282 // =0xffffffffffffe38e
+; CHECK-NEXT:    mov x14, #-7282 // =0xffffffffffffe38e
 ; CHECK-NEXT:    sbfx x12, x2, #0, #33
 ; CHECK-NEXT:    movk x9, #50972, lsl #32
-; CHECK-NEXT:    movk x13, #36408, lsl #16
+; CHECK-NEXT:    movk x14, #36408, lsl #16
+; CHECK-NEXT:    lsl x13, x0, #31
 ; CHECK-NEXT:    movk x9, #7281, lsl #48
-; CHECK-NEXT:    eon x13, x13, x13, lsl #33
+; CHECK-NEXT:    eon x14, x14, x14, lsl #33
+; CHECK-NEXT:    lsl x15, x1, #31
 ; CHECK-NEXT:    smulh x11, x8, x9
 ; CHECK-NEXT:    smulh x9, x10, x9
-; CHECK-NEXT:    smulh x13, x12, x13
-; CHECK-NEXT:    add x11, x11, x11, lsr #63
-; CHECK-NEXT:    add x9, x9, x9, lsr #63
+; CHECK-NEXT:    smulh x14, x12, x14
+; CHECK-NEXT:    sub x11, x11, x13, asr #63
 ; CHECK-NEXT:    add x11, x11, x11, lsl #3
-; CHECK-NEXT:    add x9, x9, x9, lsl #3
+; CHECK-NEXT:    sub x9, x9, x15, asr #63
 ; CHECK-NEXT:    sub x8, x8, x11
-; CHECK-NEXT:    sub x11, x13, x12
+; CHECK-NEXT:    add x9, x9, x9, lsl #3
+; CHECK-NEXT:    sub x13, x14, x12
 ; CHECK-NEXT:    fmov d0, x8
+; CHECK-NEXT:    asr x11, x13, #3
 ; CHECK-NEXT:    mov x8, #8589934591 // =0x1ffffffff
 ; CHECK-NEXT:    sub x9, x10, x9
-; CHECK-NEXT:    asr x10, x11, #3
 ; CHECK-NEXT:    dup v1.2d, x8
 ; CHECK-NEXT:    mov v0.d[1], x9
-; CHECK-NEXT:    add x9, x10, x11, lsr #63
+; CHECK-NEXT:    add x9, x11, x13, lsr #63
 ; CHECK-NEXT:    add x8, x9, x9, lsl #3
 ; CHECK-NEXT:    adrp x9, .LCPI3_0
 ; CHECK-NEXT:    ldr q2, [x9, :lo12:.LCPI3_0]

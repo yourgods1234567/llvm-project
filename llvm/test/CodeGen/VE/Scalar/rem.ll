@@ -167,9 +167,9 @@ define signext i32 @remi32ri(i32 signext %a) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    lea %s1, 1431655766
 ; CHECK-NEXT:    muls.l %s1, %s0, %s1
-; CHECK-NEXT:    srl %s2, %s1, 63
 ; CHECK-NEXT:    srl %s1, %s1, 32
-; CHECK-NEXT:    adds.w.sx %s1, %s1, %s2
+; CHECK-NEXT:    sra.w.sx %s2, %s0, 31
+; CHECK-NEXT:    subs.w.sx %s1, %s1, %s2
 ; CHECK-NEXT:    muls.w.sx %s1, 3, %s1
 ; CHECK-NEXT:    subs.w.sx %s0, %s0, %s1
 ; CHECK-NEXT:    adds.w.sx %s0, %s0, (0)1

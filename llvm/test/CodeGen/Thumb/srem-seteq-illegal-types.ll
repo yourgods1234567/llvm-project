@@ -37,9 +37,9 @@ define i1 @test_srem_even(i4 %X) nounwind {
 ; CHECK-NEXT:    asrs r1, r1, #28
 ; CHECK-NEXT:    movs r2, #3
 ; CHECK-NEXT:    muls r2, r1, r2
-; CHECK-NEXT:    lsrs r1, r2, #31
 ; CHECK-NEXT:    lsrs r2, r2, #4
-; CHECK-NEXT:    adds r1, r2, r1
+; CHECK-NEXT:    lsrs r1, r1, #3
+; CHECK-NEXT:    subs r1, r2, r1
 ; CHECK-NEXT:    movs r2, #6
 ; CHECK-NEXT:    muls r2, r1, r2
 ; CHECK-NEXT:    subs r0, r0, r2

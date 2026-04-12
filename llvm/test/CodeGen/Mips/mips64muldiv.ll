@@ -32,8 +32,8 @@ entry:
 ; ACC:           mfhi $[[T1:[0-9]+]]
 ; GPR:           dmuh $[[T1:[0-9]+]], $4, $[[T0]]
 
-; ALL:           dsrl $2, $[[T1]], 63
-; ALL:           daddu $2, $[[T1]], $2
+; ALL:           dsra $2, $4, 63
+; ALL:           dsubu $2, $[[T1]], $2
   %div = sdiv i64 %a, 3
   ret i64 %div
 }

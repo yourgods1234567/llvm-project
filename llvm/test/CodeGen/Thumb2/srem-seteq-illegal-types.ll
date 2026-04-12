@@ -26,9 +26,9 @@ define i1 @test_srem_even(i4 %X) nounwind {
 ; CHECK-LABEL: test_srem_even:
 ; CHECK:       @ %bb.0:
 ; CHECK-NEXT:    sbfx r1, r0, #0, #4
-; CHECK-NEXT:    add.w r1, r1, r1, lsl #1
-; CHECK-NEXT:    lsrs r2, r1, #4
-; CHECK-NEXT:    add.w r1, r2, r1, lsr #31
+; CHECK-NEXT:    add.w r2, r1, r1, lsl #1
+; CHECK-NEXT:    lsrs r2, r2, #4
+; CHECK-NEXT:    sub.w r1, r2, r1, lsr #3
 ; CHECK-NEXT:    add.w r1, r1, r1, lsl #1
 ; CHECK-NEXT:    sub.w r0, r0, r1, lsl #1
 ; CHECK-NEXT:    and r0, r0, #15

@@ -7624,42 +7624,42 @@ define amdgpu_kernel void @sdiv_i64_oddk_denom(ptr addrspace(1) %out, i64 %x) {
 ;
 ; GFX6-LABEL: sdiv_i64_oddk_denom:
 ; GFX6:       ; %bb.0:
-; GFX6-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x9
+; GFX6-NEXT:    s_load_dwordx4 s[4:7], s[4:5], 0x9
 ; GFX6-NEXT:    v_mov_b32_e32 v2, 0xfd81e19
 ; GFX6-NEXT:    v_mov_b32_e32 v0, 0x6ca94220
-; GFX6-NEXT:    s_mov_b32 s7, 0xf000
-; GFX6-NEXT:    s_mov_b32 s6, -1
+; GFX6-NEXT:    s_mov_b32 s3, 0xf000
+; GFX6-NEXT:    s_mov_b32 s2, -1
 ; GFX6-NEXT:    s_waitcnt lgkmcnt(0)
-; GFX6-NEXT:    v_mul_hi_u32 v3, s2, v2
-; GFX6-NEXT:    v_mul_hi_u32 v4, s3, v2
-; GFX6-NEXT:    s_mov_b32 s5, s1
-; GFX6-NEXT:    v_mul_hi_u32 v1, s2, v0
-; GFX6-NEXT:    s_mul_i32 s1, s3, 0xfd81e19
-; GFX6-NEXT:    v_add_i32_e32 v3, vcc, s1, v3
-; GFX6-NEXT:    s_mov_b32 s4, s0
-; GFX6-NEXT:    s_mul_i32 s0, s2, 0x6ca94220
+; GFX6-NEXT:    v_mul_hi_u32 v3, s6, v2
+; GFX6-NEXT:    v_mul_hi_u32 v4, s7, v2
+; GFX6-NEXT:    s_mov_b32 s1, s5
+; GFX6-NEXT:    v_mul_hi_u32 v1, s6, v0
+; GFX6-NEXT:    s_mul_i32 s5, s7, 0xfd81e19
+; GFX6-NEXT:    v_add_i32_e32 v3, vcc, s5, v3
+; GFX6-NEXT:    s_mov_b32 s0, s4
+; GFX6-NEXT:    s_mul_i32 s4, s6, 0x6ca94220
 ; GFX6-NEXT:    v_addc_u32_e32 v4, vcc, 0, v4, vcc
-; GFX6-NEXT:    v_add_i32_e32 v3, vcc, s0, v3
+; GFX6-NEXT:    v_add_i32_e32 v3, vcc, s4, v3
 ; GFX6-NEXT:    v_addc_u32_e32 v1, vcc, 0, v1, vcc
 ; GFX6-NEXT:    v_add_i32_e32 v1, vcc, v4, v1
-; GFX6-NEXT:    v_addc_u32_e64 v3, s[0:1], 0, 0, vcc
-; GFX6-NEXT:    s_ashr_i32 s1, s3, 31
-; GFX6-NEXT:    v_mul_hi_u32 v0, s3, v0
-; GFX6-NEXT:    v_mul_hi_u32 v2, s1, v2
-; GFX6-NEXT:    s_mul_i32 s0, s3, 0x6ca94220
-; GFX6-NEXT:    v_add_i32_e32 v1, vcc, s0, v1
-; GFX6-NEXT:    s_mul_i32 s0, s1, 0x6ca94220
+; GFX6-NEXT:    v_addc_u32_e64 v3, s[4:5], 0, 0, vcc
+; GFX6-NEXT:    s_ashr_i32 s5, s7, 31
+; GFX6-NEXT:    v_mul_hi_u32 v0, s7, v0
+; GFX6-NEXT:    v_mul_hi_u32 v2, s5, v2
+; GFX6-NEXT:    s_mul_i32 s4, s7, 0x6ca94220
+; GFX6-NEXT:    v_add_i32_e32 v1, vcc, s4, v1
+; GFX6-NEXT:    s_mul_i32 s4, s5, 0x6ca94220
 ; GFX6-NEXT:    v_addc_u32_e32 v3, vcc, v0, v3, vcc
-; GFX6-NEXT:    v_add_i32_e32 v0, vcc, s0, v2
-; GFX6-NEXT:    s_mul_i32 s1, s1, 0xfd81e19
-; GFX6-NEXT:    v_add_i32_e32 v2, vcc, s1, v0
-; GFX6-NEXT:    v_add_i32_e32 v0, vcc, s1, v1
+; GFX6-NEXT:    v_add_i32_e32 v0, vcc, s4, v2
+; GFX6-NEXT:    s_mul_i32 s4, s5, 0xfd81e19
+; GFX6-NEXT:    v_add_i32_e32 v2, vcc, s4, v0
+; GFX6-NEXT:    v_add_i32_e32 v0, vcc, s4, v1
 ; GFX6-NEXT:    v_addc_u32_e32 v1, vcc, v3, v2, vcc
-; GFX6-NEXT:    v_ashr_i64 v[2:3], v[0:1], 19
-; GFX6-NEXT:    v_lshrrev_b32_e32 v0, 31, v1
-; GFX6-NEXT:    v_add_i32_e32 v0, vcc, v2, v0
-; GFX6-NEXT:    v_addc_u32_e32 v1, vcc, 0, v3, vcc
-; GFX6-NEXT:    buffer_store_dwordx2 v[0:1], off, s[4:7], 0
+; GFX6-NEXT:    v_ashr_i64 v[0:1], v[0:1], 19
+; GFX6-NEXT:    v_mov_b32_e32 v2, s5
+; GFX6-NEXT:    v_subrev_i32_e32 v0, vcc, s5, v0
+; GFX6-NEXT:    v_subb_u32_e32 v1, vcc, v1, v2, vcc
+; GFX6-NEXT:    buffer_store_dwordx2 v[0:1], off, s[0:3], 0
 ; GFX6-NEXT:    s_endpgm
 ;
 ; GFX9-LABEL: sdiv_i64_oddk_denom:
@@ -7682,18 +7682,17 @@ define amdgpu_kernel void @sdiv_i64_oddk_denom(ptr addrspace(1) %out, i64 %x) {
 ; GFX9-NEXT:    s_mul_hi_u32 s5, s3, 0x6ca94220
 ; GFX9-NEXT:    s_add_u32 s2, s6, s2
 ; GFX9-NEXT:    s_addc_u32 s4, s5, s4
-; GFX9-NEXT:    s_ashr_i32 s3, s3, 31
-; GFX9-NEXT:    s_mul_i32 s5, s3, 0x6ca94220
-; GFX9-NEXT:    s_mul_hi_u32 s6, s3, 0xfd81e19
-; GFX9-NEXT:    s_add_i32 s5, s6, s5
-; GFX9-NEXT:    s_mul_i32 s3, s3, 0xfd81e19
-; GFX9-NEXT:    s_add_i32 s5, s5, s3
-; GFX9-NEXT:    s_add_u32 s2, s2, s3
-; GFX9-NEXT:    s_addc_u32 s3, s4, s5
-; GFX9-NEXT:    s_ashr_i64 s[4:5], s[2:3], 19
-; GFX9-NEXT:    s_lshr_b32 s2, s3, 31
-; GFX9-NEXT:    s_add_u32 s2, s4, s2
-; GFX9-NEXT:    s_addc_u32 s3, s5, 0
+; GFX9-NEXT:    s_ashr_i32 s5, s3, 31
+; GFX9-NEXT:    s_mul_i32 s3, s5, 0x6ca94220
+; GFX9-NEXT:    s_mul_hi_u32 s6, s5, 0xfd81e19
+; GFX9-NEXT:    s_add_i32 s3, s6, s3
+; GFX9-NEXT:    s_mul_i32 s6, s5, 0xfd81e19
+; GFX9-NEXT:    s_add_i32 s3, s3, s6
+; GFX9-NEXT:    s_add_u32 s2, s2, s6
+; GFX9-NEXT:    s_addc_u32 s3, s4, s3
+; GFX9-NEXT:    s_ashr_i64 s[2:3], s[2:3], 19
+; GFX9-NEXT:    s_sub_u32 s2, s2, s5
+; GFX9-NEXT:    s_subb_u32 s3, s3, s5
 ; GFX9-NEXT:    v_mov_b32_e32 v0, s2
 ; GFX9-NEXT:    v_mov_b32_e32 v1, s3
 ; GFX9-NEXT:    global_store_dwordx2 v2, v[0:1], s[0:1]
@@ -8846,14 +8845,14 @@ define amdgpu_kernel void @srem_i64_oddk_denom(ptr addrspace(1) %out, i64 %x) {
 ; GFX6-NEXT:    s_mul_i32 s1, s4, 0x6ca94220
 ; GFX6-NEXT:    v_addc_u32_e32 v3, vcc, v0, v3, vcc
 ; GFX6-NEXT:    v_add_i32_e32 v0, vcc, s1, v2
-; GFX6-NEXT:    s_mul_i32 s4, s4, 0xfd81e19
-; GFX6-NEXT:    v_add_i32_e32 v2, vcc, s4, v0
-; GFX6-NEXT:    v_add_i32_e32 v0, vcc, s4, v1
+; GFX6-NEXT:    s_mul_i32 s1, s4, 0xfd81e19
+; GFX6-NEXT:    v_add_i32_e32 v2, vcc, s1, v0
+; GFX6-NEXT:    v_add_i32_e32 v0, vcc, s1, v1
 ; GFX6-NEXT:    v_addc_u32_e32 v1, vcc, v3, v2, vcc
-; GFX6-NEXT:    v_ashr_i64 v[2:3], v[0:1], 19
-; GFX6-NEXT:    v_lshrrev_b32_e32 v0, 31, v1
-; GFX6-NEXT:    v_add_i32_e32 v0, vcc, v2, v0
-; GFX6-NEXT:    v_addc_u32_e32 v1, vcc, 0, v3, vcc
+; GFX6-NEXT:    v_ashr_i64 v[0:1], v[0:1], 19
+; GFX6-NEXT:    v_mov_b32_e32 v2, s4
+; GFX6-NEXT:    v_subrev_i32_e32 v0, vcc, s4, v0
+; GFX6-NEXT:    v_subb_u32_e32 v1, vcc, v1, v2, vcc
 ; GFX6-NEXT:    s_mov_b32 s4, 0x12d8fb
 ; GFX6-NEXT:    v_mul_lo_u32 v1, v1, s4
 ; GFX6-NEXT:    v_mul_hi_u32 v2, v0, s4
@@ -8890,14 +8889,13 @@ define amdgpu_kernel void @srem_i64_oddk_denom(ptr addrspace(1) %out, i64 %x) {
 ; GFX9-NEXT:    s_mul_i32 s7, s6, 0x6ca94220
 ; GFX9-NEXT:    s_mul_hi_u32 s8, s6, 0xfd81e19
 ; GFX9-NEXT:    s_add_i32 s7, s8, s7
-; GFX9-NEXT:    s_mul_i32 s6, s6, 0xfd81e19
-; GFX9-NEXT:    s_add_i32 s7, s7, s6
-; GFX9-NEXT:    s_add_u32 s4, s4, s6
+; GFX9-NEXT:    s_mul_i32 s8, s6, 0xfd81e19
+; GFX9-NEXT:    s_add_i32 s7, s7, s8
+; GFX9-NEXT:    s_add_u32 s4, s4, s8
 ; GFX9-NEXT:    s_addc_u32 s5, s5, s7
-; GFX9-NEXT:    s_ashr_i64 s[6:7], s[4:5], 19
-; GFX9-NEXT:    s_lshr_b32 s4, s5, 31
-; GFX9-NEXT:    s_add_u32 s4, s6, s4
-; GFX9-NEXT:    s_addc_u32 s5, s7, 0
+; GFX9-NEXT:    s_ashr_i64 s[4:5], s[4:5], 19
+; GFX9-NEXT:    s_sub_u32 s4, s4, s6
+; GFX9-NEXT:    s_subb_u32 s5, s5, s6
 ; GFX9-NEXT:    s_mul_i32 s5, s5, 0x12d8fb
 ; GFX9-NEXT:    s_mul_hi_u32 s6, s4, 0x12d8fb
 ; GFX9-NEXT:    s_add_i32 s6, s6, s5
@@ -9918,14 +9916,14 @@ define amdgpu_kernel void @srem_v2i64_pow2_shl_denom(ptr addrspace(1) %out, <2 x
 }
 
 define <2 x i32> @v_sdiv_i32_exact(<2 x i32> %num) {
-; CHECK-LABEL:  @v_sdiv_i32_exact(
-; CHECK:        %1 = extractelement <2 x i32> %num, i64 0
-; CHECK-NEXT:   %2 = sdiv exact i32 %1, 4096
-; CHECK-NEXT:   %3 = insertelement <2 x i32> poison, i32 %2, i64 0
-; CHECK-NEXT:   %4 = extractelement <2 x i32> %num, i64 1
-; CHECK-NEXT:   %5 = sdiv exact i32 %4, 1024
-; CHECK-NEXT:   %6 = insertelement <2 x i32> %3, i32 %5, i64 1
-; CHECK-NEXT:   ret <2 x i32> %6
+; CHECK-LABEL: @v_sdiv_i32_exact(
+; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <2 x i32> [[NUM:%.*]], i64 0
+; CHECK-NEXT:    [[TMP2:%.*]] = sdiv exact i32 [[TMP1]], 4096
+; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i32> poison, i32 [[TMP2]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <2 x i32> [[NUM]], i64 1
+; CHECK-NEXT:    [[TMP5:%.*]] = sdiv exact i32 [[TMP4]], 1024
+; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x i32> [[TMP3]], i32 [[TMP5]], i64 1
+; CHECK-NEXT:    ret <2 x i32> [[TMP6]]
 ;
 ; GFX6-LABEL: v_sdiv_i32_exact:
 ; GFX6:       ; %bb.0:
@@ -9940,19 +9938,19 @@ define <2 x i32> @v_sdiv_i32_exact(<2 x i32> %num) {
 ; GFX9-NEXT:    v_ashrrev_i32_e32 v0, 12, v0
 ; GFX9-NEXT:    v_ashrrev_i32_e32 v1, 10, v1
 ; GFX9-NEXT:    s_setpc_b64 s[30:31]
-   %result = sdiv exact <2 x i32> %num, <i32 4096, i32 1024>
-   ret <2 x i32> %result
+  %result = sdiv exact <2 x i32> %num, <i32 4096, i32 1024>
+  ret <2 x i32> %result
 }
 
 define <2 x i64> @v_sdiv_i64_exact(<2 x i64> %num) {
-; CHECK-LABEL:  @v_sdiv_i64_exact(
-; CHECK:        %1 = extractelement <2 x i64> %num, i64 0
-; CHECK-NEXT:   %2 = sdiv exact i64 %1, 4096
-; CHECK-NEXT:   %3 = insertelement <2 x i64> poison, i64 %2, i64 0
-; CHECK-NEXT:   %4 = extractelement <2 x i64> %num, i64 1
-; CHECK-NEXT:   %5 = sdiv exact i64 %4, 1024
-; CHECK-NEXT:   %6 = insertelement <2 x i64> %3, i64 %5, i64 1
-; CHECK-NEXT:   ret <2 x i64> %6
+; CHECK-LABEL: @v_sdiv_i64_exact(
+; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <2 x i64> [[NUM:%.*]], i64 0
+; CHECK-NEXT:    [[TMP2:%.*]] = sdiv exact i64 [[TMP1]], 4096
+; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i64> poison, i64 [[TMP2]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <2 x i64> [[NUM]], i64 1
+; CHECK-NEXT:    [[TMP5:%.*]] = sdiv exact i64 [[TMP4]], 1024
+; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x i64> [[TMP3]], i64 [[TMP5]], i64 1
+; CHECK-NEXT:    ret <2 x i64> [[TMP6]]
 ;
 ; GFX6-LABEL: v_sdiv_i64_exact:
 ; GFX6:       ; %bb.0:
@@ -9967,19 +9965,19 @@ define <2 x i64> @v_sdiv_i64_exact(<2 x i64> %num) {
 ; GFX9-NEXT:    v_ashrrev_i64 v[0:1], 12, v[0:1]
 ; GFX9-NEXT:    v_ashrrev_i64 v[2:3], 10, v[2:3]
 ; GFX9-NEXT:    s_setpc_b64 s[30:31]
-   %result = sdiv exact <2 x i64> %num, <i64 4096, i64 1024>
-   ret <2 x i64> %result
+  %result = sdiv exact <2 x i64> %num, <i64 4096, i64 1024>
+  ret <2 x i64> %result
 }
 
 define <2 x i32> @v_udiv_i32_exact(<2 x i32> %num) {
-; CHECK-LABEL:  @v_udiv_i32_exact(
-; CHECK:        %1 = extractelement <2 x i32> %num, i64 0
-; CHECK-NEXT:   %2 = udiv exact i32 %1, 4096
-; CHECK-NEXT:   %3 = insertelement <2 x i32> poison, i32 %2, i64 0
-; CHECK-NEXT:   %4 = extractelement <2 x i32> %num, i64 1
-; CHECK-NEXT:   %5 = udiv exact i32 %4, 1024
-; CHECK-NEXT:   %6 = insertelement <2 x i32> %3, i32 %5, i64 1
-; CHECK-NEXT:   ret <2 x i32> %6
+; CHECK-LABEL: @v_udiv_i32_exact(
+; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <2 x i32> [[NUM:%.*]], i64 0
+; CHECK-NEXT:    [[TMP2:%.*]] = udiv exact i32 [[TMP1]], 4096
+; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i32> poison, i32 [[TMP2]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <2 x i32> [[NUM]], i64 1
+; CHECK-NEXT:    [[TMP5:%.*]] = udiv exact i32 [[TMP4]], 1024
+; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x i32> [[TMP3]], i32 [[TMP5]], i64 1
+; CHECK-NEXT:    ret <2 x i32> [[TMP6]]
 ;
 ; GFX6-LABEL: v_udiv_i32_exact:
 ; GFX6:       ; %bb.0:
@@ -9994,19 +9992,19 @@ define <2 x i32> @v_udiv_i32_exact(<2 x i32> %num) {
 ; GFX9-NEXT:    v_lshrrev_b32_e32 v0, 12, v0
 ; GFX9-NEXT:    v_lshrrev_b32_e32 v1, 10, v1
 ; GFX9-NEXT:    s_setpc_b64 s[30:31]
-   %result = udiv exact <2 x i32> %num, <i32 4096, i32 1024>
-   ret <2 x i32> %result
+  %result = udiv exact <2 x i32> %num, <i32 4096, i32 1024>
+  ret <2 x i32> %result
 }
 
 define <2 x i64> @v_udiv_i64_exact(<2 x i64> %num) {
-; CHECK-LABEL:  @v_udiv_i64_exact(
-; CHECK:        %1 = extractelement <2 x i64> %num, i64 0
-; CHECK-NEXT:   %2 = udiv exact i64 %1, 4096
-; CHECK-NEXT:   %3 = insertelement <2 x i64> poison, i64 %2, i64 0
-; CHECK-NEXT:   %4 = extractelement <2 x i64> %num, i64 1
-; CHECK-NEXT:   %5 = udiv exact i64 %4, 1024
-; CHECK-NEXT:   %6 = insertelement <2 x i64> %3, i64 %5, i64 1
-; CHECK-NEXT:   ret <2 x i64> %6
+; CHECK-LABEL: @v_udiv_i64_exact(
+; CHECK-NEXT:    [[TMP1:%.*]] = extractelement <2 x i64> [[NUM:%.*]], i64 0
+; CHECK-NEXT:    [[TMP2:%.*]] = udiv exact i64 [[TMP1]], 4096
+; CHECK-NEXT:    [[TMP3:%.*]] = insertelement <2 x i64> poison, i64 [[TMP2]], i64 0
+; CHECK-NEXT:    [[TMP4:%.*]] = extractelement <2 x i64> [[NUM]], i64 1
+; CHECK-NEXT:    [[TMP5:%.*]] = udiv exact i64 [[TMP4]], 1024
+; CHECK-NEXT:    [[TMP6:%.*]] = insertelement <2 x i64> [[TMP3]], i64 [[TMP5]], i64 1
+; CHECK-NEXT:    ret <2 x i64> [[TMP6]]
 ;
 ; GFX6-LABEL: v_udiv_i64_exact:
 ; GFX6:       ; %bb.0:
@@ -10021,8 +10019,8 @@ define <2 x i64> @v_udiv_i64_exact(<2 x i64> %num) {
 ; GFX9-NEXT:    v_lshrrev_b64 v[0:1], 12, v[0:1]
 ; GFX9-NEXT:    v_lshrrev_b64 v[2:3], 10, v[2:3]
 ; GFX9-NEXT:    s_setpc_b64 s[30:31]
-   %result = udiv exact <2 x i64> %num, <i64 4096, i64 1024>
-   ret <2 x i64> %result
+  %result = udiv exact <2 x i64> %num, <i64 4096, i64 1024>
+  ret <2 x i64> %result
 }
 
 define i64 @udiv_i64_gt_smax(i8 %size) {
@@ -10074,6 +10072,11 @@ define i64 @udiv_i64_gt_smax(i8 %size) {
 ; GFX9-NEXT:    v_alignbit_b32 v0, v1, v0, 3
 ; GFX9-NEXT:    v_lshrrev_b32_e32 v1, 3, v1
 ; GFX9-NEXT:    s_setpc_b64 s[30:31]
+; CHECK-LABEL: @udiv_i64_gt_smax(
+; CHECK-NEXT:    [[ESIZE:%.*]] = sext i8 [[SIZE:%.*]] to i64
+; CHECK-NEXT:    [[MINUS:%.*]] = sub nuw nsw i64 -1, [[ESIZE]]
+; CHECK-NEXT:    [[DIV:%.*]] = udiv i64 [[MINUS]], 10
+; CHECK-NEXT:    ret i64 [[DIV]]
   %esize = sext i8 %size to i64
   %minus = sub nuw nsw i64 -1, %esize
   %div = udiv i64 %minus, 10
@@ -10114,6 +10117,27 @@ define i64 @udiv_i64_9divbits(i8 %size) {
 ; GFX9-NEXT:    v_addc_co_u32_e32 v0, vcc, 0, v2, vcc
 ; GFX9-NEXT:    v_and_b32_e32 v0, 0x1ff, v0
 ; GFX9-NEXT:    s_setpc_b64 s[30:31]
+; CHECK-LABEL: @udiv_i64_9divbits(
+; CHECK-NEXT:    [[ZEXTEND:%.*]] = zext i8 [[SIZE:%.*]] to i64
+; CHECK-NEXT:    [[TMP1:%.*]] = trunc i64 [[ZEXTEND]] to i32
+; CHECK-NEXT:    [[TMP2:%.*]] = add i32 1, [[TMP1]]
+; CHECK-NEXT:    [[TMP3:%.*]] = zext i32 [[TMP2]] to i64
+; CHECK-NEXT:    [[TMP4:%.*]] = trunc i64 [[TMP3]] to i32
+; CHECK-NEXT:    [[TMP5:%.*]] = uitofp i32 [[TMP4]] to float
+; CHECK-NEXT:    [[TMP6:%.*]] = call float @llvm.amdgcn.rcp.f32(float 1.000000e+01)
+; CHECK-NEXT:    [[TMP7:%.*]] = fmul float [[TMP5]], [[TMP6]]
+; CHECK-NEXT:    [[TMP8:%.*]] = call float @llvm.trunc.f32(float [[TMP7]])
+; CHECK-NEXT:    [[TMP9:%.*]] = fneg float [[TMP8]]
+; CHECK-NEXT:    [[TMP10:%.*]] = call float @llvm.amdgcn.fmad.ftz.f32(float [[TMP9]], float 1.000000e+01, float [[TMP5]])
+; CHECK-NEXT:    [[TMP11:%.*]] = fptoui float [[TMP8]] to i32
+; CHECK-NEXT:    [[TMP12:%.*]] = call float @llvm.fabs.f32(float [[TMP10]])
+; CHECK-NEXT:    [[TMP13:%.*]] = call float @llvm.fabs.f32(float 1.000000e+01)
+; CHECK-NEXT:    [[TMP14:%.*]] = fcmp oge float [[TMP12]], [[TMP13]]
+; CHECK-NEXT:    [[TMP15:%.*]] = select i1 [[TMP14]], i32 1, i32 0
+; CHECK-NEXT:    [[TMP16:%.*]] = add i32 [[TMP11]], [[TMP15]]
+; CHECK-NEXT:    [[TMP17:%.*]] = and i32 [[TMP16]], 511
+; CHECK-NEXT:    [[TMP18:%.*]] = zext i32 [[TMP17]] to i64
+; CHECK-NEXT:    ret i64 [[TMP18]]
   %zextend = zext i8 %size to i64
   %num = add nuw nsw i64 1, %zextend
   %div = udiv i64 %num, 10
@@ -10130,6 +10154,9 @@ define <2 x i64> @srem_zero_zero() {
 ; GFX9:       ; %bb.0: ; %entry
 ; GFX9-NEXT:    s_waitcnt vmcnt(0) expcnt(0) lgkmcnt(0)
 ; GFX9-NEXT:    s_setpc_b64 s[30:31]
+; CHECK-LABEL: @srem_zero_zero(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    ret <2 x i64> poison
 entry:
   %B = srem <2 x i64> zeroinitializer, zeroinitializer
   ret <2 x i64> %B
