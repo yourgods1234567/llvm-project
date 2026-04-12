@@ -115,6 +115,10 @@ void llvm::HexagonLowerToMC(const MCInstrInfo &MCII, const MachineInstr *MI,
     AP.EmitSled(*MI, HexagonAsmPrinter::SledKind::TAIL_CALL);
     return;
   }
+  if (MI->getOpcode() == Hexagon::KCFI_CHECK) {
+    AP.LowerKCFI_CHECK(*MI);
+    return;
+  }
 
   MCInst *MCI = AP.OutContext.createMCInst();
   MCI->setOpcode(MI->getOpcode());
