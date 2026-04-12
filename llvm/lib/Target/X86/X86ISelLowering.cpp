@@ -32581,7 +32581,7 @@ static X86::CondCode matchAddCC(const AtomicRMWInst *AI, const Instruction *I) {
 
   // InstCombine-folded ZF form: icmp eq/ne (old + Op), 0  ->  icmp eq/ne old,
   // -Op lock add sets ZF on the new value; old + Op == 0  <=>  old == -Op  [ZF]
-  if (match(I, m_c_ICmp(Pred, m_Sub(m_ZeroInt(), m_Specific(Op)), m_Value()))) {
+  if (match(I, m_c_ICmp(Pred, m_Neg(m_Specific(Op)), m_Value()))) {
     if (Pred == CmpInst::ICMP_EQ)
       return X86::COND_E;
     if (Pred == CmpInst::ICMP_NE)
