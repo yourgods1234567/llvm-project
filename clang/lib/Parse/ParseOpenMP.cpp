@@ -3195,6 +3195,8 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_partial:
   case OMPC_align:
   case OMPC_message:
+  case OMPC_graph_id:
+  case OMPC_graph_reset:
   case OMPC_ompx_dyn_cgroup_mem:
   case OMPC_dyn_groupprivate:
   case OMPC_transparent:
@@ -3326,6 +3328,7 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
   case OMPC_reverse_offload:
   case OMPC_dynamic_allocators:
   case OMPC_full:
+  case OMPC_replayable:
     // OpenMP [2.7.1, Restrictions, p. 9]
     //  Only one ordered clause can appear on a loop directive.
     // OpenMP [2.7.1, Restrictions, C/C++, p. 4]
@@ -3339,7 +3342,8 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       ErrorFound = true;
     }
 
-    if (CKind == OMPC_nowait && PP.LookAhead(/*N=*/0).is(tok::l_paren) &&
+    if ((CKind == OMPC_nowait || CKind == OMPC_replayable) &&
+        PP.LookAhead(/*N=*/0).is(tok::l_paren) &&
         getLangOpts().OpenMP >= 60)
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     else
@@ -3359,6 +3363,17 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       ErrorFound = true;
     }
     Clause = ParseOpenMPClause(CKind, WrongDirective);
+    break;
+    if (getLangOpts().OpenMP < 60) {
+      // FIXME: This isn't an appropriate error message.
+      Diag(Tok, diag::err_omp_expected_clause)
+          << getOpenMPDirectiveName(OMPD_requires, OMPVersion);
+      ErrorFound = true;
+    }
+    if (PP.LookAhead(/*N=*/0).is(tok::l_paren))
+      Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
+    else
+      Clause = ParseOpenMPClause(CKind, WrongDirective);
     break;
   case OMPC_update:
     if (!FirstClause) {
