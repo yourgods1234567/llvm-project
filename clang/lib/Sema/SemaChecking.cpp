@@ -3934,7 +3934,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (BuiltinCountedByRef(TheCall))
       return ExprError();
     break;
-  case Builtin::BI__builtin_std_embed:
+  case Builtin::BI__builtin_clang_embed:
     // while we do not have Custom Typechecking,
     // we have a `...` signature, so we do need to
     // at least gently inspect some of the arguments
@@ -6883,7 +6883,7 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   if ((!StatusRefTy->isIntegralOrUnscopedEnumerationType()) ||
       StatusRefTy.isConstant(Context) || !StatusRef->isLValue()) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-        << StatusRef << "__builtin_std_embed" << StatusRef->getSourceRange();
+        << StatusRef << "__builtin_clang_embed" << StatusRef->getSourceRange();
     return true;
   }
 
@@ -6892,7 +6892,7 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   if ((!SizeRefTy->isIntegralOrUnscopedEnumerationType()) ||
       SizeRefTy.isConstant(Context) || !SizeRef->isLValue()) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-        << SizeRef << "__builtin_std_embed" << SizeRef->getSourceRange();
+        << SizeRef << "__builtin_clang_embed" << SizeRef->getSourceRange();
     return true;
   }
 
@@ -6904,7 +6904,7 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   QualType PtrRefTy = PtrRef->getType();
   if (!PtrRefTy->isPointerType() || PtrRefTy.isConstant(Context)) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-        << PtrRefTy << "__builtin_std_embed" << PtrRef->getSourceRange();
+        << PtrRefTy << "__builtin_clang_embed" << PtrRef->getSourceRange();
     return true;
   }
   QualType ArrElementTy = PtrRefTy->getPointeeType();
@@ -6913,7 +6913,7 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
         Context.getTypeAlign(ArrElementTy) == CharSize &&
         ArrElementTy->isIntegralOrEnumerationType())) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-        << PtrRef << "__builtin_std_embed" << PtrRef->getSourceRange();
+        << PtrRef << "__builtin_clang_embed" << PtrRef->getSourceRange();
     return true;
   }
 
@@ -6921,7 +6921,7 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
         Context.getTypeSize(ArrElementTy) == CharSize &&
         Context.getTypeAlign(ArrElementTy) == CharSize)) {
     Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
-        << PtrRef << "__builtin_std_embed" << PtrRef->getSourceRange();
+        << PtrRef << "__builtin_clang_embed" << PtrRef->getSourceRange();
     return true;
   }
 

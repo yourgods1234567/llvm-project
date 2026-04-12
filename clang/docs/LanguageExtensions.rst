@@ -5474,7 +5474,7 @@ manner as the above four builtins, except that ``_M_function_name`` is populated
 with ``__PRETTY_FUNCTION__`` rather than ``__FUNCTION__``.
 
 
-Data embedding builtin ``__builtin_std_embed``
+Data embedding builtin ``__builtin_clang_embed``
 ----------------------------------------------
 
 For use with `p1040 <https://wg21.link/p1040>`'s ``std::embed`` directive. It
@@ -5483,14 +5483,14 @@ is conceptually (but not exactly) represented by the following overloads:
 .. code-block:: c++
 
   template <class Byte, class Char>
-  Byte const* __builtin_std_embed(int& status,
+  Byte const* __builtin_clang_embed(int& status,
                                size_t& size, T const* type_hint_ptr,
                                size_t resource_name_size,
                                Char const* resource_name_ptr,
                                size_t offset);
 
   template <class Byte, class Char>
-  Byte const* __builtin_std_embed(int& status,
+  Byte const* __builtin_clang_embed(int& status,
                                size_t& size, T const* type_hint_ptr,
                                size_t resource_name_size,
                                Char const* resource_name_ptr,
@@ -5543,7 +5543,7 @@ same way as ``#embed`` files, with the caveat that any file not blessed by
 searches as-if done by a quoted header name for a ``#embed`` directive.
 
 The data returned may not be unique, may prefix into other data, and has no
-guarantee that caching may apply. That is, calling ``__builtin_std_embed`` with
+guarantee that caching may apply. That is, calling ``__builtin_clang_embed`` with
 the exact same arguments twice may return two different pointers or the same
 pointer, and is subject to everything from optimization level, implementation
 effort, and whether or not it is sunny outside right now. Block devices such

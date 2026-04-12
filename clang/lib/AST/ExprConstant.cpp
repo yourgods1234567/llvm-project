@@ -10701,7 +10701,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
         return false;
     }
   }
-  case Builtin::BI__builtin_std_embed: {
+  case Builtin::BI__builtin_clang_embed: {
     constexpr uint64_t FileNotFound = 0;
     constexpr uint64_t FileFound = 1;
     constexpr uint64_t FileFoundAndEmpty = 2;
@@ -10714,7 +10714,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     const Expr *OffsetArg = E->getArg(5);
     const Expr *LimitArg = E->getNumArgs() == 7 ? E->getArg(6) : nullptr;
 
-    QualType ArrElementTy = PtrOutArg->getType()->getPointeeType();
+    QualType PtrOutTy = PtrOutArg->getType();
+    QualType ArrElementTy = PtrOutTy->getPointeeType();
 
     LValue ResourceNamePtrLVal;
     if (!EvaluatePointer(ResourceNamePtrArg, ResourceNamePtrLVal, Info)) {
@@ -10887,10 +10888,11 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     OptionalFileEntryRef ResourceFile = LookupFileWithStdVec(
         ResourceName, false, true, FM, *MaybeSearchEntries, ThisFile);
     if (!ResourceFile) {
+      Result.setNull(Info.Ctx, PtrOutTy);
       return WriteOutStatus(FileNotFound);
     }
     assert(Info.Ctx.InputDependencyPatterns &&
-           "using __builtin_std_embed requires the context to have a usable "
+           "using __builtin_clang_embed requires the context to have a usable "
            "input dependency patterns");
     StringRef ResourceSearchName =
         ResourceFile->getFileEntry().tryGetRealPathName();
@@ -10901,15 +10903,20 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       // Not matching a dependency is also simply considered not
       // finding the file. Consider possibly returnig a different value in the
       // future.
+      Result.setNull(Info.Ctx, PtrOutTy);
       return WriteOutStatus(FileNotFound);
     }
     size_t FullDataSize = ResourceFile->getSize();
+    if (FullDataSize == 0 || DataOffset > FullDataSize) {
+      Result.setNull(Info.Ctx, PtrOutTy);
+      return WriteOutStatus(FileFoundAndEmpty);
+    }
     DataSize = std::max<size_t>(
         0, std::min<size_t>(
-               DataOffset > FullDataSize ? 0 : FullDataSize - DataOffset,
+               FullDataSize - DataOffset,
                MaybeLimit ? *MaybeLimit : std::numeric_limits<size_t>::max()));
-
-    if (FullDataSize == 0 || DataSize == 0) {
+    if (DataSize == 0) {
+      Result.setNull(Info.Ctx, PtrOutTy);
       return WriteOutStatus(FileFoundAndEmpty);
     }
     llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> MaybeBinaryData =

@@ -65,33 +65,48 @@ consteval span<const T, Limit> embed(u8string_view resource_idenfier,
 
 // FIXME: the versioning stuff out of Clang is... Not Great! __cplusplus is still like 202400L for -std=c++2c, which is
 // not even in the ballpark of correct.
-#if 1 //_LIBCPP_STD_VER > 26 && __has_builtin(__builtin_std_embed)
+#if 1 //_LIBCPP_STD_VER > 26 && (__has_builtin(__builtin_clang_embed) || __has_builtin(__builtin_gnu_embed))
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace __embed_detail {
 template <typename _Byte, size_t _Extent, typename _StrView>
 consteval _LIBCPP_HIDE_FROM_ABI span<const _Byte, _Extent>
-__embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]] optional<size_t> __limit) {
+__embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]] const optional<size_t>& __limit) {
   static_assert(sizeof(_Byte) == 1 && alignof(_Byte) == 1 && (is_integral<_Byte>::value || is_enum<_Byte>::value),
                 "embed data type must be a character type with a size and alignment of 1");
   size_t __size      = 0;
   _Byte const* __ptr = nullptr;
   int __status       = -1;
   if constexpr (_Extent != std::dynamic_extent) {
-    __ptr = __builtin_std_embed(
+#  if __has_builtin(__builtin_gnu_embed)
+    __ptr = __builtin_gnu_embed(
+        _Byte, __status, __size, __resource_identifier.size(), __resource_identifier.data(), __offset, _Extent);
+#  else
+    __ptr = __builtin_clang_embed(
         __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, _Extent);
+#  endif
   } else {
     if (__limit) {
-      __ptr = __builtin_std_embed(
+#  if __has_builtin(__builtin_gnu_embed)
+      __ptr = __builtin_gnu_embed(
+          _Byte, __status, __size, __resource_identifier.size(), __resource_identifier.data(), __offset, *__limit);
+#  else
+      __ptr = __builtin_clang_embed(
           __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, *__limit);
+#  endif
     } else {
-      __ptr = __builtin_std_embed(
+#  if __has_builtin(__builtin_gnu_embed)
+      __ptr = __builtin_gnu_embed(
+          _Byte, __status, __size, __resource_identifier.size(), __resource_identifier.data(), __offset);
+#  else
+      __ptr = __builtin_clang_embed(
           __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset);
+#  endif
     }
   }
   if (__status == __STDC_EMBED_NOT_FOUND__) {
-    throw std::domain_error("file not found");
+    _LIBCPP_VERBOSE_ABORT("file not found");
   }
   if constexpr (_Extent != std::dynamic_extent) {
     if (_Extent > __size) {
@@ -127,21 +142,21 @@ embed(u8string_view __resource_identifier, size_t __offset = 0, optional<size_t>
 
 template <typename _Byte, size_t _Limit>
 consteval span<const _Byte, _Limit> embed(string_view __resource_identifier, size_t __offset = 0) {
-  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, _Limit);
+  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, nullopt);
 }
 
 template <typename _Byte, size_t _Limit>
 consteval span<const _Byte, _Limit> embed(wstring_view __resource_identifier, size_t __offset = 0) {
-  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, _Limit);
+  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, nullopt);
 }
 
 template <typename _Byte, size_t _Limit>
 consteval span<const _Byte, _Limit> embed(u8string_view __resource_identifier, size_t __offset = 0) {
-  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, _Limit);
+  return __embed_detail::__embed<_Byte, _Limit>(__resource_identifier, __offset, nullopt);
 }
 
 _LIBCPP_END_NAMESPACE_STD
 
-#endif // _LIBCPP_STD_VER > 26 && __has_builtin(__builtin_std_embed)
+#endif // _LIBCPP_STD_VER > 26 && __has_builtin(__builtin_clang_embed)
 
 #endif // _LIBCPP_EMBED

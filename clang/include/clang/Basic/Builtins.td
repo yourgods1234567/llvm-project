@@ -1271,7 +1271,7 @@ def GetVtablePointer : LangBuiltin<"CXX_LANG"> {
 
 // p1040 std::embed
 def StdEmbed : Builtin {
-  let Spellings = ["__builtin_std_embed"];
+  let Spellings = ["__builtin_clang_embed"];
   let Attributes = [NoThrow, Const, Consteval];
   let Prototype = "void const*(int&, size_t&, ...)";
 }
