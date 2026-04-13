@@ -7889,7 +7889,7 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
       AppendLinkerOptions(PCD->getArg());
       break;
     case PCK_Lib:
-      AddDependentLib(PCD->getArg());
+        AddDependentLib(PCD->getArg());
       break;
     case PCK_Copyright:
       ProcessPragmaComment(PCD->getCommentKind(), PCD->getArg(),

@@ -6,12 +6,11 @@
 //
 //===---------------------------------------------------------------------===//
 //
-// LowerCommentStringPass pass lowers module-level comment string metadata
-// emitted by Clang:
+// This pass lowers the module-level comment string metadata emitted by Clang:
 //
 //     !comment_string.loadtime = !{!"Copyright ..."}
 //
-// into concrete, translation-unit–local globals.
+// into concrete, translation-unit-local globals.
 // This Pass is enabled only for AIX.
 // For each module (translation unit), the pass performs the following:
 //
@@ -26,7 +25,7 @@
 //      defined function in the module. The PowerPC AIX backend recognizes
 //      this metadata and emits a `.ref` directive from the function to the
 //      string, creating a concrete relocation that prevents the linker from
-//      discarding it (as long as the referencing symbol is kept).
+//      discarding the string (as long as the referencing symbol is kept).
 //
 //  Input IR:
 //     !comment_string.loadtime = !{!"Copyright"}
@@ -70,13 +69,14 @@ static cl::opt<bool>
                              cl::desc("Disable LowerCommentString pass."),
                              cl::init(false));
 
-static bool isAIXTriple(const Module &M) {
-  return Triple(M.getTargetTriple()).isOSAIX();
+static bool isSupportedTarget(const Module &M) {
+  Triple T{M.getTargetTriple()};
+  return T.isOSAIX();
 }
 
 PreservedAnalyses LowerCommentStringPass::run(Module &M,
                                               ModuleAnalysisManager &AM) {
-  if (DisableCopyrightMetadata || !isAIXTriple(M))
+  if (DisableCopyrightMetadata || !isSupportedTarget(M))
     return PreservedAnalyses::all();
 
   LLVMContext &Ctx = M.getContext();
@@ -118,7 +118,7 @@ PreservedAnalyses LowerCommentStringPass::run(Module &M,
 
   // 2. Add the string to llvm.used to prevent LLVM optimization/LTO passes from
   // removing it.
-  appendToUsed(M, {StrGV});
+  appendToCompilerUsed(M, {StrGV});
 
   // 3. Attach !implicit ref to every defined function
   // Create a metadata node pointing to the copyright string:
@@ -131,7 +131,7 @@ PreservedAnalyses LowerCommentStringPass::run(Module &M,
     if (F.isDeclaration())
       return;
     // Attach the implicit.ref metadata to the function
-    F.setMetadata("implicit.ref", ImplicitRefMD);
+    F.setMetadata(LLVMContext::MD_implicit_ref, ImplicitRefMD);
     LLVM_DEBUG(dbgs() << "[copyright] attached implicit.ref to function:  "
                       << F.getName() << "\n");
   };

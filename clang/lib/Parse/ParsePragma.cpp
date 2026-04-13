@@ -3329,7 +3329,7 @@ void PragmaCommentHandler::HandlePragma(Preprocessor &PP,
   // Handle pragma comment copyright
   if (Kind == PCK_Copyright) {
     if (SeenCopyrightInTU) {
-      // On AIX, pragma comment copyright can each appear only once in a TU.
+      // pragma comment copyright can each appear only once in a TU.
       PP.Diag(Tok.getLocation(), diag::warn_pragma_comment_once)
           << II->getName();
       return;
