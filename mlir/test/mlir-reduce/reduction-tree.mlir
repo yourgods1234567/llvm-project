@@ -106,20 +106,20 @@ func.func @br_reduction_loop(%arg0: i1, %arg1: memref<2xf32>, %arg2: memref<2xf3
 // CHECK-LABEL: func @switch_reduction
 //  CHECK-SAME:   %[[ARG0:.*]]: i32,
 //  CHECK-SAME:   %[[ARG1:.*]]: memref<2xf32>,
-//  CHECK-SAME:   %[[ARG2:.*]]: memref<2xf32>) {
-func.func @switch_reduction(%arg0: i32, %arg1: memref<2xf32>, %arg2: memref<2xf32>) {
+//  CHECK-SAME:   %[[ARG2:.*]]: memref<3xf32>)
+func.func @switch_reduction(%arg0: i32, %arg1: memref<2xf32>, %arg2: memref<3xf32>) {
   cf.switch %arg0 : i32, [
     default: ^bb3(%arg1 : memref<2xf32>),
-    0: ^bb1,
+    0: ^bb1(%arg2: memref<3xf32>),
     1: ^bb2
   ]
-^bb1:
+^bb1(%0: memref<3xf32>):
   cf.br ^bb3(%arg1 : memref<2xf32>)
 ^bb2:
-  %0 = memref.alloc() : memref<2xf32>
-  cf.br ^bb3(%0 : memref<2xf32>)
-^bb3(%1: memref<2xf32>):
-  "test.op_crash"(%1, %arg2) : (memref<2xf32>, memref<2xf32>) -> ()
+  %1 = memref.alloc() : memref<2xf32>
+  cf.br ^bb3(%1 : memref<2xf32>)
+^bb3(%2: memref<2xf32>):
+  "test.op_crash"(%2, %arg2) : (memref<2xf32>, memref<3xf32>) -> ()
   return
 }
 // CHECK-NEXT:  "test.op_crash"(%[[ARG1]], %[[ARG2]])

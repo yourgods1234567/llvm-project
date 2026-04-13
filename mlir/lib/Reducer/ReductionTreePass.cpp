@@ -251,11 +251,11 @@ static LogicalResult eraseRedundantBlocksInRegion(ModuleOp module,
       Operation *tergetTerminator = mapper.lookup(branchTerminator);
       Block *selectedBlock = tergetTerminator->getSuccessor(i);
       auto branchOp = cast<BranchOpInterface>(tergetTerminator);
-      ValueRange selectedBlockOperands =
-          branchOp.getSuccessorForwardOperands(selectedBlock);
+      mlir::SuccessorOperands selectedBlockOperands =
+          branchOp.getSuccessorOperands(i);
       b.setInsertionPointAfter(tergetTerminator);
       cf::BranchOp::create(b, tergetTerminator->getLoc(), selectedBlock,
-                           selectedBlockOperands);
+                           selectedBlockOperands.getForwardedOperands());
       tergetTerminator->erase();
 
       // Apply canonicalization patterns to collapse the now-redundant branches
@@ -277,11 +277,11 @@ static LogicalResult eraseRedundantBlocksInRegion(ModuleOp module,
     if (branchIdx != -1) {
       Block *selectedBlock = branchTerminator->getSuccessor(branchIdx);
       auto branchOp = cast<BranchOpInterface>(branchTerminator);
-      ValueRange selectedBlockOperands =
-          branchOp.getSuccessorForwardOperands(selectedBlock);
+      mlir::SuccessorOperands selectedBlockOperands =
+          branchOp.getSuccessorOperands(branchIdx);
       b.setInsertionPointAfter(branchTerminator);
       cf::BranchOp::create(b, branchTerminator->getLoc(), selectedBlock,
-                           selectedBlockOperands);
+                           selectedBlockOperands.getForwardedOperands());
       branchTerminator->erase();
       (void)applyPatternsGreedily(region.getParentOp(), fPatterns, config);
     }
