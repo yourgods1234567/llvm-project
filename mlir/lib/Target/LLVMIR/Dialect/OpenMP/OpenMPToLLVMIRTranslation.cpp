@@ -6854,16 +6854,15 @@ initTargetRuntimeAttrs(llvm::IRBuilderBase &builder,
 }
 
 static llvm::omp::OMPDynGroupprivateFallbackType
-getDynGroupprivateFallbackType(omp::TargetOp targetOp) {
-  mlir::omp::FallbackModifier fb =
-      targetOp.getDynGroupprivateFallback().value_or(
-          mlir::omp::FallbackModifier::default_mem);
+getDynGroupprivateFallbackType(omp::FallbackModifierAttr fallbackAttr) {
+  omp::FallbackModifier fb = fallbackAttr ? fallbackAttr.getValue()
+                                          : omp::FallbackModifier::default_mem;
   switch (fb) {
-  case mlir::omp::FallbackModifier::abort:
+  case omp::FallbackModifier::abort:
     return llvm::omp::OMPDynGroupprivateFallbackType::Abort;
-  case mlir::omp::FallbackModifier::null:
+  case omp::FallbackModifier::null:
     return llvm::omp::OMPDynGroupprivateFallbackType::Null;
-  case mlir::omp::FallbackModifier::default_mem:
+  case omp::FallbackModifier::default_mem:
     return llvm::omp::OMPDynGroupprivateFallbackType::DefaultMem;
   }
 
@@ -7187,13 +7186,13 @@ convertOmpTarget(Operation &opInst, llvm::IRBuilderBase &builder,
   if (Value targetIfCond = targetOp.getIfExpr())
     ifCond = moduleTranslation.lookupValue(targetIfCond);
 
-  mlir::Value dynGroupPrivateSize = targetOp.getDynGroupprivateSize();
+  Value dynGroupPrivateSize = targetOp.getDynGroupprivateSize();
   llvm::Value *dynSizeVal = nullptr;
   if (dynGroupPrivateSize)
     dynSizeVal = moduleTranslation.lookupValue(dynGroupPrivateSize);
 
   llvm::omp::OMPDynGroupprivateFallbackType fallbackType =
-      getDynGroupprivateFallbackType(targetOp);
+      getDynGroupprivateFallbackType(targetOp.getDynGroupprivateFallbackAttr());
 
   llvm::OpenMPIRBuilder::InsertPointOrErrorTy afterIP =
       moduleTranslation.getOpenMPBuilder()->createTarget(
