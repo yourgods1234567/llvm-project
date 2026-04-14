@@ -441,6 +441,8 @@ StringRef Triple::getOSTypeName(OSType Kind) {
     return "managarm";
   case Mesa3D:
     return "mesa3d";
+  case MorphOS:
+    return "morphos";
   case NVCL:
     return "nvcl";
   case NetBSD:
@@ -921,6 +923,7 @@ static Triple::OSType parseOS(StringRef OSName) {
       .StartsWith("lv2", Triple::Lv2)
       .StartsWith("macos", Triple::MacOSX)
       .StartsWith("managarm", Triple::Managarm)
+      .StartsWith("morphos", Triple::MorphOS)
       .StartsWith("netbsd", Triple::NetBSD)
       .StartsWith("openbsd", Triple::OpenBSD)
       .StartsWith("solaris", Triple::Solaris)

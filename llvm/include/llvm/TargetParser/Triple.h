@@ -256,6 +256,7 @@ public:
     ChipStar,
     Firmware,
     QURT,
+    MorphOS,
     LastOSType = QURT
   };
   enum EnvironmentType {
@@ -665,6 +666,8 @@ public:
   bool isOSSolaris() const { return getOS() == Triple::Solaris; }
 
   bool isOSIAMCU() const { return getOS() == Triple::ELFIAMCU; }
+
+  bool isOSMorphOS() const { return getOS() == Triple::MorphOS; }
 
   bool isOSUnknown() const { return getOS() == Triple::UnknownOS; }
 
