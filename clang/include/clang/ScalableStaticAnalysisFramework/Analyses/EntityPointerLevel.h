@@ -6,13 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CLANG_SCALABLESTATICANALYSISFRAMEWORK_ANALYSES_ENTITYPOINTERLEVEL_ENTITYPOINTERLEVEL_H
-#define LLVM_CLANG_SCALABLESTATICANALYSISFRAMEWORK_ANALYSES_ENTITYPOINTERLEVEL_ENTITYPOINTERLEVEL_H
+#ifndef LLVM_CLANG_SCALABLESTATICANALYSISFRAMEWORK_ANALYSES_ENTITYPOINTERLEVEL_H
+#define LLVM_CLANG_SCALABLESTATICANALYSISFRAMEWORK_ANALYSES_ENTITYPOINTERLEVEL_H
 
-#include "clang/AST/Expr.h"
+#include "clang/AST/Decl.h"
 #include "clang/ScalableStaticAnalysisFramework/Core/Model/EntityId.h"
-#include "clang/ScalableStaticAnalysisFramework/Core/Model/EntityName.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
+#include "clang/ScalableStaticAnalysisFramework/Core/Serialization/JSONFormat.h"
 #include <set>
 
 namespace clang::ssaf {
@@ -22,9 +21,9 @@ namespace clang::ssaf {
 /// declared type, a EntityPointerLevel is associated with a '*' (or a '[]`) in
 /// that declaration.
 ///
-/// For example, for 'int *p[10];', there are two EntityPointerLevels.
-/// One is associated with 'int *[10]' of 'p' and the other is associated with
-/// 'int *' of 'p'.
+/// For example, for 'int *p[10];', there are two EntityPointerLevels. One
+/// is associated with 'int *[10]' of 'p' and the other is associated with 'int
+/// *' of 'p'.
 ///
 /// An EntityPointerLevel can be identified by an EntityId and an unsigned
 /// integer indicating the pointer level: '(EntityId, PointerLevel)'.
@@ -34,15 +33,20 @@ namespace clang::ssaf {
 /// For the same example 'int *p[10];', the EntityPointerLevels below are valid:
 /// - '(p, 2)' is associated with the 'int *' part of the declared type of 'p';
 /// - '(p, 1)' is associated with the 'int *[10]' part of the declared type of
-///   'p'.
+/// 'p'.
 class EntityPointerLevel {
   EntityId Entity;
   unsigned PointerLevel;
 
   friend class EntityPointerLevelTranslator;
+  friend llvm::Expected<EntityPointerLevel>
+  entityPointerLevelFromJSON(const llvm::json::Value &EPLData,
+                             JSONFormat::EntityIdFromJSONFn EntityIdFromJSON);
   // For unittests:
   friend EntityPointerLevel buildEntityPointerLevel(EntityId, unsigned);
 
+  // EntityPointerLevel(EntityId Entity, unsigned PointerLevel)
+  //     : Entity(Entity), PointerLevel(PointerLevel) {}
   EntityPointerLevel(std::pair<EntityId, unsigned> Pair)
       : Entity(Pair.first), PointerLevel(Pair.second) {}
 
@@ -93,31 +97,38 @@ using EntityPointerLevelSet =
 /// \param Ctx the AST context of `E`
 /// \param AddEntity the callback provided by the caller to convert EntityNames
 /// to EntityIds.
-llvm::Expected<EntityPointerLevelSet> translateEntityPointerLevel(
-    const Expr *E, ASTContext &Ctx,
-    llvm::function_ref<EntityId(EntityName EN)> AddEntity);
-
-/// Creates a `EntityPointerLevel` from a pair of an EntityId and a pointer
-/// level:
-EntityPointerLevel buildEntityPointerLevel(EntityId, unsigned);
+llvm::Expected<EntityPointerLevelSet>
+translateEntityPointerLevel(const Expr *E, ASTContext &Ctx,
+                            std::function<EntityId(EntityName EN)> AddEntity);
 
 /// Create an EntityPointerLevel (EPL) from a NamedDecl of a pointer/array type.
 ///
-/// \param ND the NamedDecl of a pointer/array type.
+/// \param E the pointer expression to be translated
+/// \param Ctx the AST context of `E`
 /// \param AddEntity the callback provided by the caller to convert EntityNames
 /// to EntityIds.
 /// \param IsFunRet true iff the created EPL is associated with the return type
 /// of a function entity.
 llvm::Expected<EntityPointerLevel>
-creatEntityPointerLevel(const NamedDecl *ND,
-                        llvm::function_ref<EntityId(EntityName EN)> AddEntity,
-                        bool IsFunRet = false);
+createEntityPointerLevel(const NamedDecl *ND, ASTContext &Ctx,
+                         std::function<EntityId(EntityName EN)> AddEntity,
+                         bool IsFunRet = false);
 
 /// Creates a new EntityPointerLevel (EPL) from `E` by incrementing `E`'s
 /// pointer level.
 /// \return the EPL that is associated with the pointee (or array element) type
 /// of `E`'s associated pointer/array tyoe of the same entity.
 EntityPointerLevel incrementPointerLevel(const EntityPointerLevel &E);
-} // namespace clang::ssaf
 
-#endif // LLVM_CLANG_SCALABLESTATICANALYSISFRAMEWORK_ANALYSES_ENTITYPOINTERLEVEL_ENTITYPOINTERLEVEL_H
+llvm::json::Value
+entityPointerLevelToJSON(const EntityPointerLevel &EPL,
+                         JSONFormat::EntityIdToJSONFn EntityId2JSON);
+
+llvm::Expected<EntityPointerLevel>
+entityPointerLevelFromJSON(const llvm::json::Value &EPLData,
+                           JSONFormat::EntityIdFromJSONFn EntityIdFromJSON);
+
+/// Proxy function creating EPLs for unit tests:
+EntityPointerLevel buildEntityPointerLevel(EntityId, unsigned);
+} // namespace clang::ssaf
+#endif // LLVM_CLANG_SCALABLESTATICANALYSISFRAMEWORK_ANALYSES_ENTITYPOINTERLEVEL_H

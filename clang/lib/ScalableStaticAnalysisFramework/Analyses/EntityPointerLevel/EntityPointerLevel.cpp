@@ -5,10 +5,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #include "clang/ScalableStaticAnalysisFramework/Analyses/EntityPointerLevel/EntityPointerLevel.h"
+#include "SSAFAnalysesCommon.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/ScalableStaticAnalysisFramework/Analyses/EntityPointerLevel/EntityPointerLevelFormat.h"
 #include "clang/ScalableStaticAnalysisFramework/Core/ASTEntityMapping.h"
@@ -17,25 +18,6 @@
 
 using namespace clang;
 using namespace ssaf;
-
-namespace {
-template <typename DeclOrExpr> bool hasPtrOrArrType(const DeclOrExpr *E) {
-  return llvm::isa<PointerType, ArrayType>(E->getType().getCanonicalType());
-}
-
-template <typename NodeTy, typename... Ts>
-llvm::Error makeErrAtNode(ASTContext &Ctx, const NodeTy &N, StringRef Fmt,
-                          const Ts &...Args) {
-  std::string LocStr = N.getBeginLoc().printToString(Ctx.getSourceManager());
-  return llvm::createStringError((Fmt + " at %s").str().c_str(), Args...,
-                                 LocStr.c_str());
-}
-
-llvm::Error makeEntityNameErr(ASTContext &Ctx, const NamedDecl &D) {
-  return makeErrAtNode(Ctx, D, "failed to create entity name for %s",
-                       D.getNameAsString().data());
-}
-} // namespace
 
 namespace clang::ssaf {
 // Translate a pointer type expression 'E' to a (set of) EntityPointerLevel(s)

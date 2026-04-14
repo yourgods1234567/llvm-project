@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ScalableStaticAnalysisFramework/Analyses/UnsafeBufferUsage/UnsafeBufferUsage.h"
+#include "SSAFAnalysesCommon.h"
 #include "clang/ScalableStaticAnalysisFramework/Analyses/EntityPointerLevel/EntityPointerLevel.h"
 #include "clang/ScalableStaticAnalysisFramework/Analyses/EntityPointerLevel/EntityPointerLevelFormat.h"
 #include "clang/ScalableStaticAnalysisFramework/Analyses/UnsafeBufferUsage/UnsafeBufferUsageTest.h"
@@ -53,9 +54,8 @@ deserializeImpl(const Object &Data, JSONFormat::EntityIdFromJSONFn Fn) {
 
   EntityPointerLevelSet EPLs;
 
-  for (const auto &EltData : *UnsafeBuffersData) {
-    llvm::Expected<EntityPointerLevel> EPL =
-        entityPointerLevelFromJSON(EltData, Fn);
+  for (auto &EPLData : *UnsafeBuffersData) {
+    auto EPL = entityPointerLevelFromJSON(EPLData, Fn);
 
     if (!EPL)
       return EPL.takeError();
