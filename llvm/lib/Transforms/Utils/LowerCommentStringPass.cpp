@@ -18,7 +18,7 @@
 //      (`__loadtime_comment_str`) containing the copyright text in
 //      `__loadtime_comment` section.
 //
-//   2. Marks the string in `llvm.used` so it cannot be dropped by
+//   2. Marks the string in `llvm.compiler.used` so it cannot be dropped by
 //      optimization or LTO.
 //
 //   3. Attaches `!implicit.ref` metadata referencing the string to every
@@ -32,7 +32,8 @@
 //  Output IR:
 //     @__loadtime_comment_str = internal constant [N x i8] c"Copyright\00",
 //                          section "__loadtime_comment"
-//     @llvm.used = appending global [1 x ptr] [ptr @__loadtime_comment_str]
+//     @llvm.compiler.used = appending global [1 x ptr] [ptr
+//     @__loadtime_comment_str]
 //
 //     define i32 @func() !implicit.ref !5 { ... }
 //     !5 = !{ptr @__loadtime_comment_str}
@@ -116,8 +117,8 @@ PreservedAnalyses LowerCommentStringPass::run(Module &M,
   // The GV is constant, so we expect a read-only section.
   StrGV->setSection("__loadtime_comment");
 
-  // 2. Add the string to llvm.used to prevent LLVM optimization/LTO passes from
-  // removing it.
+  // 2. Add the string to llvm.compiler.used to prevent LLVM optimization/LTO
+  // passes from removing it.
   appendToCompilerUsed(M, {StrGV});
 
   // 3. Attach !implicit ref to every defined function
