@@ -31,12 +31,20 @@
 // UNKNOWN: no analysis registered for 'AnalysisName(NoSuchAnalysis)'
 
 // ============================================================================
-// Success: run TagsAnalysisResult
+// Success: run TagsAnalysisResult only
 // ============================================================================
 
 // RUN: %ssaf-analyzer-with-plugin %S/Inputs/lu.json \
 // RUN:   -o %t/tags.json -a TagsAnalysisResult
 // RUN: diff %S/Outputs/tags.json %t/tags.json
+
+// ============================================================================
+// Success: run PairsAnalysisResult only
+// ============================================================================
+
+// RUN: %ssaf-analyzer-with-plugin %S/Inputs/lu.json \
+// RUN:   -o %t/pairs.json -a PairsAnalysisResult
+// RUN: diff %S/Outputs/pairs.json %t/pairs.json
 
 // ============================================================================
 // Success: run both summary analyses
@@ -53,6 +61,14 @@
 // RUN: %ssaf-analyzer-with-plugin %S/Inputs/lu.json \
 // RUN:   -o %t/all.json -a TagsPairsAnalysisResult
 // RUN: diff %S/Outputs/all.json %t/all.json
+
+// ============================================================================
+// Success: run all analyses (no -a flag)
+// ============================================================================
+
+// RUN: %ssaf-analyzer-with-plugin %S/Inputs/lu.json \
+// RUN:   -o %t/all-default.json
+// RUN: diff %S/Outputs/all.json %t/all-default.json
 
 // ============================================================================
 // Round-trip: analyze then read back with ssaf-format

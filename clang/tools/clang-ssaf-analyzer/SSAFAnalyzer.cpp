@@ -60,8 +60,8 @@ cl::alias LoadPluginsAlias("l", cl::aliasopt(LoadPlugins),
 //===----------------------------------------------------------------------===//
 
 struct AnalyzerInput {
-  SummaryFile InputFile;
-  SummaryFile OutputFile;
+  FormatFile InputFile;
+  FormatFile OutputFile;
   std::vector<AnalysisName> Names;
 };
 
@@ -69,10 +69,10 @@ AnalyzerInput validate() {
   AnalyzerInput AI;
 
   // Validate the input path.
-  AI.InputFile = SummaryFile::fromInputPath(InputPath);
+  AI.InputFile = FormatFile::fromInputPath(InputPath);
 
   // Validate the output path.
-  AI.OutputFile = SummaryFile::fromOutputPath(OutputPath);
+  AI.OutputFile = FormatFile::fromOutputPath(OutputPath);
 
   // Build analysis names.
   for (const auto &Name : AnalysisNames) {
