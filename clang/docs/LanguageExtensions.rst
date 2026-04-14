@@ -5474,7 +5474,7 @@ manner as the above four builtins, except that ``_M_function_name`` is populated
 with ``__PRETTY_FUNCTION__`` rather than ``__FUNCTION__``.
 
 
-Data embedding builtin ``__builtin_clang_embed``
+Data embedding builtin ``__builtin_std_embed``
 ----------------------------------------------
 
 For use with `p1040 <https://wg21.link/p1040>`'s ``std::embed`` directive. It
@@ -5483,25 +5483,26 @@ is conceptually (but not exactly) represented by the following overloads:
 .. code-block:: c++
 
   template <class Byte, class Char>
-  Byte const* __builtin_clang_embed(int& status,
-                               size_t& size, T const* type_hint_ptr,
+  Byte const* __builtin_std_embed(int& status,
+                               size_t& size, T const* indicator_ptr,
                                size_t resource_name_size,
                                Char const* resource_name_ptr,
                                size_t offset);
 
   template <class Byte, class Char>
-  Byte const* __builtin_clang_embed(int& status,
-                               size_t& size, T const* type_hint_ptr,
+  Byte const* __builtin_std_embed(int& status,
+                               size_t& size, T const* indicator_ptr,
                                size_t resource_name_size,
                                Char const* resource_name_ptr,
                                size_t offset, size_t limit);
 
 The first argument is an output parameter status object. It will be
-filled with ``0`` is the file is not found or a suitable ``#depend`` clause
-does not bless the file that is found, ``1`` if the file is found, and ``2``
-if the file is found but it is empty. (These are the same values as the macros
-``__STDC_EMBED_NOT_FOUND__``, ``__STDC_EMBED_FOUND__``, and
-``__STDC_EMBED_EMPTY__``, respectively.)
+filled with:
+
+- ``0`` is the file is not found,
+- ``1`` if the file is found but not suitably ``#depend``ed on,
+- ``2`` if the file is found, properly ``#depend``ed on, but it was empty,
+- or, ``3`` if the file is found, properly ``#depend``ed on, and not empty.
 
 The second argument is an output parameter for the number of elements pointed
 to by the return type. If ``limit`` is provided, this value will be less than
@@ -5537,13 +5538,14 @@ of ``Byte`` objects that the returned value will point to. Less values can be
 pointed to than what ``limit`` describes.
 
 The ``offset`` value is applied before any ``limit`` is taken into
-consideration. The file name represented by the string range is searched in the
+consideration. Both values can make a file that has binary data be considered
+empty. The file name represented by the string range is searched in the
 same way as ``#embed`` files, with the caveat that any file not blessed by
 ``#depend`` will be treated as a file that is not found. All searches done are
 searches as-if done by a quoted header name for a ``#embed`` directive.
 
 The data returned may not be unique, may prefix into other data, and has no
-guarantee that caching may apply. That is, calling ``__builtin_clang_embed`` with
+guarantee that caching may apply. That is, calling ``__builtin_std_embed`` with
 the exact same arguments twice may return two different pointers or the same
 pointer, and is subject to everything from optimization level, implementation
 effort, and whether or not it is sunny outside right now. Block devices such

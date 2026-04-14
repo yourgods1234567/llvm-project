@@ -15,17 +15,17 @@
 
 namespace std {
 
-  template <typename T>
+  template <class T>
 consteval span<const T> embed(string_view resource_idenfier,
   size_t offset = 0,
   optional<size_t> limit = nullopt);
 
-  template <typename T>
+  template <class T>
 consteval span<const T> embed(wstring_view resource_idenfier,
   size_t offset = 0,
   optional<size_t> limit = nullopt);
 
-  template <typename T>
+  template <class T>
 consteval span<const T> embed(u8string_view resource_idenfier,
   size_t offset = 0,
   optional<size_t> limit = nullopt);
@@ -65,7 +65,7 @@ consteval span<const T, Limit> embed(u8string_view resource_idenfier,
 
 // FIXME: the versioning stuff out of Clang is... Not Great! __cplusplus is still like 202400L for -std=c++2c, which is
 // not even in the ballpark of correct.
-#if 1 //_LIBCPP_STD_VER > 26 && (__has_builtin(__builtin_clang_embed) || __has_builtin(__builtin_gnu_embed))
+#if 1 //_LIBCPP_STD_VER > 26 && (__has_builtin(__builtin_std_embed) || __has_builtin(__builtin_gnu_embed))
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -74,39 +74,26 @@ template <typename _Byte, size_t _Extent, typename _StrView>
 consteval _LIBCPP_HIDE_FROM_ABI span<const _Byte, _Extent>
 __embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]] const optional<size_t>& __limit) {
   static_assert(sizeof(_Byte) == 1 && alignof(_Byte) == 1 && (is_integral<_Byte>::value || is_enum<_Byte>::value),
-                "embed data type must be a character type with a size and alignment of 1");
+                "embed _Byte type must be an enumeration or integral type with a size and alignment of 1");
   size_t __size      = 0;
   _Byte const* __ptr = nullptr;
   int __status       = -1;
   if constexpr (_Extent != std::dynamic_extent) {
-#  if __has_builtin(__builtin_gnu_embed)
-    __ptr = __builtin_gnu_embed(
-        _Byte, __status, __size, __resource_identifier.size(), __resource_identifier.data(), __offset, _Extent);
-#  else
-    __ptr = __builtin_clang_embed(
+    __ptr = __builtin_std_embed(
         __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, _Extent);
-#  endif
   } else {
     if (__limit) {
-#  if __has_builtin(__builtin_gnu_embed)
-      __ptr = __builtin_gnu_embed(
-          _Byte, __status, __size, __resource_identifier.size(), __resource_identifier.data(), __offset, *__limit);
-#  else
-      __ptr = __builtin_clang_embed(
+      __ptr = __builtin_std_embed(
           __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, *__limit);
-#  endif
     } else {
-#  if __has_builtin(__builtin_gnu_embed)
-      __ptr = __builtin_gnu_embed(
-          _Byte, __status, __size, __resource_identifier.size(), __resource_identifier.data(), __offset);
-#  else
-      __ptr = __builtin_clang_embed(
+      __ptr = __builtin_std_embed(
           __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset);
-#  endif
     }
   }
-  if (__status == __STDC_EMBED_NOT_FOUND__) {
+  if (__status == 0) {
     _LIBCPP_VERBOSE_ABORT("file not found");
+  } else if (__status == 1) {
+    _LIBCPP_VERBOSE_ABORT("file found but not appropriately '#depend <>'-ed");
   }
   if constexpr (_Extent != std::dynamic_extent) {
     if (_Extent > __size) {
@@ -114,10 +101,12 @@ __embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]]
     }
     __size = _Extent;
   }
-  if (__status == __STDC_EMBED_EMPTY__) {
+  if (__status == 2) {
     return span<const _Byte, _Extent>();
   }
-  _LIBCPP_ASSERT(__status == __STDC_EMBED_FOUND__, "return status of embed is the proper __STDC_EMBED_FOUND__ value");
+  _LIBCPP_ASSERT(__status == __STDC_EMBED_FOUND__,
+                 "status value should be `3`, indicating a "
+                 "successful finding of a file with data that has been '#depend <>`-ed on");
   return span<const _Byte, _Extent>(__ptr, __size);
 }
 } // namespace __embed_detail
@@ -157,6 +146,6 @@ consteval span<const _Byte, _Limit> embed(u8string_view __resource_identifier, s
 
 _LIBCPP_END_NAMESPACE_STD
 
-#endif // _LIBCPP_STD_VER > 26 && __has_builtin(__builtin_clang_embed)
+#endif // _LIBCPP_STD_VER > 26 && __has_builtin(__builtin_std_embed)
 
 #endif // _LIBCPP_EMBED

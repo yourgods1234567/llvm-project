@@ -10701,7 +10701,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
         return false;
     }
   }
-  case Builtin::BI__builtin_clang_embed: {
+  case Builtin::BI__builtin_std_embed: {
     constexpr uint64_t FileNotFound = 0;
     constexpr uint64_t FileFound = 1;
     constexpr uint64_t FileFoundAndEmpty = 2;
@@ -10892,7 +10892,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       return WriteOutStatus(FileNotFound);
     }
     assert(Info.Ctx.InputDependencyPatterns &&
-           "using __builtin_clang_embed requires the context to have a usable "
+           "using __builtin_std_embed requires the context to have a usable "
            "input dependency patterns");
     StringRef ResourceSearchName =
         ResourceFile->getFileEntry().tryGetRealPathName();
