@@ -6821,9 +6821,9 @@ executables. The directive is silently ignored on non-AIX targets.
 
    #pragma comment(copyright, "string-literal")
 
-The *string-literal* may be any ordinary string constant, including
-concatenated string literals. The directive may appear at file scope; it is
-not meaningful inside a function body.
+The second argument is an ordinary string literal. Concatenated ordinary string 
+literals are also accepted. The directive may appear at file scope; it is not
+meaningful inside a function body.
 
 When the directive is processed, Clang emits two read-only XCOFF csect symbols
 into the ``.text`` section of the object file:

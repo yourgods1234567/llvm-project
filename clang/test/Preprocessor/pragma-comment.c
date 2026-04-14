@@ -17,6 +17,12 @@
 // RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/duplicate.c
 // RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/duplicate.c
 
+// RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/concat-escape.c
+// RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/concat-escape.c
+
+// RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/prefixed-literal.c
+// RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/prefixed-literal.c
+
 //--- unsupported.c
 // pragma comment kinds not supported on this target.
 #pragma comment(copyright, "copyright")            // expected-warning {{'#pragma comment copyright' ignored}}
@@ -44,3 +50,11 @@
 // A second copyright pragma in the same translation unit warns.
 #pragma comment(copyright, "@(#) Copyright")
 #pragma comment(copyright, "Duplicate Copyright") // expected-warning {{'#pragma comment copyright' ignored: it can be specified only once per translation unit}}
+
+//--- concat-escape.c
+// Concatenated ordinary string literals and escapes are accepted
+#pragma comment(copyright, "@(#) Hello, " "world\n\t\"@(#) quoted\"") // expected-no-diagnostics
+
+//--- prefixed-literal.c
+// UTF-8-prefixed literals are rejected.
+#pragma comment(copyright, u8"@(#) Hello unicode") // expected-error {{expected string literal in pragma comment}}
