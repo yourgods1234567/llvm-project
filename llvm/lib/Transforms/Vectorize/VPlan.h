@@ -4625,6 +4625,9 @@ class VPlan {
   /// VPlan is destroyed.
   SmallVector<VPBlockBase *> CreatedBlocks;
 
+  /// The loop has side effects (e.g. stores) and at least one uncountable exit.
+  bool HasEarlyExitWithSideEffects = false;
+
   /// Construct a VPlan with \p Entry to the plan and with \p ScalarHeader
   /// wrapping the original header of the scalar loop.
   VPlan(VPBasicBlock *Entry, VPIRBasicBlock *ScalarHeader)
@@ -4956,8 +4959,15 @@ public:
     return count_if(ExitBlocks,
                     [](VPIRBasicBlock *EB) { return EB->hasPredecessors(); }) >
                1 ||
-           (ExitBlocks.size() == 1 && ExitBlocks[0]->getNumPredecessors() > 1);
+           (ExitBlocks.size() == 1 &&
+            ExitBlocks[0]->getNumPredecessors() > 1) ||
+           HasEarlyExitWithSideEffects;
   }
+
+  /// Indicates that the loop has an uncountable exit and side effects (like
+  /// stores). Used in hasEarlyExit above, since we may handle any early exit in
+  /// the scalar loop instead and thus not meet the other conditions.
+  void setHasEarlyExitWithSideEffects() { HasEarlyExitWithSideEffects = true; }
 
   /// Returns true if the scalar tail may execute after the vector loop, i.e.
   /// if the middle block is a predecessor of the scalar preheader. Note that

@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -S < %s -p loop-vectorize -debug-only=loop-vectorize -force-vector-width=4 -disable-output 2>&1 | FileCheck %s
+; RUN: opt -S < %s -p loop-vectorize -debug-only=loop-vectorize -enable-early-exit-vectorization-with-side-effects -force-vector-width=4 -disable-output 2>&1 | FileCheck %s
 
 ;; This currently doesn't vectorize because the load used to determine the
 ;; uncountable exit condition has a second user (the store).
@@ -30,7 +30,7 @@ loop.end:
 
 define void @loop_contains_store_condition_load_has_single_user(ptr dereferenceable(40) noalias %array, ptr align 2 dereferenceable(40) readonly %pred) {
 ; CHECK-LABEL: LV: Checking a loop in 'loop_contains_store_condition_load_has_single_user'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: We can vectorize this loop!
 entry:
   br label %for.body
 
@@ -176,7 +176,8 @@ exit:
 ;; Alternatively, we could use masked.load.ff or vp.load.ff
 define void @loop_contains_store_assumed_bounds(ptr noalias %array, ptr readonly %pred, i64 %n) {
 ; CHECK-LABEL: LV: Checking a loop in 'loop_contains_store_assumed_bounds'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: We can vectorize this loop!
+; CHECK:       LV: No VPlans built.
 entry:
   %n_bytes = mul nuw nsw i64 %n, 2
   call void @llvm.assume(i1 true) [ "align"(ptr %pred, i64 2), "dereferenceable"(ptr %pred, i64 %n_bytes) ]
@@ -204,7 +205,7 @@ exit:
 
 define void @loop_contains_store_to_pointer_with_no_deref_info(ptr align 2 dereferenceable(40) readonly %load.array, ptr align 2 noalias %array, ptr align 2 dereferenceable(40) readonly %pred) {
 ; CHECK-LABEL: LV: Checking a loop in 'loop_contains_store_to_pointer_with_no_deref_info'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: We can vectorize this loop!
 entry:
   br label %for.body
 
@@ -232,7 +233,8 @@ exit:
 ;; Vectorizeable, requires runtime checks and/or ff loads.
 define void @loop_contains_store_unknown_bounds(ptr align 2 dereferenceable(100) noalias %array, ptr align 2 dereferenceable(100) readonly %pred, i64 %n) {
 ; CHECK-LABEL: LV: Checking a loop in 'loop_contains_store_unknown_bounds'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: We can vectorize this loop!
+; CHECK:       LV: No VPlans built.
 entry:
   br label %for.body
 
@@ -287,7 +289,7 @@ exit:
 ;; Vectorizeable, but we really want LICM to sink the store out of the loop
 define void @loop_contains_store_to_invariant_location(ptr dereferenceable(40) readonly %array, ptr align 2 dereferenceable(40) readonly %pred, ptr noalias %store_addr) {
 ; CHECK-LABEL: LV: Checking a loop in 'loop_contains_store_to_invariant_location'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: Not vectorizing: Cannot vectorize early exit loops with stores to loop-invariant addresses.
 entry:
   br label %for.body
 
@@ -313,7 +315,7 @@ exit:
 
 define void @loop_contains_store_in_latch_block(ptr dereferenceable(40) noalias %array, ptr align 2 dereferenceable(40) readonly %pred) {
 ; CHECK-LABEL: LV: Checking a loop in 'loop_contains_store_in_latch_block'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: We can vectorize this loop!
 entry:
   br label %for.body
 
@@ -366,7 +368,7 @@ exit:
 
 define void @loop_contains_store_decrementing_iv(ptr dereferenceable(40) noalias %array, ptr align 2 dereferenceable(40) readonly %pred) {
 ; CHECK-LABEL: LV: Checking a loop in 'loop_contains_store_decrementing_iv'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: We can vectorize this loop!
 entry:
   br label %for.body
 
@@ -665,7 +667,7 @@ exit:
 
 define i16 @uncountable_exit_with_live_out(ptr dereferenceable(40) noalias %array, ptr align 2 dereferenceable(40) readonly %pred) {
 ; CHECK-LABEL: LV: Checking a loop in 'uncountable_exit_with_live_out'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: We can vectorize this loop!
 entry:
   br label %for.body
 
@@ -692,7 +694,8 @@ exit:
 ; Vectorizeable, requires improvements in dereferenceability checks
 define void @uncountable_exit_with_constant_nonunit_stride(ptr dereferenceable(4000) noalias %array, ptr align 2 dereferenceable(4000) readonly %pred) {
 ; CHECK-LABEL: LV: Checking a loop in 'uncountable_exit_with_constant_nonunit_stride'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK        LV: We can vectorize this loop!
+; CHECK:       LV: Not vectorizing: unable to calculate the loop count due to complex control flow.
 entry:
   br label %for.body
 
@@ -745,7 +748,7 @@ exit:
 
 define i32 @uncountable_exit_with_separate_exit_block(ptr dereferenceable(40) noalias %array, ptr align 2 dereferenceable(40) readonly %pred) {
 ; CHECK-LABEL: LV: Checking a loop in 'uncountable_exit_with_separate_exit_block'
-; CHECK:       LV: Not vectorizing: Writes to memory unsupported in early exit loops.
+; CHECK:       LV: We can vectorize this loop!
 entry:
   br label %for.body
 
