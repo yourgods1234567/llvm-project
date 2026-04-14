@@ -67,17 +67,17 @@ LLVM_LIBC_FUNCTION(void, makecontext,
   va_list ap;
   va_start(ap, argc);
   if (argc > 0)
-    ucp->uc_mcontext.gregs[__LIBC_REG_RDI] = va_arg(ap, greg_t);
+    ucp->uc_mcontext.gregs[REG_RDI] = va_arg(ap, greg_t);
   if (argc > 1)
-    ucp->uc_mcontext.gregs[__LIBC_REG_RSI] = va_arg(ap, greg_t);
+    ucp->uc_mcontext.gregs[REG_RSI] = va_arg(ap, greg_t);
   if (argc > 2)
-    ucp->uc_mcontext.gregs[__LIBC_REG_RDX] = va_arg(ap, greg_t);
+    ucp->uc_mcontext.gregs[REG_RDX] = va_arg(ap, greg_t);
   if (argc > 3)
-    ucp->uc_mcontext.gregs[__LIBC_REG_RCX] = va_arg(ap, greg_t);
+    ucp->uc_mcontext.gregs[REG_RCX] = va_arg(ap, greg_t);
   if (argc > 4)
-    ucp->uc_mcontext.gregs[__LIBC_REG_R8] = va_arg(ap, greg_t);
+    ucp->uc_mcontext.gregs[REG_R8] = va_arg(ap, greg_t);
   if (argc > 5)
-    ucp->uc_mcontext.gregs[__LIBC_REG_R9] = va_arg(ap, greg_t);
+    ucp->uc_mcontext.gregs[REG_R9] = va_arg(ap, greg_t);
 
   for (int i = 0; i < stack_args; ++i) {
     stack_area[i + 1] = va_arg(ap, greg_t);
@@ -85,9 +85,9 @@ LLVM_LIBC_FUNCTION(void, makecontext,
 
   va_end(ap);
 
-  ucp->uc_mcontext.gregs[__LIBC_REG_RIP] = reinterpret_cast<greg_t>(func);
-  ucp->uc_mcontext.gregs[__LIBC_REG_RSP] = new_rsp;
-  ucp->uc_mcontext.gregs[__LIBC_REG_RBX] =
+  ucp->uc_mcontext.gregs[REG_RIP] = reinterpret_cast<greg_t>(func);
+  ucp->uc_mcontext.gregs[REG_RSP] = new_rsp;
+  ucp->uc_mcontext.gregs[REG_RBX] =
       reinterpret_cast<greg_t>(ucp->uc_link);
 }
 

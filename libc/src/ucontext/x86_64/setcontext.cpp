@@ -62,39 +62,39 @@ LLVM_LIBC_FUNCTION(int, setcontext, (const ucontext_t *ucp)) {
       )" ::[sigset_size] "i"(sizeof(sigset_t)),
       [syscall_num] "i"(SYS_rt_sigprocmask),
       [r8] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_R8])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_R8])),
       [r9] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_R9])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_R9])),
       [r10] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_R10])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_R10])),
       [r11] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_R11])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_R11])),
       [r12] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_R12])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_R12])),
       [r13] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_R13])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_R13])),
       [r14] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_R14])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_R14])),
       [r15] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_R15])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_R15])),
       [rdi] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RDI])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RDI])),
       [rsi] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RSI])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RSI])),
       [rbp] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RBP])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RBP])),
       [rbx] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RBX])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RBX])),
       [rdx] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RDX])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RDX])),
       [rax] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RAX])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RAX])),
       [rcx] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RCX])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RCX])),
       [rsp] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RSP])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RSP])),
       [rip] "i"(
-          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[__LIBC_REG_RIP])),
+          __builtin_offsetof(ucontext_t, uc_mcontext.gregs[REG_RIP])),
       [fpregs_mem] "i"(__builtin_offsetof(ucontext_t, __fpregs_mem)),
       [sigmask] "i"(__builtin_offsetof(ucontext_t, uc_sigmask))
       : "memory", "rcx", "r11");
