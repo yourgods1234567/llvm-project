@@ -20,8 +20,17 @@
 // RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/concat-escape.c
 // RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/concat-escape.c
 
-// RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/prefixed-literal.c
-// RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/prefixed-literal.c
+// RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/u8-literal.c
+// RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/u8-literal.c
+
+// RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/wide-literal.c
+// RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/wide-literal.c
+
+// RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/utf16-literal.c
+// RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/utf16-literal.c
+
+// RUN: %clang_cc1 -triple powerpc-ibm-aix   -fsyntax-only -verify %t/utf32-literal.c
+// RUN: %clang_cc1 -triple powerpc64-ibm-aix -fsyntax-only -verify %t/utf32-literal.c
 
 //--- unsupported.c
 // pragma comment kinds not supported on this target.
@@ -55,6 +64,18 @@
 // Concatenated ordinary string literals and escapes are accepted
 #pragma comment(copyright, "@(#) Hello, " "world\n\t\"@(#) quoted\"") // expected-no-diagnostics
 
-//--- prefixed-literal.c
-// UTF-8-prefixed literals are rejected.
+//--- u8-literal.c
+// UTF-8-prefixed string literals are rejected.
 #pragma comment(copyright, u8"@(#) Hello unicode") // expected-error {{expected string literal in pragma comment}}
+
+//--- wide-literal.c
+// Wide string literals are rejected.
+#pragma comment(copyright, L"@(#) Hello wide") // expected-error {{expected string literal in pragma comment}}
+
+//--- utf16-literal.c
+// UTF-16-prefixed string literals are rejected.
+#pragma comment(copyright, u"@(#) Hello utf16") // expected-error {{expected string literal in pragma comment}}
+
+//--- utf32-literal.c
+// UTF-32-prefixed string literals are rejected.
+#pragma comment(copyright, U"@(#) Hello utf32") // expected-error {{expected string literal in pragma comment}}
