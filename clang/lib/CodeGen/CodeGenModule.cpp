@@ -3581,7 +3581,8 @@ void CodeGenModule::AddDependentLib(StringRef Lib) {
 ///
 /// Example: #pragma comment(copyright, "Copyright string")
 ///
-/// This should only be called once per translation unit.
+/// Only one copyright pragma is allowed per translation unit. Subsequent
+/// pragmas in the same TU are ignored with a warning at the parse level.
 void CodeGenModule::ProcessPragmaComment(PragmaMSCommentKind Kind,
                                          StringRef Comment,
                                          bool isFromASTFile) {
@@ -3593,7 +3594,14 @@ void CodeGenModule::ProcessPragmaComment(PragmaMSCommentKind Kind,
   assert(getTriple().isOSAIX() &&
          "pragma comment copyright is supported only when targeting AIX");
 
-  // Deserialization Guard: Only process if copyright originated in this TU.
+  // Interaction with C++20 Modules and PCH:
+  // When a module interface unit containing a copyright pragma is imported,
+  // Clang deserializes the PragmaCommentDecl from the precompiled module file
+  // (.pcm) into the importing TU's AST. isFromASTFile() returns true for such
+  // deserialized declarations. We skip those to ensure only the module
+  // interface TU that originally parsed the pragma emits the copyright metadata
+  // -- not every TU that imports it. This prevents duplicate copyright strings
+  // in the final binary.
   if (isFromASTFile)
     return;
 

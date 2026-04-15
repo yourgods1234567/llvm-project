@@ -6841,6 +6841,12 @@ Both symbols reside in the ``.text`` segment and are marked read-only, so the
 string is linked into any binary that includes the object file and remains
 visible at run time.
 
+Interaction with C++20 Modules:
+
+When ``#pragma comment(copyright, ...)`` appears in a C++20 module interface
+unit, the copyright string is embedded only in the object file compiled from
+that interface unit. Importing TUs do not re-emit the string.
+
 Evaluating Object Size
 ======================
 
