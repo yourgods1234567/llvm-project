@@ -493,7 +493,6 @@ inline constexpr bool __is_extents_v = __is_extents<_Tp>::value;
 // the respective extents.
 
 template <integral _IndexType, class _From>
-  requires(integral<_From>)
 _LIBCPP_HIDE_FROM_ABI constexpr bool __is_index_in_extent(_IndexType __extent, _From __value) {
   if constexpr (is_signed_v<_From>) {
     if (__value < 0)
@@ -503,26 +502,15 @@ _LIBCPP_HIDE_FROM_ABI constexpr bool __is_index_in_extent(_IndexType __extent, _
   return static_cast<_Tp>(__value) < static_cast<_Tp>(__extent);
 }
 
-template <integral _IndexType, class _From>
-  requires(!integral<_From>)
-_LIBCPP_HIDE_FROM_ABI constexpr bool __is_index_in_extent(_IndexType __extent, _From __value) {
-  if constexpr (is_signed_v<_IndexType>) {
-    if (static_cast<_IndexType>(__value) < 0)
-      return false;
-  }
-  return static_cast<_IndexType>(__value) < __extent;
-}
-
-template <size_t... _Idxs, class _Extents, class... _From>
+template <size_t... _Idxs, class _Extents, class _From>
 _LIBCPP_HIDE_FROM_ABI constexpr bool
-__is_multidimensional_index_in_impl(index_sequence<_Idxs...>, const _Extents& __ext, _From... __values) {
-  return (__mdspan_detail::__is_index_in_extent(__ext.extent(_Idxs), __values) && ...);
+__is_multidimensional_index_in_impl(index_sequence<_Idxs...>, const _Extents& __ext, const _From& __values) {
+  return (__mdspan_detail::__is_index_in_extent(__ext.extent(_Idxs), __values[_Idxs]) && ...);
 }
 
-template <class _Extents, class... _From>
-_LIBCPP_HIDE_FROM_ABI constexpr bool __is_multidimensional_index_in(const _Extents& __ext, _From... __values) {
-  return __mdspan_detail::__is_multidimensional_index_in_impl(
-      make_index_sequence<_Extents::rank()>(), __ext, __values...);
+template <class _Extents, class _From>
+_LIBCPP_HIDE_FROM_ABI constexpr bool __is_multidimensional_index_in(const _Extents& __ext, const _From& __values) {
+  return __mdspan_detail::__is_multidimensional_index_in_impl(make_index_sequence<_Extents::rank()>(), __ext, __values);
 }
 
 } // namespace __mdspan_detail

@@ -28,6 +28,7 @@
 #include <__type_traits/is_convertible.h>
 #include <__type_traits/is_nothrow_constructible.h>
 #include <__utility/integer_sequence.h>
+#include <array>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #  pragma GCC system_header
@@ -146,16 +147,18 @@ public:
   template <class... _Indices>
     requires((sizeof...(_Indices) == extents_type::rank()) && (is_convertible_v<_Indices, index_type> && ...) &&
              (is_nothrow_constructible_v<index_type, _Indices> && ...))
-  _LIBCPP_HIDE_FROM_ABI constexpr index_type operator()(_Indices... __idx) const noexcept {
+  _LIBCPP_HIDE_FROM_ABI constexpr index_type operator()(_Indices... __indices) const noexcept {
+    const array<index_type, extents_type::rank()> __idxs{static_cast<index_type>(__indices)...};
     // Mappings are generally meant to be used for accessing allocations and are meant to guarantee to never
     // return a value exceeding required_span_size(), which is used to know how large an allocation one needs
     // Thus, this is a canonical point in multi-dimensional data structures to make invalid element access checks
     // However, mdspan does check this on its own, so for now we avoid double checking in hardened mode
-    _LIBCPP_ASSERT_UNCATEGORIZED(__mdspan_detail::__is_multidimensional_index_in(__extents_, __idx...),
+    _LIBCPP_ASSERT_UNCATEGORIZED(__mdspan_detail::__is_multidimensional_index_in(__extents_, __idxs),
                                  "layout_right::mapping: out of bounds indexing");
+
     return [&]<size_t... _Pos>(index_sequence<_Pos...>) {
       index_type __res = 0;
-      ((__res = static_cast<index_type>(__idx) + __extents_.extent(_Pos) * __res), ...);
+      ((__res = __idxs[_Pos] + __extents_.extent(_Pos) * __res), ...);
       return __res;
     }(make_index_sequence<sizeof...(_Indices)>());
   }
