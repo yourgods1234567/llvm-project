@@ -190,7 +190,7 @@ public:
 
     unsigned GCDSize = computeGCDSize(DL);
     bool HasPointers = llvm::any_of(*this, [&](ChainElem &E) {
-          return getLoadStoreType(E.Inst)->getScalarType()->isPointerTy();           
+      return getLoadStoreType(E.Inst)->getScalarType()->isPointerTy();
     });
 
     // Among non-pointer types whose size matches the GCD, prefer the most
@@ -214,9 +214,7 @@ public:
     return ElemTy = BestTy ? BestTy : Type::getIntNTy(Ctx, GCDSize);
   }
 
-  void setElemTy(Type *Ty) {
-    ElemTy = Ty;
-  }
+  void setElemTy(Type *Ty) { ElemTy = Ty; }
 };
 
 void sortChainInBBOrder(Chain &C) {
@@ -387,7 +385,6 @@ private:
   std::optional<APInt> getConstantOffsetSelects(Value *PtrA, Value *PtrB,
                                                 Instruction *ContextInst,
                                                 unsigned Depth);
-
 
   /// Determines whether ChainElem can be moved up (if IsLoad) or down (if
   /// !IsLoad) to ChainBegin -- i.e. there are no intervening may-alias
@@ -633,8 +630,6 @@ bool Vectorizer::runOnChain(Chain &C) {
           Changed |= vectorizeChain(C);
   return Changed;
 }
-
-
 
 std::vector<Chain> Vectorizer::splitChainByPointerWidth(Chain &C) {
   if (C.empty())
@@ -1197,9 +1192,9 @@ std::vector<Chain> Vectorizer::splitChainByAlignment(Chain &C) {
 ///    Delegate directly to CreateBitOrPointerCast, which handles
 ///    int<->int, int<->ptr, int<->float, and ptr<->ptr casts natively.
 ///
-/// Note: FP<->Ptr casts cannot occur here because computeAndCacheElementTy returns
-/// an FP type only when ALL chain elements are FP (so no element has a pointer
-/// type), and it never returns a pointer type itself.
+/// Note: FP<->Ptr casts cannot occur here because computeAndCacheElementTy
+/// returns an FP type only when ALL chain elements are FP (so no element has a
+/// pointer type), and it never returns a pointer type itself.
 Value *Vectorizer::resizeAndBitcast(Value *V, Type *NewTy) {
   auto *VTy = V->getType();
   assert(VTy != NewTy && "Types should mismatch in this function.");
@@ -2209,6 +2204,8 @@ Value *Vectorizer::createMaskForExtraElements(const ArrayRef<ChainElem> C,
   // Start each mask element as false
   SmallVector<Constant *, 64> MaskElts(VecTy->getNumElements(),
                                        Builder.getInt1(false));
+  unsigned ScalarTySize = DL.getTypeSizeInBits(VecTy->getScalarType());
+
   // Iterate over the chain and set the corresponding mask element to true for
   // each element that is not an extra element.
   for (const ChainElem &E : C) {
@@ -2216,14 +2213,10 @@ Value *Vectorizer::createMaskForExtraElements(const ArrayRef<ChainElem> C,
       continue;
     unsigned EOffset =
         (E.OffsetFromLeader - C[0].OffsetFromLeader).getZExtValue();
-    unsigned VecIdx =
-        8 * EOffset / DL.getTypeSizeInBits(VecTy->getScalarType());
-    if (FixedVectorType *VT =
-            dyn_cast<FixedVectorType>(getLoadStoreType(E.Inst)))
-      for (unsigned J = 0; J < VT->getNumElements(); ++J)
-        MaskElts[VecIdx + J] = Builder.getInt1(true);
-    else
-      MaskElts[VecIdx] = Builder.getInt1(true);
+    unsigned ElemSize = DL.getTypeSizeInBits(getLoadStoreType(E.Inst));
+    unsigned VecIdx = 8 * EOffset / ScalarTySize;
+    unsigned NumElems = ElemSize / ScalarTySize;
+    std::fill_n(MaskElts.begin() + VecIdx, NumElems, Builder.getInt1(true));
   }
   return ConstantVector::get(MaskElts);
 }
