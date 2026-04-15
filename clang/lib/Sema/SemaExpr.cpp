@@ -12487,10 +12487,6 @@ static void diagnoseTautologicalComparison(Sema &S, SourceLocation Loc,
 
   QualType LHSType = LHS->getType();
   QualType RHSType = RHS->getType();
-  if (LHSType->hasFloatingRepresentation() ||
-      (LHSType->isBlockPointerType() && !BinaryOperator::isEqualityOp(Opc)) ||
-      S.inTemplateInstantiation())
-    return;
 
   // WebAssembly Tables cannot be compared, therefore shouldn't emit
   // Tautological diagnostics.
@@ -12859,6 +12855,17 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
     QualType Ty = E.get()->getType();
     return Ty->isPointerType() || Ty->isMemberPointerType();
   };
+
+  // If types are arrays, skip this check so we can throw an error later.
+  if (this->inTemplateInstantiation()) {
+    QualType LHSType = LHS.get()->getType();
+    QualType RHSType = RHS.get()->getType();
+    if (LHSType->hasFloatingRepresentation() ||
+        (LHSType->isBlockPointerType() && !BinaryOperator::isEqualityOp(Opc)))
+      return;
+    if (!LHSType->isArrayType() && !RHSType->isArrayType())
+      return QualType();
+  }
 
   // C++2a [expr.spaceship]p6: If at least one of the operands is of pointer
   // type, array-to-pointer, ..., conversions are performed on both operands to
