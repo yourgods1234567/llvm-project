@@ -2955,8 +2955,7 @@ LogicalResult NVVM::BarrierOp::canonicalize(NVVM::BarrierOp op,
   if (!matchPattern(id, m_ConstantInt(&value)) || !value.isZero())
     return failure();
 
-  rewriter.modifyOpInPlace(op,
-                           [&]() { op.getBarrierIdMutable().clear(); });
+  rewriter.modifyOpInPlace(op, [&]() { op.getBarrierIdMutable().clear(); });
   return success();
 }
 
@@ -3452,7 +3451,8 @@ void SubFOp::getCanonicalizationPatterns(RewritePatternSet &patterns,
 /// Returns the LLVM intrinsic ID for the `nvvm.barrier.cta.sync[.aligned]
 /// .{all,count}` variant matching `aligned` and whether a thread count is
 /// supplied.
-static llvm::Intrinsic::ID getBarrierSyncIntrinsic(bool aligned, bool hasCount) {
+static llvm::Intrinsic::ID getBarrierSyncIntrinsic(bool aligned,
+                                                   bool hasCount) {
   if (hasCount)
     return aligned ? llvm::Intrinsic::nvvm_barrier_cta_sync_aligned_count
                    : llvm::Intrinsic::nvvm_barrier_cta_sync_count;
@@ -6269,8 +6269,7 @@ LogicalResult NVVMTargetAttr::verifyTarget(Operation *gpuModule) {
 
 /// Parses the `non_aligned` keyword marker for `nvvm.barrier`.
 static ParseResult parseAligned(OpAsmParser &parser, BoolAttr &aligned) {
-  bool isNonAligned =
-      succeeded(parser.parseOptionalKeyword("non_aligned"));
+  bool isNonAligned = succeeded(parser.parseOptionalKeyword("non_aligned"));
   aligned = parser.getBuilder().getBoolAttr(!isNonAligned);
   return success();
 }
