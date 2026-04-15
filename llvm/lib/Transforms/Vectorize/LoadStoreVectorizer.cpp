@@ -155,7 +155,69 @@ struct ChainElem {
   ChainElem(Instruction *Inst, APInt OffsetFromLeader)
       : Inst(std::move(Inst)), OffsetFromLeader(std::move(OffsetFromLeader)) {}
 };
-using Chain = SmallVector<ChainElem, 1>;
+struct Chain : SmallVector<ChainElem, 1> {
+private:
+  Type *ElemTy = nullptr;
+
+public:
+  using SmallVector::SmallVector;
+
+  /// Return the GCD of the element sizes.
+  unsigned int computeGCDSize(const DataLayout &DL) const {
+    unsigned int GCDSize = 0;
+    for (const ChainElem &E : *this) {
+      Type *Ty = getLoadStoreType(E.Inst)->getScalarType();
+      unsigned Sz = DL.getTypeSizeInBits(Ty);
+      GCDSize = GCDSize == 0 ? Sz : std::gcd(GCDSize, Sz);
+    }
+    return GCDSize;
+  }
+
+  /// Gets the element type of the vector that the chain will load or store.
+  ///
+  /// The element type is determined by taking the GCD of the bitwidths of all
+  /// elements in the chain. Among types with this matching bitwidth, we prefer:
+  /// - A type that appears most frequently in the chain, to minimize casts.
+  /// - An integer type if the chain contains pointers, to avoid direct
+  ///   pointer-to-floating-point conversions.
+  ///
+  /// \param C The chain of instructions to be vectorized.
+  /// \returns The chosen element type for the vectorized load or store.
+  Type *computeAndCacheElemTy(LLVMContext &Ctx, const DataLayout &DL) {
+    assert(!empty());
+    if (ElemTy)
+      return ElemTy;
+
+    unsigned GCDSize = computeGCDSize(DL);
+    bool HasPointers = llvm::any_of(*this, [&](ChainElem &E) {
+          return getLoadStoreType(E.Inst)->getScalarType()->isPointerTy();           
+    });
+
+    // Among non-pointer types whose size matches the GCD, prefer the most
+    // common one to minimize bitcasts. If the chain contains pointers, only
+    // consider integer types (there's no direct FP-to-pointer cast).
+    DenseMap<Type *, unsigned> TypeCounts;
+    Type *BestTy = nullptr;
+    unsigned BestCount = 0;
+    for (const ChainElem &E : *this) {
+      Type *Ty = getLoadStoreType(E.Inst)->getScalarType();
+      if (Ty->isPointerTy() || DL.getTypeSizeInBits(Ty) != GCDSize ||
+          (HasPointers && !Ty->isIntegerTy()))
+        continue;
+      unsigned Count = ++TypeCounts[Ty];
+      if (Count > BestCount) {
+        BestCount = Count;
+        BestTy = Ty;
+      }
+    }
+
+    return ElemTy = BestTy ? BestTy : Type::getIntNTy(Ctx, GCDSize);
+  }
+
+  void setElemTy(Type *Ty) {
+    ElemTy = Ty;
+  }
+};
 
 void sortChainInBBOrder(Chain &C) {
   sort(C, [](auto &A, auto &B) { return A.Inst->comesBefore(B.Inst); });
@@ -326,17 +388,6 @@ private:
                                                 Instruction *ContextInst,
                                                 unsigned Depth);
 
-  /// Gets the element type of the vector that the chain will load or store.
-  ///
-  /// The element type is determined by taking the GCD of the bitwidths of all
-  /// elements in the chain. Among types with this matching bitwidth, we prefer:
-  /// - A type that appears most frequently in the chain, to minimize casts.
-  /// - An integer type if the chain contains pointers, to avoid direct
-  ///   pointer-to-floating-point conversions.
-  ///
-  /// \param C The chain of instructions to be vectorized.
-  /// \returns The chosen element type for the vectorized load or store.
-  Type *getChainElemTy(const Chain &C);
 
   /// Determines whether ChainElem can be moved up (if IsLoad) or down (if
   /// !IsLoad) to ChainBegin -- i.e. there are no intervening may-alias
@@ -583,6 +634,61 @@ bool Vectorizer::runOnChain(Chain &C) {
   return Changed;
 }
 
+
+
+std::vector<Chain> Vectorizer::splitChainByPointerWidth(Chain &C) {
+  if (C.empty())
+    return {};
+
+  sortChainInOffsetOrder(C);
+
+  LLVM_DEBUG({
+    dbgs() << "LSV: splitChainByPointerWidth considering chain:\n";
+    dumpChain(C);
+  });
+
+  // Compute the chain element size, which is the GCD of the element
+  // sizes. Loop over each element in the chain. If there is a pointer
+  // whose size is greater than the chain element size, create a new
+  // chain in PtrGroups.
+  unsigned GCDSize = C.computeGCDSize(DL);
+  Chain MainChain;
+  DenseMap<unsigned, Chain> PtrGroups;
+
+  for (ChainElem &E : C) {
+    Type *ScalarTy = getLoadStoreType(E.Inst)->getScalarType();
+    unsigned Sz = DL.getTypeSizeInBits(ScalarTy);
+    if (ScalarTy->isPointerTy() && Sz > GCDSize)
+      PtrGroups[Sz].push_back(E);
+    else
+      MainChain.push_back(E);
+  }
+
+  // PtrGroups creates ptr chains of the same size and addrspace.
+  // Therefore, the ElemTy for each ptr chain is the ptr corresponding
+  // ptr type itself.
+  std::vector<Chain> Ret;
+  if (MainChain.size() > 1)
+    Ret.push_back(std::move(MainChain));
+  for (auto &[Size, Group] : PtrGroups) {
+    if (Group.size() > 1) {
+      Group.setElemTy(getLoadStoreType(Group[0].Inst)->getScalarType());
+      Ret.push_back(std::move(Group));
+    }
+  }
+
+  LLVM_DEBUG({
+    dbgs() << "LSV: splitChainByPointerWidth produced " << Ret.size()
+           << " chains\n";
+    for (const auto &Chain : Ret) {
+      dbgs() << "  Chain:\n";
+      dumpChain(Chain);
+    }
+  });
+
+  return Ret;
+}
+
 std::vector<Chain> Vectorizer::splitChainByMayAliasInstrs(Chain &C) {
   if (C.empty())
     return {};
@@ -688,7 +794,7 @@ std::vector<Chain> Vectorizer::splitChainByContiguity(Chain &C) {
   // and max vector size, as splitChainByAlignment will ensure the final vector
   // shape passes the legalization check.
   unsigned AS = getLoadStoreAddressSpace(C[0].Inst);
-  Type *ElementType = getLoadStoreType(C[0].Inst)->getScalarType();
+  Type *ElementType = C.computeAndCacheElemTy(F.getContext(), DL);
   unsigned MaxVecRegBits = TTI.getLoadStoreVecRegBitWidth(AS);
   Align OptimisticAlign = Align(MaxVecRegBits / 8);
   unsigned int MaxVectorNumElems =
@@ -816,40 +922,6 @@ std::vector<Chain> Vectorizer::splitChainByContiguity(Chain &C) {
   return Ret;
 }
 
-Type *Vectorizer::getChainElemTy(const Chain &C) {
-  assert(!C.empty());
-
-  unsigned GCDSize = 0;
-  bool HasPointers = false;
-  for (const ChainElem &E : C) {
-    Type *Ty = getLoadStoreType(E.Inst)->getScalarType();
-    if (Ty->isPointerTy())
-      HasPointers = true;
-    unsigned Sz = DL.getTypeSizeInBits(Ty);
-    GCDSize = GCDSize == 0 ? Sz : std::gcd(GCDSize, Sz);
-  }
-
-  // Among non-pointer types whose size matches the GCD, prefer the most
-  // common one to minimize bitcasts. If the chain contains pointers, only
-  // consider integer types (there's no direct FP-to-pointer cast).
-  DenseMap<Type *, unsigned> TypeCounts;
-  Type *BestTy = nullptr;
-  unsigned BestCount = 0;
-  for (const ChainElem &E : C) {
-    Type *Ty = getLoadStoreType(E.Inst)->getScalarType();
-    if (Ty->isPointerTy() || DL.getTypeSizeInBits(Ty) != GCDSize ||
-        (HasPointers && !Ty->isIntegerTy()))
-      continue;
-    unsigned Count = ++TypeCounts[Ty];
-    if (Count > BestCount) {
-      BestCount = Count;
-      BestTy = Ty;
-    }
-  }
-
-  return BestTy ? BestTy : Type::getIntNTy(F.getContext(), GCDSize);
-}
-
 std::vector<Chain> Vectorizer::splitChainByAlignment(Chain &C) {
   // We use a simple greedy algorithm.
   //  - Given a chain of length N, find all prefixes that
@@ -927,7 +999,7 @@ std::vector<Chain> Vectorizer::splitChainByAlignment(Chain &C) {
           dbgs() << "LSV: splitChainByAlignment considering candidate chain ["
                  << *C[CBegin].Inst << " ... " << *C[CEnd].Inst << "]\n");
 
-      Type *VecElemTy = getChainElemTy(C);
+      Type *VecElemTy = C.computeAndCacheElemTy(F.getContext(), DL);
       // Note, VecElemTy is a power of 2, but might be less than one byte.  For
       // example, we can vectorize 2 x <2 x i4> to <4 x i4>, and in this case
       // VecElemTy would be i4.
@@ -1107,55 +1179,6 @@ std::vector<Chain> Vectorizer::splitChainByAlignment(Chain &C) {
   return Ret;
 }
 
-std::vector<Chain> Vectorizer::splitChainByPointerWidth(Chain &C) {
-  if (C.empty())
-    return {};
-
-  sortChainInOffsetOrder(C);
-
-  LLVM_DEBUG({
-    dbgs() << "LSV: splitChainByPointerWidth considering chain:\n";
-    dumpChain(C);
-  });
-
-  unsigned GCDSize = 0;
-  for (const ChainElem &E : C) {
-    Type *Ty = getLoadStoreType(E.Inst)->getScalarType();
-    unsigned Sz = DL.getTypeSizeInBits(Ty);
-    GCDSize = GCDSize == 0 ? Sz : std::gcd(GCDSize, Sz);
-  }
-
-  Chain MainChain;
-  DenseMap<unsigned, Chain> PtrGroups;
-
-  for (ChainElem &E : C) {
-    Type *ScalarTy = getLoadStoreType(E.Inst)->getScalarType();
-    unsigned Sz = DL.getTypeSizeInBits(ScalarTy);
-    if (ScalarTy->isPointerTy() && Sz > GCDSize)
-      PtrGroups[Sz].push_back(E);
-    else
-      MainChain.push_back(E);
-  }
-
-  std::vector<Chain> Ret;
-  if (MainChain.size() > 1)
-    Ret.push_back(std::move(MainChain));
-  for (auto &[Size, Group] : PtrGroups)
-    if (Group.size() > 1)
-      Ret.push_back(std::move(Group));
-
-  LLVM_DEBUG({
-    dbgs() << "LSV: splitChainByPointerWidth produced " << Ret.size()
-           << " chains\n";
-    for (const auto &Chain : Ret) {
-      dbgs() << "  Chain:\n";
-      dumpChain(Chain);
-    }
-  });
-
-  return Ret;
-}
-
 /// Insert a cast from V's type to NewTy, preserving the underlying bit pattern.
 ///
 /// This is used during vectorization to convert between the original types of
@@ -1174,17 +1197,17 @@ std::vector<Chain> Vectorizer::splitChainByPointerWidth(Chain &C) {
 ///    Delegate directly to CreateBitOrPointerCast, which handles
 ///    int<->int, int<->ptr, int<->float, and ptr<->ptr casts natively.
 ///
-/// Note: FP<->Ptr casts cannot occur here because getChainElemTy returns an FP
-/// type only when ALL chain elements are FP (so no element has a pointer type),
-/// and it never returns a pointer type itself.
+/// Note: FP<->Ptr casts cannot occur here because computeAndCacheElementTy returns
+/// an FP type only when ALL chain elements are FP (so no element has a pointer
+/// type), and it never returns a pointer type itself.
 Value *Vectorizer::resizeAndBitcast(Value *V, Type *NewTy) {
   auto *VTy = V->getType();
   assert(VTy != NewTy && "Types should mismatch in this function.");
   assert(!(VTy->isFPOrFPVectorTy() && NewTy->isPtrOrPtrVectorTy()) &&
-         "FP->Ptr cast should be unreachable: getChainElemTy never produces "
+         "FP->Ptr cast should be unreachable: chain element type is never an "
          "FP when the chain contains pointers.");
   assert(!(VTy->isPtrOrPtrVectorTy() && NewTy->isFPOrFPVectorTy()) &&
-         "Ptr->FP cast should be unreachable: getChainElemTy never returns "
+         "Ptr->FP cast should be unreachable: chain element type is never "
          "a pointer type.");
 
   unsigned VTySize = DL.getTypeSizeInBits(VTy);
@@ -1251,7 +1274,7 @@ bool Vectorizer::vectorizeChain(Chain &C) {
   // VecElemTy is the GCD element type across all scalar types in the chain.
   // For a uniform chain (e.g. all i32) this is just i32; for a mixed chain
   // (e.g. i32 + i16) it is the narrowest common unit (e.g. i16).
-  Type *VecElemTy = getChainElemTy(C);
+  Type *VecElemTy = C.computeAndCacheElemTy(F.getContext(), DL);
   unsigned VecElemSize = DL.getTypeSizeInBits(VecElemTy);
   bool IsLoadChain = isa<LoadInst>(C[0].Inst);
   unsigned AS = getLoadStoreAddressSpace(C[0].Inst);
