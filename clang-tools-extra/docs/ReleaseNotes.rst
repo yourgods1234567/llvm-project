@@ -292,9 +292,17 @@ Changes in existing checks
   number of false positives in test code.
 
 - Improved :doc:`bugprone-unsafe-functions
-  <clang-tidy/checks/bugprone/unsafe-functions>` check by adding the function
-  ``std::get_temporary_buffer`` to the default list of unsafe functions. (This
-  function is unsafe, useless, deprecated in C++17 and removed in C++20).
+  <clang-tidy/checks/bugprone/unsafe-functions>` check:
+
+  - Added ``std::get_temporary_buffer`` to the default list of unsafe
+    functions. This function is unsafe, useless, deprecated in C++17, and
+    removed in C++20.
+
+  - Added ``ReportDeprecatedFunctions`` to emit diagnostics for deprecated
+    functions from widely used APIs.
+
+  - Updated the suggested replacement for ``bcopy`` from
+    ``memcpy``/``memcpy_s`` to ``memmove``/``memmove_s``.
 
 - Improved :doc:`bugprone-use-after-move
   <clang-tidy/checks/bugprone/use-after-move>` check:
