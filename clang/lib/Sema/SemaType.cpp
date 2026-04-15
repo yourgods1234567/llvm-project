@@ -1338,14 +1338,14 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         declarator.setInvalidType(true);
       }
     }
-    Result = S.Context.getAutoType(QualType(), AutoKW,
-                                   /*IsDependent*/ false, /*IsPack=*/false,
+    Result = S.Context.getAutoType(DeducedKind::Undeduced, QualType(), AutoKW,
                                    TypeConstraintConcept, TemplateArgs);
     break;
   }
 
   case DeclSpec::TST_auto_type:
-    Result = Context.getAutoType(QualType(), AutoTypeKeyword::GNUAutoType, false);
+    Result = Context.getAutoType(DeducedKind::Undeduced, QualType(),
+                                 AutoTypeKeyword::GNUAutoType);
     break;
 
   case DeclSpec::TST_unknown_anytype:
@@ -4401,7 +4401,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
   }
 
   // Determine whether we should infer _Nonnull on pointer types.
-  std::optional<NullabilityKind> inferNullability;
+  NullabilityKindOrNone inferNullability = std::nullopt;
   bool inferNullabilityCS = false;
   bool inferNullabilityInnerOnly = false;
   bool inferNullabilityInnerOnlyComplete = false;
