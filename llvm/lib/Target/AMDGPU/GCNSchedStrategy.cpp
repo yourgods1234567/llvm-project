@@ -3287,24 +3287,18 @@ void GCNPostGenericScheduler::schedNode(SUnit *SU, bool IsTopNode) {
   // non-MFMA VALU immediately after an MFMA is modeled as costing an extra
   // cycle (bumpCycle) so the post-scheduler's pressure/latency accounting
   // matches hardware behavior for that transition.
-  if (SU->isInstr()) {
-    MachineInstr *MI = SU->getInstr();
-    bool IsNonMFMAVALU = SIInstrInfo::isVALU(*MI) && !SIInstrInfo::isMFMA(*MI);
-    if (IsNonMFMAVALU) {
-      if (IsTopNode && LastTopScheduledIsMFMA) {
-        Top.bumpCycle(Top.getCurrCycle() + 1);
-        LastTopScheduledIsMFMA = false;
-      }
-      if (!IsTopNode && LastBottomScheduledIsMFMA) {
-        Bot.bumpCycle(Bot.getCurrCycle() + 1);
-        LastBottomScheduledIsMFMA = false;
-      }
-    } else if (SIInstrInfo::isMFMA(*MI)) {
-      if (IsTopNode)
-        LastTopScheduledIsMFMA = true;
-      if (!IsTopNode)
-        LastBottomScheduledIsMFMA = true;
-    }
+  if (SU->isInstr() && SIInstrInfo::isVALU(*SU->getInstr())) {
+    bool IsMFMA = SIInstrInfo::isMFMA(*SU->getInstr());
+    auto Bump = [IsMFMA](SchedBoundary &Boundary, bool &LastIsMFMA) {
+      if (LastIsMFMA && !IsMFMA)
+        Boundary.bumpCycle(Boundary.getCurrCycle() + 1);
+      LastIsMFMA = IsMFMA;
+    };
+
+    if (IsTopNode)
+      Bump(Top, LastTopScheduledIsMFMA);
+    else
+      Bump(Bot, LastBottomScheduledIsMFMA);
   }
 
   PostGenericScheduler::schedNode(SU, IsTopNode);
