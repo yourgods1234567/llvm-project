@@ -51,6 +51,14 @@ template <typename AllocatorConfig> struct BaseConfig {
   }
 
 #include "allocator_config.def"
+
+  static void getConfigValues(ScopedString *Str) {
+    Str->append("Config Stats Combined: MaySupportMemoryTagging: %s; "
+                "QuarantineDisabled: %s; ExactUsableSize: %s\n",
+                getMaySupportMemoryTagging() ? "true" : "false",
+                getQuarantineDisabled() ? "true" : "false",
+                getExactUsableSize() ? "true" : "false");
+  }
 }; // BaseConfig
 
 template <typename AllocatorConfig> struct PrimaryConfig {
@@ -86,6 +94,16 @@ template <typename AllocatorConfig> struct PrimaryConfig {
   using NAME = typename NAME##Type<typename AllocatorConfig::Primary>::NAME;
 
 #include "allocator_config.def"
+
+  static void getConfigValues(ScopedString *Str) {
+    Str->append("Config Stats Primary: RegionSizeLog: %zu; GroupSizeLog: %zu; "
+                "EnableBlockCache: %s; CompactPtrScale: "
+                "%zu; EnableRandomOffset: %s; EnableContiguousRegions: %s\n",
+                getRegionSizeLog(), getGroupSizeLog(),
+                getEnableBlockCache() ? "true" : "false", getCompactPtrScale(),
+                getEnableRandomOffset() ? "true" : "false",
+                getEnableContiguousRegions() ? "true" : "false");
+  }
 
 }; // PrimaryConfig
 
@@ -129,6 +147,14 @@ template <typename AllocatorConfig> struct SecondaryConfig {
     return NAME##State<typename AllocatorConfig::Secondary>::getValue();       \
   }
 #include "allocator_config.def"
+    static void getConfigValues(ScopedString *Str) {
+      Str->append("Config Stats Secondary: EntriesArraySize: %" PRIu32
+                  "; QuarantineSize: %" PRIu32
+                  "; DefaultMaxEntriesCount: %" PRIu32
+                  "; DefaultMaxEntrySize: %zu\n",
+                  getEntriesArraySize(), getQuarantineSize(),
+                  getDefaultMaxEntriesCount(), getDefaultMaxEntrySize());
+    }
   }; // CacheConfig
 };   // SecondaryConfig
 
