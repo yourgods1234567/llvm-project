@@ -1511,7 +1511,6 @@ define amdgpu_kernel void @ctpop_i16_in_br(ptr addrspace(1) %out, ptr addrspace(
 ; SI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
 ; SI-NEXT:  .LBB14_4:
-; SI-NEXT:    ; implicit-def: $vgpr0
 ; SI-NEXT:    s_branch .LBB14_2
 ;
 ; VI-LABEL: ctpop_i16_in_br:
@@ -1540,7 +1539,6 @@ define amdgpu_kernel void @ctpop_i16_in_br(ptr addrspace(1) %out, ptr addrspace(
 ; VI-NEXT:    buffer_store_short v0, off, s[0:3], 0
 ; VI-NEXT:    s_endpgm
 ; VI-NEXT:  .LBB14_4:
-; VI-NEXT:    ; implicit-def: $vgpr0
 ; VI-NEXT:    s_branch .LBB14_2
 ;
 ; EG-LABEL: ctpop_i16_in_br:

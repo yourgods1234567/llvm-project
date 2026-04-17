@@ -142,7 +142,6 @@ define amdgpu_kernel void @kernel(ptr addrspace(1) %arg1.global, i1 %tmp3.i.i, i
 ; GLOBALNESS1-NEXT:    s_mov_b32 s13, s83
 ; GLOBALNESS1-NEXT:    s_mov_b32 s14, s82
 ; GLOBALNESS1-NEXT:    v_mov_b32_e32 v31, v41
-; GLOBALNESS1-NEXT:    ; implicit-def: $sgpr15
 ; GLOBALNESS1-NEXT:    s_waitcnt lgkmcnt(0)
 ; GLOBALNESS1-NEXT:    s_swappc_b64 s[30:31], s[16:17]
 ; GLOBALNESS1-NEXT:    s_and_b64 vcc, exec, s[70:71]
@@ -267,7 +266,6 @@ define amdgpu_kernel void @kernel(ptr addrspace(1) %arg1.global, i1 %tmp3.i.i, i
 ; GLOBALNESS1-NEXT:    s_mov_b32 s14, s82
 ; GLOBALNESS1-NEXT:    v_mov_b32_e32 v31, v41
 ; GLOBALNESS1-NEXT:    global_store_dwordx2 v[44:45], v[58:59], off
-; GLOBALNESS1-NEXT:    ; implicit-def: $sgpr15
 ; GLOBALNESS1-NEXT:    s_swappc_b64 s[30:31], s[54:55]
 ; GLOBALNESS1-NEXT:    s_and_saveexec_b64 s[4:5], s[96:97]
 ; GLOBALNESS1-NEXT:    s_cbranch_execz .LBB1_14
@@ -321,7 +319,6 @@ define amdgpu_kernel void @kernel(ptr addrspace(1) %arg1.global, i1 %tmp3.i.i, i
 ; GLOBALNESS1-NEXT:    s_mov_b32 s13, s83
 ; GLOBALNESS1-NEXT:    s_mov_b32 s14, s82
 ; GLOBALNESS1-NEXT:    v_mov_b32_e32 v31, v41
-; GLOBALNESS1-NEXT:    ; implicit-def: $sgpr15
 ; GLOBALNESS1-NEXT:    s_swappc_b64 s[30:31], s[16:17]
 ; GLOBALNESS1-NEXT:    s_mov_b64 s[4:5], 0
 ; GLOBALNESS1-NEXT:  .LBB1_31: ; %Flow
@@ -340,7 +337,6 @@ define amdgpu_kernel void @kernel(ptr addrspace(1) %arg1.global, i1 %tmp3.i.i, i
 ; GLOBALNESS1-NEXT:    s_mov_b32 s13, s83
 ; GLOBALNESS1-NEXT:    s_mov_b32 s14, s82
 ; GLOBALNESS1-NEXT:    v_mov_b32_e32 v31, v41
-; GLOBALNESS1-NEXT:    ; implicit-def: $sgpr15
 ; GLOBALNESS1-NEXT:    s_swappc_b64 s[30:31], s[16:17]
 ; GLOBALNESS1-NEXT:  .LBB1_33: ; %UnifiedUnreachableBlock
 ;
@@ -457,7 +453,6 @@ define amdgpu_kernel void @kernel(ptr addrspace(1) %arg1.global, i1 %tmp3.i.i, i
 ; GLOBALNESS0-NEXT:    s_mov_b32 s13, s71
 ; GLOBALNESS0-NEXT:    s_mov_b32 s14, s70
 ; GLOBALNESS0-NEXT:    v_mov_b32_e32 v31, v41
-; GLOBALNESS0-NEXT:    ; implicit-def: $sgpr15
 ; GLOBALNESS0-NEXT:    s_waitcnt lgkmcnt(0)
 ; GLOBALNESS0-NEXT:    s_swappc_b64 s[30:31], s[16:17]
 ; GLOBALNESS0-NEXT:    s_and_b64 vcc, exec, s[84:85]
@@ -583,7 +578,6 @@ define amdgpu_kernel void @kernel(ptr addrspace(1) %arg1.global, i1 %tmp3.i.i, i
 ; GLOBALNESS0-NEXT:    s_mov_b32 s14, s70
 ; GLOBALNESS0-NEXT:    v_mov_b32_e32 v31, v41
 ; GLOBALNESS0-NEXT:    global_store_dwordx2 v[44:45], v[58:59], off
-; GLOBALNESS0-NEXT:    ; implicit-def: $sgpr15
 ; GLOBALNESS0-NEXT:    s_swappc_b64 s[30:31], s[54:55]
 ; GLOBALNESS0-NEXT:    s_and_saveexec_b64 s[4:5], s[96:97]
 ; GLOBALNESS0-NEXT:    s_cbranch_execz .LBB1_14
@@ -635,7 +629,6 @@ define amdgpu_kernel void @kernel(ptr addrspace(1) %arg1.global, i1 %tmp3.i.i, i
 ; GLOBALNESS0-NEXT:    s_mov_b32 s13, s71
 ; GLOBALNESS0-NEXT:    s_mov_b32 s14, s70
 ; GLOBALNESS0-NEXT:    v_mov_b32_e32 v31, v41
-; GLOBALNESS0-NEXT:    ; implicit-def: $sgpr15
 ; GLOBALNESS0-NEXT:    s_swappc_b64 s[30:31], s[16:17]
 ; GLOBALNESS0-NEXT:    s_mov_b64 s[4:5], 0
 ; GLOBALNESS0-NEXT:  .LBB1_31: ; %Flow
@@ -654,7 +647,6 @@ define amdgpu_kernel void @kernel(ptr addrspace(1) %arg1.global, i1 %tmp3.i.i, i
 ; GLOBALNESS0-NEXT:    s_mov_b32 s13, s71
 ; GLOBALNESS0-NEXT:    s_mov_b32 s14, s70
 ; GLOBALNESS0-NEXT:    v_mov_b32_e32 v31, v41
-; GLOBALNESS0-NEXT:    ; implicit-def: $sgpr15
 ; GLOBALNESS0-NEXT:    s_swappc_b64 s[30:31], s[16:17]
 ; GLOBALNESS0-NEXT:  .LBB1_33: ; %UnifiedUnreachableBlock
 bb:

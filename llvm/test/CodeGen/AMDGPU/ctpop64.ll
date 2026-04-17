@@ -358,7 +358,6 @@ define amdgpu_kernel void @ctpop_i64_in_br(ptr addrspace(1) %out, ptr addrspace(
 ; SI-NEXT:    buffer_store_dwordx2 v[0:1], off, s[0:3], 0
 ; SI-NEXT:    s_endpgm
 ; SI-NEXT:  .LBB7_4:
-; SI-NEXT:    ; implicit-def: $sgpr4_sgpr5
 ; SI-NEXT:    s_branch .LBB7_2
 ;
 ; VI-LABEL: ctpop_i64_in_br:
@@ -385,7 +384,6 @@ define amdgpu_kernel void @ctpop_i64_in_br(ptr addrspace(1) %out, ptr addrspace(
 ; VI-NEXT:    buffer_store_dwordx2 v[0:1], off, s[0:3], 0
 ; VI-NEXT:    s_endpgm
 ; VI-NEXT:  .LBB7_4:
-; VI-NEXT:    ; implicit-def: $sgpr4_sgpr5
 ; VI-NEXT:    s_branch .LBB7_2
 entry:
   %tmp0 = icmp eq i32 %cond, 0
