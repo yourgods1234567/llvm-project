@@ -39,6 +39,7 @@ module {
 // CHECK-NEXT:   'func.func' Pipeline
 // CHECK-NEXT:     TestFunctionPass
 // CHECK-NEXT:     CSE
+// CHECK-NEXT:       PostDominanceInfo
 // CHECK-NEXT:       DominanceInfo
 // CHECK-NEXT:     Canonicalizer
 // CHECK-NEXT:   'builtin.module' Pipeline
@@ -74,4 +75,5 @@ module {
 // GENERIC_MERGE_CHECK-NEXT:   Canonicalizer
 // GENERIC_MERGE_CHECK-NEXT: 'func.func' Pipeline
 // GENERIC_MERGE_CHECK-NEXT:   CSE
+// GENERIC_MERGE_CHECK-NEXT:     (A) PostDominanceInfo
 // GENERIC_MERGE_CHECK-NEXT:     (A) DominanceInfo

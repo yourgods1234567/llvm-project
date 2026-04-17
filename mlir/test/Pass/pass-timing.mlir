@@ -28,9 +28,11 @@
 // PIPELINE-NEXT: Parser
 // PIPELINE-NEXT: 'func.func' Pipeline
 // PIPELINE-NEXT:   CSE
+// PIPELINE-NEXT:     (A) PostDominanceInfo
 // PIPELINE-NEXT:     (A) DominanceInfo
 // PIPELINE-NEXT:   Canonicalizer
 // PIPELINE-NEXT:   CSE
+// PIPELINE-NEXT:     (A) PostDominanceInfo
 // PIPELINE-NEXT:     (A) DominanceInfo
 // PIPELINE-NEXT: Output
 // PIPELINE-NEXT: Rest
@@ -43,12 +45,16 @@
 // PIPELINE-JSON-NEXT: {}]},
 // PIPELINE-JSON-NEXT: "name": "'func.func' Pipeline", "passes": [
 // PIPELINE-JSON-NEXT: "name": "CSEPass", "passes": [
+// PIPELINE-JSON-NEXT: "name": "(A) PostDominanceInfo", "passes": [
+// PIPELINE-JSON-NEXT: {}]},
 // PIPELINE-JSON-NEXT: "name": "(A) DominanceInfo", "passes": [
 // PIPELINE-JSON-NEXT: {}]},
 // PIPELINE-JSON-NEXT: {}]},
 // PIPELINE-JSON-NEXT: "name": "CanonicalizerPass", "passes": [
 // PIPELINE-JSON-NEXT: {}]},
 // PIPELINE-JSON-NEXT: "name": "CSEPass", "passes": [
+// PIPELINE-JSON-NEXT: "name": "(A) PostDominanceInfo", "passes": [
+// PIPELINE-JSON-NEXT: {}]},
 // PIPELINE-JSON-NEXT: "name": "(A) DominanceInfo", "passes": [
 // PIPELINE-JSON-NEXT: {}]},
 // PIPELINE-JSON-NEXT: {}]},
@@ -72,9 +78,11 @@
 // MT_PIPELINE-NEXT: Parser
 // MT_PIPELINE-NEXT: 'func.func' Pipeline
 // MT_PIPELINE-NEXT:   CSE
+// MT_PIPELINE-NEXT:     (A) PostDominanceInfo
 // MT_PIPELINE-NEXT:     (A) DominanceInfo
 // MT_PIPELINE-NEXT:   Canonicalizer
 // MT_PIPELINE-NEXT:   CSE
+// MT_PIPELINE-NEXT:     (A) PostDominanceInfo
 // MT_PIPELINE-NEXT:     (A) DominanceInfo
 // MT_PIPELINE-NEXT: Output
 // MT_PIPELINE-NEXT: Rest

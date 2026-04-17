@@ -300,7 +300,8 @@ transform::ApplyCommonSubexpressionEliminationOp::applyToOne(
     return payloadCheck;
 
   DominanceInfo domInfo;
-  mlir::eliminateCommonSubExpressions(rewriter, domInfo, target);
+  PostDominanceInfo postDomInfo;
+  mlir::eliminateCommonSubExpressions(rewriter, domInfo, postDomInfo, target);
   return DiagnosedSilenceableFailure::success();
 }
 
@@ -451,8 +452,9 @@ DiagnosedSilenceableFailure transform::ApplyPatternsOp::applyToOne(
 
     if (getApplyCse()) {
       DominanceInfo domInfo;
-      mlir::eliminateCommonSubExpressions(rewriter, domInfo, target,
-                                          &cseChanged);
+      PostDominanceInfo postDomInfo;
+      mlir::eliminateCommonSubExpressions(rewriter, domInfo, postDomInfo,
+                                          target, &cseChanged);
     }
   } while (cseChanged && ++iteration < kNumMaxIterations);
 
