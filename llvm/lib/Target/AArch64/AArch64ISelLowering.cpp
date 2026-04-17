@@ -1935,8 +1935,7 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::VECREDUCE_UMIN, MVT::v2i64, Custom);
     }
 
-    for (auto VT : {MVT::v8i8, MVT::v16i8, MVT::v4i16, MVT::v8i16, MVT::v2i32,
-                    MVT::v4i32, MVT::v1i64, MVT::v2i64}) {
+    for (auto VT : {MVT::v1i64, MVT::v2i64}) {
       setOperationAction(ISD::CTLZ, VT, Custom);
       setOperationAction(ISD::CTTZ, VT, Custom);
     }
@@ -1988,6 +1987,10 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
         setOperationAction(ISD::VECREDUCE_AND, VT, Custom);
         setOperationAction(ISD::VECREDUCE_OR, VT, Custom);
         setOperationAction(ISD::VECREDUCE_XOR, VT, Custom);
+      }
+      for (auto VT : {MVT::v8i8, MVT::v16i8, MVT::v4i16, MVT::v8i16,
+                      MVT::v2i32, MVT::v4i32}) {
+        setOperationAction(ISD::CTTZ, VT, Custom);
       }
 
       // Use SVE for vectors with more than 2 elements.

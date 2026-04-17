@@ -16,10 +16,7 @@ define <8 x i8> @ctlz_v8i8(<8 x i8> %a) {
 ;
 ; SVE-LABEL: ctlz_v8i8:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    ptrue p0.b, vl8
-; SVE-NEXT:    // kill: def $d0 killed $d0 def $z0
-; SVE-NEXT:    clz z0.b, p0/m, z0.b
-; SVE-NEXT:    // kill: def $d0 killed $d0 killed $z0
+; SVE-NEXT:    clz v0.8b, v0.8b
 ; SVE-NEXT:    ret
   %r = call <8 x i8> @llvm.ctlz.v8i8(<8 x i8> %a, i1 false)
   ret <8 x i8> %r
@@ -33,10 +30,7 @@ define <4 x i16> @ctlz_v4i16(<4 x i16> %a) {
 ;
 ; SVE-LABEL: ctlz_v4i16:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    ptrue p0.h, vl4
-; SVE-NEXT:    // kill: def $d0 killed $d0 def $z0
-; SVE-NEXT:    clz z0.h, p0/m, z0.h
-; SVE-NEXT:    // kill: def $d0 killed $d0 killed $z0
+; SVE-NEXT:    clz v0.4h, v0.4h
 ; SVE-NEXT:    ret
   %r = call <4 x i16> @llvm.ctlz.v4i16(<4 x i16> %a, i1 false)
   ret <4 x i16> %r
@@ -50,10 +44,7 @@ define <2 x i32> @ctlz_v2i32(<2 x i32> %a) {
 ;
 ; SVE-LABEL: ctlz_v2i32:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    ptrue p0.s, vl2
-; SVE-NEXT:    // kill: def $d0 killed $d0 def $z0
-; SVE-NEXT:    clz z0.s, p0/m, z0.s
-; SVE-NEXT:    // kill: def $d0 killed $d0 killed $z0
+; SVE-NEXT:    clz v0.2s, v0.2s
 ; SVE-NEXT:    ret
   %r = call <2 x i32> @llvm.ctlz.v2i32(<2 x i32> %a, i1 false)
   ret <2 x i32> %r
@@ -102,10 +93,7 @@ define <16 x i8> @ctlz_v16i8(<16 x i8> %a) {
 ;
 ; SVE-LABEL: ctlz_v16i8:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    ptrue p0.b, vl16
-; SVE-NEXT:    // kill: def $q0 killed $q0 def $z0
-; SVE-NEXT:    clz z0.b, p0/m, z0.b
-; SVE-NEXT:    // kill: def $q0 killed $q0 killed $z0
+; SVE-NEXT:    clz v0.16b, v0.16b
 ; SVE-NEXT:    ret
   %r = call <16 x i8> @llvm.ctlz.v16i8(<16 x i8> %a, i1 false)
   ret <16 x i8> %r
@@ -119,10 +107,7 @@ define <8 x i16> @ctlz_v8i16(<8 x i16> %a) {
 ;
 ; SVE-LABEL: ctlz_v8i16:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    ptrue p0.h, vl8
-; SVE-NEXT:    // kill: def $q0 killed $q0 def $z0
-; SVE-NEXT:    clz z0.h, p0/m, z0.h
-; SVE-NEXT:    // kill: def $q0 killed $q0 killed $z0
+; SVE-NEXT:    clz v0.8h, v0.8h
 ; SVE-NEXT:    ret
   %r = call <8 x i16> @llvm.ctlz.v8i16(<8 x i16> %a, i1 false)
   ret <8 x i16> %r
@@ -136,10 +121,7 @@ define <4 x i32> @ctlz_v4i32(<4 x i32> %a) {
 ;
 ; SVE-LABEL: ctlz_v4i32:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    ptrue p0.s, vl4
-; SVE-NEXT:    // kill: def $q0 killed $q0 def $z0
-; SVE-NEXT:    clz z0.s, p0/m, z0.s
-; SVE-NEXT:    // kill: def $q0 killed $q0 killed $z0
+; SVE-NEXT:    clz v0.4s, v0.4s
 ; SVE-NEXT:    ret
   %r = call <4 x i32> @llvm.ctlz.v4i32(<4 x i32> %a, i1 false)
   ret <4 x i32> %r
@@ -195,10 +177,10 @@ define <8 x i8> @cttz_v8i8(<8 x i8> %a) {
 ;
 ; SVE-LABEL: cttz_v8i8:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    rbit v0.8b, v0.8b
-; SVE-NEXT:    ptrue p0.b, vl8
-; SVE-NEXT:    clz z0.b, p0/m, z0.b
-; SVE-NEXT:    // kill: def $d0 killed $d0 killed $z0
+; SVE-NEXT:    movi v1.8b, #1
+; SVE-NEXT:    sub v1.8b, v0.8b, v1.8b
+; SVE-NEXT:    bic v0.8b, v1.8b, v0.8b
+; SVE-NEXT:    cnt v0.8b, v0.8b
 ; SVE-NEXT:    ret
   %r = call <8 x i8> @llvm.cttz.v8i8(<8 x i8> %a, i1 false)
   ret <8 x i8> %r
@@ -217,11 +199,12 @@ define <4 x i16> @cttz_v4i16(<4 x i16> %a) {
 ;
 ; SVE-LABEL: cttz_v4i16:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    rev16 v0.8b, v0.8b
-; SVE-NEXT:    ptrue p0.h, vl4
-; SVE-NEXT:    rbit v0.8b, v0.8b
-; SVE-NEXT:    clz z0.h, p0/m, z0.h
-; SVE-NEXT:    // kill: def $d0 killed $d0 killed $z0
+; SVE-NEXT:    movi v1.4h, #1
+; SVE-NEXT:    sub v1.4h, v0.4h, v1.4h
+; SVE-NEXT:    bic v0.8b, v1.8b, v0.8b
+; SVE-NEXT:    movi v1.4h, #16
+; SVE-NEXT:    clz v0.4h, v0.4h
+; SVE-NEXT:    sub v0.4h, v1.4h, v0.4h
 ; SVE-NEXT:    ret
   %r = call <4 x i16> @llvm.cttz.v4i16(<4 x i16> %a, i1 false)
   ret <4 x i16> %r
@@ -240,11 +223,12 @@ define <2 x i32> @cttz_v2i32(<2 x i32> %a) {
 ;
 ; SVE-LABEL: cttz_v2i32:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    rev32 v0.8b, v0.8b
-; SVE-NEXT:    ptrue p0.s, vl2
-; SVE-NEXT:    rbit v0.8b, v0.8b
-; SVE-NEXT:    clz z0.s, p0/m, z0.s
-; SVE-NEXT:    // kill: def $d0 killed $d0 killed $z0
+; SVE-NEXT:    movi v1.2s, #1
+; SVE-NEXT:    sub v1.2s, v0.2s, v1.2s
+; SVE-NEXT:    bic v0.8b, v1.8b, v0.8b
+; SVE-NEXT:    movi v1.2s, #32
+; SVE-NEXT:    clz v0.2s, v0.2s
+; SVE-NEXT:    sub v0.2s, v1.2s, v0.2s
 ; SVE-NEXT:    ret
   %r = call <2 x i32> @llvm.cttz.v2i32(<2 x i32> %a, i1 false)
   ret <2 x i32> %r
@@ -288,10 +272,11 @@ define <16 x i8> @cttz_v16i8(<16 x i8> %a) {
 ;
 ; SVE-LABEL: cttz_v16i8:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    rbit v0.16b, v0.16b
-; SVE-NEXT:    ptrue p0.b, vl16
-; SVE-NEXT:    clz z0.b, p0/m, z0.b
-; SVE-NEXT:    // kill: def $q0 killed $q0 killed $z0
+; SVE-NEXT:    // kill: def $q0 killed $q0 def $z0
+; SVE-NEXT:    movprfx z1, z0
+; SVE-NEXT:    sub z1.b, z1.b, #1 // =0x1
+; SVE-NEXT:    bic v0.16b, v1.16b, v0.16b
+; SVE-NEXT:    cnt v0.16b, v0.16b
 ; SVE-NEXT:    ret
   %r = call <16 x i8> @llvm.cttz.v16i8(<16 x i8> %a, i1 false)
   ret <16 x i8> %r
@@ -310,11 +295,13 @@ define <8 x i16> @cttz_v8i16(<8 x i16> %a) {
 ;
 ; SVE-LABEL: cttz_v8i16:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    rev16 v0.16b, v0.16b
-; SVE-NEXT:    ptrue p0.h, vl8
-; SVE-NEXT:    rbit v0.16b, v0.16b
-; SVE-NEXT:    clz z0.h, p0/m, z0.h
-; SVE-NEXT:    // kill: def $q0 killed $q0 killed $z0
+; SVE-NEXT:    // kill: def $q0 killed $q0 def $z0
+; SVE-NEXT:    movprfx z2, z0
+; SVE-NEXT:    sub z2.h, z2.h, #1 // =0x1
+; SVE-NEXT:    movi v1.8h, #16
+; SVE-NEXT:    bic v0.16b, v2.16b, v0.16b
+; SVE-NEXT:    clz v0.8h, v0.8h
+; SVE-NEXT:    sub v0.8h, v1.8h, v0.8h
 ; SVE-NEXT:    ret
   %r = call <8 x i16> @llvm.cttz.v8i16(<8 x i16> %a, i1 false)
   ret <8 x i16> %r
@@ -333,11 +320,13 @@ define <4 x i32> @cttz_v4i32(<4 x i32> %a) {
 ;
 ; SVE-LABEL: cttz_v4i32:
 ; SVE:       // %bb.0:
-; SVE-NEXT:    rev32 v0.16b, v0.16b
-; SVE-NEXT:    ptrue p0.s, vl4
-; SVE-NEXT:    rbit v0.16b, v0.16b
-; SVE-NEXT:    clz z0.s, p0/m, z0.s
-; SVE-NEXT:    // kill: def $q0 killed $q0 killed $z0
+; SVE-NEXT:    // kill: def $q0 killed $q0 def $z0
+; SVE-NEXT:    movprfx z2, z0
+; SVE-NEXT:    sub z2.s, z2.s, #1 // =0x1
+; SVE-NEXT:    movi v1.4s, #32
+; SVE-NEXT:    bic v0.16b, v2.16b, v0.16b
+; SVE-NEXT:    clz v0.4s, v0.4s
+; SVE-NEXT:    sub v0.4s, v1.4s, v0.4s
 ; SVE-NEXT:    ret
   %r = call <4 x i32> @llvm.cttz.v4i32(<4 x i32> %a, i1 false)
   ret <4 x i32> %r
