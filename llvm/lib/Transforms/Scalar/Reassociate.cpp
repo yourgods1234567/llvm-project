@@ -979,27 +979,42 @@ static bool ShouldBreakUpDistribution(Instruction *Mul) {
   if (isa<FPMathOperator>(Mul))
     return false;
 
-  if (!isReassociableOp(AddSubVal, Instruction::Add, Instruction::FAdd) &&
-      !isReassociableOp(AddSubVal, Instruction::Sub, Instruction::FSub))
+  BinaryOperator *AddSubInst =
+      isReassociableOp(AddSubVal, Instruction::Add, Instruction::FAdd);
+  if (!AddSubInst)
+    AddSubInst =
+        isReassociableOp(AddSubVal, Instruction::Sub, Instruction::FSub);
+  if (!AddSubInst)
     return false;
 
-  Instruction *AddSubInst = cast<Instruction>(AddSubVal);
+  // Collect non-constant operands of the add/sub (at most 2).
+  SmallPtrSet<Value *, 2> AddOps;
+  for (Value *Op : AddSubInst->operands())
+    if (!isa<Constant>(Op))
+      AddOps.insert(Op);
+  if (AddOps.empty())
+    return false;
 
-  for (Value *Operand : AddSubInst->operands()) {
-    if (isa<Constant>(Operand))
+  for (User *MulUser : Mul->users()) {
+    auto *Parent = dyn_cast<Instruction>(MulUser);
+    if (!Parent)
       continue;
-    for (User *U : Operand->users()) {
-      Instruction *I = dyn_cast<Instruction>(U);
-      if (!I || I == AddSubInst)
+    for (Value *Sibling : Parent->operands()) {
+      if (Sibling == Mul)
         continue;
-      if ((I->getOpcode() == Instruction::Mul) && !(I->use_empty()) &&
-          (isa<Constant>(I->getOperand(0)) || isa<Constant>(I->getOperand(1)))){ 
-        int SibConstSide = isa<Constant>(I->getOperand(0)) ? 0 : 1;
-        if (I->getOperand(SibConstSide) == Mul->getOperand(ConstSide))
-            continue;
-        return true; 
-      }
-   }
+      auto *SibMul = dyn_cast<BinaryOperator>(Sibling);
+      if (!SibMul || SibMul->getOpcode() != Instruction::Mul ||
+          SibMul->use_empty())
+        continue;
+      // Sibling must be NonConst * C'.
+      int SibCS    = isa<Constant>(SibMul->getOperand(0)) ? 0 : 1;
+      Value *SibC  = SibMul->getOperand(SibCS);
+      Value *SibNC = SibMul->getOperand(1 - SibCS);
+      if (!isa<Constant>(SibC))
+        continue;
+      if (AddOps.count(SibNC))
+        return true;
+    }
   }
   return false;
 }
