@@ -918,6 +918,9 @@ void LaunchOp::print(OpAsmPrinter &p) {
     p << ')';
   }
 
+  if (getCooperative())
+    p << " cooperative";
+
   printAttributions(p, getWorkgroupKeyword(), getWorkgroupAttributions());
   printAttributions(p, getPrivateKeyword(), getPrivateAttributions());
 
@@ -927,7 +930,8 @@ void LaunchOp::print(OpAsmPrinter &p) {
   p.printOptionalAttrDict((*this)->getAttrs(), /*elidedAttrs=*/{
                               LaunchOp::getOperandSegmentSizeAttr(),
                               getNumWorkgroupAttributionsAttrName(),
-                              moduleAttrName, functionAttrName});
+                              getCooperativeAttrName(), moduleAttrName,
+                              functionAttrName});
 }
 
 // Parse the size assignment blocks for blocks and threads.  These have the form
@@ -1068,6 +1072,10 @@ ParseResult LaunchOp::parse(OpAsmParser &parser, OperationState &result) {
         parser.parseRParen())
       return failure();
   }
+
+  // Parse optional cooperative keyword.
+  if (succeeded(parser.parseOptionalKeyword("cooperative")))
+    result.addAttribute("cooperative", parser.getBuilder().getUnitAttr());
 
   // Create the region arguments, it has kNumConfigRegionAttributes arguments
   // that correspond to block/thread identifiers and grid/block sizes, all
