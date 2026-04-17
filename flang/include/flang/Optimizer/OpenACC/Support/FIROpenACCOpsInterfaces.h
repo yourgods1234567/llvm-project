@@ -19,6 +19,7 @@
 
 namespace fir {
 class AddrOfOp;
+class BoxAddrOp;
 class DeclareOp;
 class GlobalOp;
 } // namespace fir

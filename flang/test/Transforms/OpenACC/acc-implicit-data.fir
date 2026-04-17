@@ -394,3 +394,37 @@ func.func private @_FortranAAllocatableSetBounds(!fir.ref<!fir.box<none>>, i32, 
 // CHECK-NOT: acc.copyin
 // CHECK: acc.deviceptr
 // CHECK-NOT: acc.copyout
+
+// -----
+
+// Test that acc.serial inside acc.data deviceptr generates implicit deviceptr
+// (not copyin) when the deviceptr var is an embox of the ref used by serial.
+// This pattern arises when a subroutine with !$acc data deviceptr(b) wrapping
+// !$acc serial is inlined and the deviceptr var is an embox of the ref used
+// by the serial construct.
+func.func @test_serial_inside_data_deviceptr_embox() {
+  %c10 = arith.constant 10 : index
+  %c1 = arith.constant 1 : index
+  %arr = fir.alloca !fir.array<10xf32> {bindc_name = "b"}
+  %shape = fir.shape %c10 : (index) -> !fir.shape<1>
+  %arr_decl = fir.declare %arr(%shape) {uniq_name = "b"} : (!fir.ref<!fir.array<10xf32>>, !fir.shape<1>) -> !fir.ref<!fir.array<10xf32>>
+  %box = fir.embox %arr_decl(%shape) : (!fir.ref<!fir.array<10xf32>>, !fir.shape<1>) -> !fir.box<!fir.array<10xf32>>
+  %devptr = acc.deviceptr var(%box : !fir.box<!fir.array<10xf32>>) -> !fir.box<!fir.array<10xf32>> {name = "b(1:10)"}
+  acc.data dataOperands(%devptr : !fir.box<!fir.array<10xf32>>) {
+    acc.serial {
+      %elem = fir.array_coor %arr_decl(%shape) %c1 : (!fir.ref<!fir.array<10xf32>>, !fir.shape<1>, index) -> !fir.ref<f32>
+      %val = fir.load %elem : !fir.ref<f32>
+      acc.yield
+    }
+    acc.terminator
+  }
+  return
+}
+
+// CHECK-LABEL: func.func @test_serial_inside_data_deviceptr_embox
+// CHECK: acc.deviceptr var({{.*}} : !fir.box<!fir.array<10xf32>>) -> !fir.box<!fir.array<10xf32>> {name = "b(1:10)"}
+// CHECK: acc.data
+// CHECK: acc.deviceptr varPtr({{.*}} : !fir.ref<!fir.array<10xf32>>) -> !fir.ref<!fir.array<10xf32>> {implicit = true, name = "b"}
+// CHECK: acc.serial dataOperands({{.*}} : !fir.ref<!fir.array<10xf32>>)
+// CHECK-NOT: acc.copyin
+// CHECK-NOT: acc.copyout

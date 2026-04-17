@@ -311,9 +311,22 @@ Operation *ACCImplicitData::getOriginalDataClauseOpForAlias(
     if (auto *dataClauseOp = dataClause.getDefiningOp()) {
       // Only accept clauses that guarantee that the alias is present.
       if (isa<acc::CopyinOp, acc::CreateOp, acc::PresentOp, acc::NoCreateOp,
-              acc::DevicePtrOp>(dataClauseOp))
-        if (aliasAnalysis.alias(acc::getVar(dataClauseOp), var).isMust())
+              acc::DevicePtrOp>(dataClauseOp)) {
+        Value clauseVar = acc::getVar(dataClauseOp);
+        if (aliasAnalysis.alias(clauseVar, var).isMust())
           return dataClauseOp;
+        // For deviceptr clauses, also check if the clause variable is
+        // directly derived from 'var' (e.g., deviceptr operates on
+        // embox(var) — the box wrapping var). This arises when a
+        // subroutine with deviceptr is inlined and the deviceptr's box
+        // and the compute region's ref are different SSA values.
+        if (isa<acc::DevicePtrOp>(dataClauseOp)) {
+          for (Operation *user : var.getUsers()) {
+            if (llvm::is_contained(user->getResults(), clauseVar))
+              return dataClauseOp;
+          }
+        }
+      }
     }
   }
   return nullptr;
