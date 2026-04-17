@@ -18,7 +18,7 @@ define void @cmp_shiftx(i32 %x, i32 %y) {
 ; CHECK-T1-NEXT:    .save {r7, lr}
 ; CHECK-T1-NEXT:    push {r7, lr}
 ; CHECK-T1-NEXT:    lsls r0, r0, #1
-; CHECK-T1-NEXT:    cmp r1, r0
+; CHECK-T1-NEXT:    cmp r0, r1
 ; CHECK-T1-NEXT:    bne .LBB0_2
 ; CHECK-T1-NEXT:  @ %bb.1: @ %if.then
 ; CHECK-T1-NEXT:    bl otherfn
@@ -90,8 +90,7 @@ if.end:                                           ; preds = %entry
 define void @cmn_shiftx(i32 %x, i32 %y) {
 ; CHECK-ARM-LABEL: cmn_shiftx:
 ; CHECK-ARM:       @ %bb.0: @ %entry
-; CHECK-ARM-NEXT:    rsb r1, r1, #0
-; CHECK-ARM-NEXT:    cmp r1, r0, lsl #1
+; CHECK-ARM-NEXT:    cmn r1, r0, lsl #1
 ; CHECK-ARM-NEXT:    bxne lr
 ; CHECK-ARM-NEXT:  .LBB2_1: @ %if.then
 ; CHECK-ARM-NEXT:    b otherfn
@@ -112,8 +111,7 @@ define void @cmn_shiftx(i32 %x, i32 %y) {
 ;
 ; CHECK-T2-LABEL: cmn_shiftx:
 ; CHECK-T2:       @ %bb.0: @ %entry
-; CHECK-T2-NEXT:    rsbs r1, r1, #0
-; CHECK-T2-NEXT:    cmp.w r1, r0, lsl #1
+; CHECK-T2-NEXT:    cmn.w r1, r0, lsl #1
 ; CHECK-T2-NEXT:    it ne
 ; CHECK-T2-NEXT:    bxne lr
 ; CHECK-T2-NEXT:    b otherfn
