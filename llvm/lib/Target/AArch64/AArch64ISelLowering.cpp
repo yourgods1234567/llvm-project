@@ -1988,8 +1988,8 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
         setOperationAction(ISD::VECREDUCE_OR, VT, Custom);
         setOperationAction(ISD::VECREDUCE_XOR, VT, Custom);
       }
-      for (auto VT : {MVT::v8i8, MVT::v16i8, MVT::v4i16, MVT::v8i16,
-                      MVT::v2i32, MVT::v4i32}) {
+      for (auto VT : {MVT::v8i8, MVT::v16i8, MVT::v4i16, MVT::v8i16, MVT::v2i32,
+                      MVT::v4i32}) {
         setOperationAction(ISD::CTTZ, VT, Custom);
       }
 
@@ -11706,11 +11706,10 @@ SDValue AArch64TargetLowering::LowerCTPOP_PARITY(SDValue Op,
 
 SDValue AArch64TargetLowering::LowerCTTZ(SDValue Op, SelectionDAG &DAG) const {
   EVT VT = Op.getValueType();
-  assert(VT.isScalableVector() || VT == MVT::v8i8 || VT == MVT::v16i8 ||
-         VT == MVT::v8i16 || VT == MVT::v4i16 || VT == MVT::v2i32 ||
-         VT == MVT::v4i32 ||
+  assert(VT.isScalableVector() ||
          useSVEForFixedLengthVectorVT(
-             VT, /*OverrideNEON=*/Subtarget->isSVEorStreamingSVEAvailable()));
+             VT, /*OverrideNEON=*/Subtarget->isSVEorStreamingSVEAvailable()) ||
+         VT.getScalarSizeInBits() < 64);
 
   SDLoc DL(Op);
   SDValue RBIT = DAG.getNode(ISD::BITREVERSE, DL, VT, Op.getOperand(0));
