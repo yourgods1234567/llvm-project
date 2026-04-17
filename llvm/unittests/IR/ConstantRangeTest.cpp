@@ -2506,6 +2506,34 @@ TEST_F(ConstantRangeTest, UnsignedMulOverflowExhaustive) {
       });
 }
 
+// Regression test: very wide integer types triggered an O(n^2) APInt
+// multiplication inside unsignedMulMayOverflow via APInt::umul_ov, causing
+// multi-second hangs in InstCombine (discovered via llvm-opt-fuzzer with
+// i5754496). The fix uses umul_has_overflow with O(1)/O(n) fast paths.
+TEST_F(ConstantRangeTest, UnsignedMulOverflowWideTypeBailout) {
+  // Verify correctness and fast-path for wide integer types (2048-bit).
+  // Previously, unsignedMulMayOverflow called umul_ov which is O(n^2) and
+  // caused multi-second hangs on wide types. Now umul_has_overflow is used
+  // with O(1) fast paths via leading-zero counts.
+  const unsigned W = 2048;
+  ConstantRange WFull = ConstantRange::getFull(W);
+  ConstantRange WOne(APInt(W, 1));
+  ConstantRange WMax(APInt::getMaxValue(W));
+  ConstantRange WEmpty = ConstantRange::getEmpty(W);
+
+  // [0, MAX] x [0, MAX]: 0*0 ok, MAX*MAX overflows -> MayOverflow.
+  EXPECT_MAY_OVERFLOW(WFull.unsignedMulMayOverflow(WFull));
+  // 1 * MAX = MAX, fits in W bits -> NeverOverflows (precise result).
+  EXPECT_NEVER_OVERFLOWS(WOne.unsignedMulMayOverflow(WMax));
+  EXPECT_NEVER_OVERFLOWS(WMax.unsignedMulMayOverflow(WOne));
+  // MAX * MAX always overflows; fast path via countl_zero ->
+  // AlwaysOverflowsHigh.
+  EXPECT_ALWAYS_OVERFLOWS_HIGH(WMax.unsignedMulMayOverflow(WMax));
+  // Empty-set cases return MayOverflow by convention.
+  EXPECT_MAY_OVERFLOW(WEmpty.unsignedMulMayOverflow(WFull));
+  EXPECT_MAY_OVERFLOW(WFull.unsignedMulMayOverflow(WEmpty));
+}
+
 TEST_F(ConstantRangeTest, SignedAddOverflowExhaustive) {
   TestOverflowExhaustive(
       [](bool &IsOverflowHigh, const APInt &N1, const APInt &N2) {

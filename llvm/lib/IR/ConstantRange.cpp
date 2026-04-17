@@ -2263,14 +2263,11 @@ ConstantRange::OverflowResult ConstantRange::unsignedMulMayOverflow(
 
   APInt Min = getUnsignedMin(), Max = getUnsignedMax();
   APInt OtherMin = Other.getUnsignedMin(), OtherMax = Other.getUnsignedMax();
-  bool Overflow;
 
-  (void) Min.umul_ov(OtherMin, Overflow);
-  if (Overflow)
+  if (Min.umul_has_overflow(OtherMin))
     return OverflowResult::AlwaysOverflowsHigh;
 
-  (void) Max.umul_ov(OtherMax, Overflow);
-  if (Overflow)
+  if (Max.umul_has_overflow(OtherMax))
     return OverflowResult::MayOverflow;
 
   return OverflowResult::NeverOverflows;

@@ -3419,6 +3419,76 @@ TEST(APIntTest, umul_ov) {
       }
 }
 
+TEST(APIntTest, umul_has_overflow) {
+  // umul_has_overflow must agree with umul_ov for all values up to 5 bits.
+  // Also verify that umul_ov returns the correct modular product value,
+  // exercising the fast paths added to umul_ov (LZ >= BitWidth, LZ <
+  // BitWidth-1, and the isOne() borderline guard).
+  for (unsigned Bits = 1; Bits <= 5; ++Bits) {
+    for (unsigned A = 0; A != 1u << Bits; ++A) {
+      for (unsigned B = 0; B != 1u << Bits; ++B) {
+        APInt N1(Bits, A), N2(Bits, B);
+        bool OvFromOv;
+        APInt Product = N1.umul_ov(N2, OvFromOv);
+        EXPECT_EQ(OvFromOv, N1.umul_has_overflow(N2))
+            << "Overflow flag mismatch at " << Bits << "-bit " << A << " * "
+            << B;
+        EXPECT_EQ(Product, N1 * N2)
+            << "Product mismatch at " << Bits << "-bit " << A << " * " << B;
+      }
+    }
+  }
+
+  // Spot-check 64-bit known-overflow and known-non-overflow cases.
+  const std::pair<uint64_t, uint64_t> Overflows64[] = {
+      {0x8000000000000000ULL, 2},
+      {0x5555555555555556ULL, 3},
+      {4294967296ULL, 4294967296ULL},
+  };
+  const std::pair<uint64_t, uint64_t> NonOverflows64[] = {
+      {0x7fffffffffffffffULL, 2},
+      {0x5555555555555555ULL, 3},
+      {4294967295ULL, 4294967297ULL},
+  };
+  for (auto &[X, Y] : Overflows64) {
+    EXPECT_TRUE(APInt(64, X).umul_has_overflow(APInt(64, Y)));
+  }
+  for (auto &[X, Y] : NonOverflows64) {
+    EXPECT_FALSE(APInt(64, X).umul_has_overflow(APInt(64, Y)));
+  }
+
+  // Edge cases: zero and one never overflow.
+  EXPECT_FALSE(APInt(64, 0).umul_has_overflow(APInt(64, UINT64_MAX)));
+  EXPECT_FALSE(APInt(64, UINT64_MAX).umul_has_overflow(APInt(64, 0)));
+  EXPECT_FALSE(APInt(64, 1).umul_has_overflow(APInt(64, UINT64_MAX)));
+  EXPECT_FALSE(APInt(64, UINT64_MAX).umul_has_overflow(APInt(64, 1)));
+
+  // Wide-integer performance: 2048-bit values should complete instantly.
+  // (Without the O(n) fast paths these would take seconds for ~1M-bit types.)
+  const unsigned W = 2048;
+  APInt WMax = APInt::getMaxValue(W);
+  APInt WOne(W, 1);
+  APInt WTwo(W, 2);
+  APInt WHalf = APInt::getSignedMaxValue(W); // top bit clear, rest 1s
+  EXPECT_TRUE(WMax.umul_has_overflow(WTwo)); // 0xFF..F * 2 overflows
+  EXPECT_TRUE(WTwo.umul_has_overflow(WMax)); // symmetric
+  EXPECT_FALSE(APInt(W, 0).umul_has_overflow(WMax));
+  EXPECT_FALSE(WOne.umul_has_overflow(WMax));
+  EXPECT_FALSE(
+      WHalf.umul_has_overflow(WTwo)); // (2^W/2 - 1) * 2 < 2^W, no overflow
+
+  // Verify umul_ov's isOne borderline guard for wide types: 1 * MAX is a
+  // borderline case (LZ == W-1) that hits the isOne() fast path. Check both
+  // the overflow flag and the returned product value.
+  bool OvWide;
+  APInt ProdWide = WOne.umul_ov(WMax, OvWide);
+  EXPECT_FALSE(OvWide);
+  EXPECT_EQ(ProdWide, WMax);
+  ProdWide = WMax.umul_ov(WOne, OvWide); // symmetric
+  EXPECT_FALSE(OvWide);
+  EXPECT_EQ(ProdWide, WMax);
+}
+
 TEST(APIntTest, smul_ov) {
   for (unsigned Bits = 1; Bits <= 5; ++Bits)
     for (unsigned A = 0; A != 1u << Bits; ++A)

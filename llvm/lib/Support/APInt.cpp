@@ -2009,11 +2009,40 @@ APInt APInt::smul_ov(const APInt &RHS, bool &Overflow) const {
 }
 
 APInt APInt::umul_ov(const APInt &RHS, bool &Overflow) const {
-  if (countl_zero() + RHS.countl_zero() + 2 <= BitWidth) {
+  if (BitWidth == 0) {
+    Overflow = false;
+    return APInt(BitWidth, 0);
+  }
+  unsigned LZ = countl_zero() + RHS.countl_zero();
+
+  // No-overflow: product fits in BitWidth bits (bitlen(a)+bitlen(b) <=
+  // BitWidth).
+  if (LZ >= BitWidth) {
+    Overflow = false;
+    return *this * RHS;
+  }
+
+  // Guaranteed overflow: product needs more than BitWidth bits.
+  if (LZ < BitWidth - 1) {
     Overflow = true;
     return *this * RHS;
   }
 
+  // Borderline (LZ == BitWidth-1): skip the slow path for trivial multipliers.
+  // *this==1: 1*x=x always fits, and avoids a wasteful lshr(1)==0 multiply.
+  // RHS==1:   x*1=x always fits.
+  if (isOne()) {
+    Overflow = false;
+    return RHS;
+  }
+  if (RHS.isOne()) {
+    Overflow = false;
+    return *this;
+  }
+
+  // Shift trick: a*b = 2*(a>>1)*b + (a&1)*b.
+  // 1. If (a>>1)*b has MSB set, the `<< 1` overflows.
+  // 2. Add (a&1)*b and check for unsigned wrap-around.
   APInt Res = lshr(1) * RHS;
   Overflow = Res.isNegative();
   Res <<= 1;
@@ -2022,7 +2051,41 @@ APInt APInt::umul_ov(const APInt &RHS, bool &Overflow) const {
     if (Res.ult(RHS))
       Overflow = true;
   }
+
   return Res;
+}
+
+bool APInt::umul_has_overflow(const APInt &RHS) const {
+  // Use leading zeros to bound the product's bit length.
+  // This implicitly handles isZero() cases (where LZ >= BitWidth).
+  unsigned LZ = countl_zero() + RHS.countl_zero();
+
+  // Fast path: Guaranteed to fit.
+  if (LZ >= BitWidth)
+    return false;
+
+  // Fast path: Guaranteed to overflow.
+  if (LZ < BitWidth - 1)
+    return true;
+
+  // Borderline (LZ == BitWidth-1): avoid O(n^2) slow path for trivial
+  // multipliers.
+  if (isOne() || RHS.isOne())
+    return false;
+
+  // Slow path: O(n^2) shift trick.
+  // Note: checking only Res.isNegative() is insufficient when *this is odd;
+  // the (a&1)*RHS term must be accounted for via the ult wrap-around check.
+  APInt Res = lshr(1) * RHS;
+  if (Res.isNegative())
+    return true;
+  Res <<= 1;
+  if ((*this)[0]) {
+    Res += RHS;
+    return Res.ult(RHS);
+  }
+
+  return false;
 }
 
 APInt APInt::sshl_ov(const APInt &ShAmt, bool &Overflow) const {
