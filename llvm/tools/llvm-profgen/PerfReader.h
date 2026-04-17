@@ -634,9 +634,13 @@ public:
 
   void setIsPreAggregated(bool V) { IsPreAggregated = V; }
 
+  // Check whether a given line is LBR sample
+  bool isLBRSample(StringRef Line, bool CheckLineStart);
+
 protected:
   // Check whether a given line is LBR sample
-  static bool isLBRSample(StringRef Line, bool CheckLineStart);
+  static bool isLBRSample(StringRef Line, bool CheckLineStart,
+                          bool IsPreAggregated);
   // Check whether a given line is MMAP event
   static bool isMMapEvent(StringRef Line);
   // Update base address based on mmap events
@@ -679,7 +683,7 @@ protected:
   std::set<uint64_t> InvalidReturnAddresses;
   // PID for the process of interest
   std::optional<int32_t> PIDFilter;
-  // Whether the input is pre-aggregated
+  // Whether the input is pre-aggregated with [buildid:]addr format.
   bool IsPreAggregated = false;
 };
 
