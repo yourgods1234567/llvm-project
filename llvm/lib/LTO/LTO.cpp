@@ -1488,8 +1488,8 @@ SmallVector<const char *> LTO::getRuntimeLibcallSymbols(const Triple &TT) {
 }
 
 Error ThinBackendProc::emitFiles(
-    const FunctionImporter::ImportMapTy &ImportList, unsigned Task, llvm::StringRef ModulePath,
-    const std::string &NewModulePath) const {
+    const FunctionImporter::ImportMapTy &ImportList, unsigned Task,
+    llvm::StringRef ModulePath, const std::string &NewModulePath) const {
   return emitFiles(ImportList, Task, ModulePath, NewModulePath,
                    NewModulePath + ".thinlto.bc",
                    /*ImportsFiles=*/std::nullopt, nullptr, nullptr, nullptr,
@@ -1497,14 +1497,14 @@ Error ThinBackendProc::emitFiles(
 }
 
 Error ThinBackendProc::emitFiles(
-    const FunctionImporter::ImportMapTy &ImportList, unsigned Task, llvm::StringRef ModulePath,
-    const std::string &NewModulePath, StringRef SummaryPath,
+    const FunctionImporter::ImportMapTy &ImportList, unsigned Task,
+    llvm::StringRef ModulePath, const std::string &NewModulePath,
+    StringRef SummaryPath,
     std::optional<std::reference_wrapper<ImportsFilesContainer>> ImportsFiles,
     const FunctionImporter::ExportSetTy *ExportList,
     const std::map<GlobalValue::GUID, GlobalValue::LinkageTypes> *ResolvedODR,
     const DenseSet<GlobalValue::GUID> *CfiFunctionDefs,
-    const DenseSet<GlobalValue::GUID> *CfiFunctionDecls)
-    const {
+    const DenseSet<GlobalValue::GUID> *CfiFunctionDecls) const {
   ModuleToSummariesForIndexTy ModuleToSummariesForIndex;
   GVSummaryPtrSet DeclarationSummaries;
 
@@ -1975,9 +1975,9 @@ public:
           std::string NewModulePath =
               getThinLTOOutputFile(ModulePath, OldPrefix, NewPrefix);
           auto E = emitFiles(ImportList, Task, ModulePath, NewModulePath,
-                            NewModulePath + ".thinlto.bc",
-                            /*ImportsFiles=*/std::nullopt, &ExportList,
-                            &ResolvedODR, &CfiFunctionDefs, &CfiFunctionDecls);
+                             NewModulePath + ".thinlto.bc",
+                             /*ImportsFiles=*/std::nullopt, &ExportList,
+                             &ResolvedODR, &CfiFunctionDefs, &CfiFunctionDecls);
           if (E) {
             std::unique_lock<std::mutex> L(ErrMu);
             if (Err)
