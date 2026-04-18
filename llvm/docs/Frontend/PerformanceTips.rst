@@ -157,8 +157,8 @@ As a result, alignment is mandatory for atomic loads and stores.
 Other Things to Consider
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-#. Avoid emitting extremely wide integer types unless necessary.
-   The optimizer is not designed for types exceeding a few thousand bits, 
+#. Avoid emitting extremely wide integer types.
+   The optimizer is not designed for types exceeding a few thousand bits,
    and the super-linear complexity of several passes will cause extreme compile-time delays.
 
 #. Use ptrtoint/inttoptr sparingly (they interfere with pointer aliasing
