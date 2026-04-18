@@ -70,7 +70,7 @@ GetTypeSystemFromCU(std::shared_ptr<StackFrame> ctx) {
 }
 
 CompilerType ResolveTypeByName(const std::string &name,
-                               ExecutionContextScope &ctx_scope) {
+                               std::shared_ptr<StackFrame> stack_frame) {
   // Internally types don't have global scope qualifier in their names and
   // LLDB doesn't support queries with it too.
   llvm::StringRef name_ref(name);
@@ -79,7 +79,7 @@ CompilerType ResolveTypeByName(const std::string &name,
     name_ref = name_ref.drop_front(2);
 
   std::vector<CompilerType> result_type_list;
-  lldb::TargetSP target_sp = ctx_scope.CalculateTarget();
+  lldb::TargetSP target_sp = stack_frame->CalculateTarget();
   if (!name_ref.empty() && target_sp) {
     ModuleList &images = target_sp->GetImages();
     TypeQuery query{ConstString(name_ref), TypeQueryOptions::e_exact_match |
@@ -469,7 +469,7 @@ std::optional<CompilerType> DILParser::ParseTypeId() {
 
     if (type_name.empty())
       return {};
-    type = ResolveTypeByName(type_name, *m_ctx_scope);
+    type = ResolveTypeByName(type_name, m_ctx_scope);
     if (!type.IsValid())
       return {};
 
