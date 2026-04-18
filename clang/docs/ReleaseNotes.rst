@@ -405,6 +405,8 @@ Improvements to Clang's diagnostics
 
 - Removed the body of lambdas from some diagnostic messages.
 
+- Clang now doesn't throw assertion errors when comparing unsigned vectors (#GH173614).
+
 Improvements to Clang's time-trace
 ----------------------------------
 
