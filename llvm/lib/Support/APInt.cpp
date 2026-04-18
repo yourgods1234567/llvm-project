@@ -2023,19 +2023,15 @@ APInt APInt::umul_ov(const APInt &RHS, bool &Overflow) const {
     Overflow = false;
     return *this * RHS;
   }
-
   // Guaranteed overflow: product needs more than BitWidth bits.
   if (LZ < BitWidth - 1) {
     Overflow = true;
     return *this * RHS;
   }
 
-  // Borderline (LZ == BitWidth-1): skip the slow path for trivial multipliers.
-  // *this==1: 1*x=x always fits, and avoids a wasteful lshr(1)==0 multiply.
-  // RHS==1:   x*1=x always fits.
   if (isOne() || RHS.isOne()) {
     Overflow = false;
-    return RHS;
+    return isOne() ? RHS : *this;
   }
 
   // Shift trick: a*b = 2*(a>>1)*b + (a&1)*b.
@@ -2061,7 +2057,6 @@ bool APInt::umul_has_overflow(const APInt &RHS) const {
   // Fast path: Guaranteed to fit.
   if (LZ >= BitWidth)
     return false;
-
   // Fast path: Guaranteed to overflow.
   if (LZ < BitWidth - 1)
     return true;
