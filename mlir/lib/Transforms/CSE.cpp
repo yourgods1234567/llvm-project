@@ -429,6 +429,9 @@ struct CSE : public impl::CSEPassBase<CSE> {
 } // namespace
 
 void CSE::runOnOperation() {
+  // The CSE implementation does not rely on PostDominanceInfo. However,
+  // since we mark it as preserved at the end, if a cached PostDominanceInfo
+  // exists, we need to update it within CSE.
   PostDominanceInfo *postDomInfo = nullptr;
   if (auto dominate = getCachedAnalysis<PostDominanceInfo>())
     postDomInfo = &dominate.value().get();
