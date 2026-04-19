@@ -1390,7 +1390,7 @@ static bool checkTupleLikeDecomposition(Sema &S,
     //   as "lvalue reference to Ti" if the initializer is an lvalue,
     //   or as "rvalue reference to Ti" otherwise
     // "defined as Ti if the initializer is a prvalue" was introduced by CWG3135
-    QualType U = E.get()->isPRValue() && S.getLangOpts().CPlusPlus26
+    QualType U = E.get()->isPRValue()
                      ? T
                      : S.BuildReferenceType(T, E.get()->isLValue(), Loc,
                                             B->getDeclName());
@@ -1411,9 +1411,8 @@ static bool checkTupleLikeDecomposition(Sema &S,
 
     InitializedEntity Entity = InitializedEntity::InitializeBinding(RefVD);
     InitializationKind Kind =
-        E.get()->isPRValue() && S.getLangOpts().CPlusPlus26
-            ? InitializationKind::CreateDirect(Loc, Loc, Loc)
-            : InitializationKind::CreateCopy(Loc, Loc);
+        E.get()->isPRValue() ? InitializationKind::CreateDirect(Loc, Loc, Loc)
+                             : InitializationKind::CreateCopy(Loc, Loc);
     InitializationSequence Seq(S, Entity, Kind, Init);
     E = Seq.Perform(S, Entity, Kind, Init);
     if (E.isInvalid())

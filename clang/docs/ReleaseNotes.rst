@@ -49,9 +49,6 @@ C++ Specific Potentially Breaking Changes
 - Clang now correctly rejects ``export`` declarations in module implementation
   partitions. (#GH107602)
 
-- Clang now uses non-reference types for structured bindings whose initializer
-  returns a prvalue.
-
 ABI Changes in This Version
 ---------------------------
 
@@ -157,6 +154,9 @@ C++17 Feature Support
 
 Resolutions to C++ Defect Reports
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- Clang now uses non-reference types for structured bindings whose initializer
+  returns a prvalue. This resolves CWG3135.
 
 C Language Changes
 ------------------
