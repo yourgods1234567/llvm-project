@@ -5477,7 +5477,7 @@ with ``__PRETTY_FUNCTION__`` rather than ``__FUNCTION__``.
 Data embedding builtin ``__builtin_std_embed``
 ----------------------------------------------
 
-For use with `p1040 <https://wg21.link/p1040>`'s ``std::embed`` directive. It
+For use with `p1040 <https://wg21.link/p1040>`'s ``std::embed`` function. It
 is conceptually (but not exactly) represented by the following overloads:
 
 .. code-block:: c++
@@ -5500,9 +5500,9 @@ The first argument is an output parameter status object. It will be
 filled with:
 
 - ``0`` is the file is not found,
-- ``1`` if the file is found but not suitably ``#depend``ed on,
+- ``1`` if the file is found, properly ``#depend``ed on, and not empty.
 - ``2`` if the file is found, properly ``#depend``ed on, but it was empty,
-- or, ``3`` if the file is found, properly ``#depend``ed on, and not empty.
+- or, ``3`` if the file is found but not suitably ``#depend``ed on,
 
 The second argument is an output parameter for the number of elements pointed
 to by the return type. If ``limit`` is provided, this value will be less than
@@ -5512,7 +5512,7 @@ The third argument is a type hint for the type to return. It must be a pointer
 to a ``const`` type, and ``Byte`` must an integral or enumeration type with an
 alignment and size of ``1`` (e.g. ``char``, ``unsigned char``, ``std::byte``,
 etc.). A future extension can possibly allow for additional types, possibly
-all types which are considered "trivial" types.
+all types which are considered "trivial" types (but without pointers inside).
 
 The fourth and fifth arguments describe a plain, wide, or ``char8_t`` range as
 as string. ``Char`` can be one of ``char``, ``wchar_t``, or ``char8_t`` to

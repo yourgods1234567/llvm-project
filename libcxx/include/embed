@@ -70,6 +70,13 @@ consteval span<const T, Limit> embed(u8string_view resource_idenfier,
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 namespace __embed_detail {
+enum __builtin_embed_status {
+  __file_not_found        = 0,
+  __file_found            = 1,
+  __file_found_no_depends = 2,
+  __file_found_empty      = 3,
+};
+
 template <typename _Byte, size_t _Extent, typename _StrView>
 consteval _LIBCPP_HIDE_FROM_ABI span<const _Byte, _Extent>
 __embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]] const optional<size_t>& __limit) {
@@ -90,9 +97,9 @@ __embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]]
           __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset);
     }
   }
-  if (__status == 0) {
+  if (__status == __file_not_found) {
     _LIBCPP_VERBOSE_ABORT("file not found");
-  } else if (__status == 1) {
+  } else if (__status == __file_found_no_depends) {
     _LIBCPP_VERBOSE_ABORT("file found but not appropriately '#depend <>'-ed");
   }
   if constexpr (_Extent != std::dynamic_extent) {
@@ -101,11 +108,11 @@ __embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]]
     }
     __size = _Extent;
   }
-  if (__status == 2) {
+  if (__status == __file_found_empty) {
     return span<const _Byte, _Extent>();
   }
-  _LIBCPP_ASSERT(__status == __STDC_EMBED_FOUND__,
-                 "status value should be `3`, indicating a "
+  _LIBCPP_ASSERT(__status == __file_found,
+                 "status value should be `1`, indicating a "
                  "successful finding of a file with data that has been '#depend <>`-ed on");
   return span<const _Byte, _Extent>(__ptr, __size);
 }

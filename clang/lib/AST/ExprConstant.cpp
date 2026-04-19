@@ -10704,7 +10704,8 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
   case Builtin::BI__builtin_std_embed: {
     constexpr uint64_t FileNotFound = 0;
     constexpr uint64_t FileFound = 1;
-    constexpr uint64_t FileFoundAndEmpty = 2;
+    constexpr uint64_t FileFoundButNotDependedOn = 2;
+    constexpr uint64_t FileFoundAndEmpty = 3;
 
     const Expr *StatusOutArg = E->getArg(0);
     const Expr *SizeOutArg = E->getArg(1);
@@ -10904,7 +10905,7 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       // finding the file. Consider possibly returnig a different value in the
       // future.
       Result.setNull(Info.Ctx, PtrOutTy);
-      return WriteOutStatus(FileNotFound);
+      return WriteOutStatus(FileFoundButNotDependedOn);
     }
     size_t FullDataSize = ResourceFile->getSize();
     if (FullDataSize == 0 || DataOffset > FullDataSize) {
