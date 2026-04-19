@@ -5527,7 +5527,7 @@ subject to change, for example if the ``-fexec-charset=Encoding-Name`` or
 ``-fwide-exec-charset=Encoding-Name`` options are implemented. It is also
 subject to change based on other factors, such as whether it is advantageous
 to produce a hard error on failed conversion or try the search anyway using
-canonical replacement characters (such as ``'\u{FFFD}''`` or ``'?'```).
+canonical replacement characters (such as ``'\u{FFFD}'`` or ``'?'``).
 
 The sixth argument is the offset in bytes into the file. It can be set to
 ``0`` to have no effect. This represents the number of ``Byte`` objects
