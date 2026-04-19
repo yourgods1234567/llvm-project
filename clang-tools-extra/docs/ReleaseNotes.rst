@@ -211,6 +211,12 @@ New check aliases
   <clang-tidy/checks/bugprone/unused-return-value>`.
   The `hicpp-ignored-remove-result` name is kept as an alias.
 
+- Renamed :doc:`hicpp-multiway-paths-covered
+  <clang-tidy/checks/hicpp/multiway-paths-covered>`
+  to :doc:`bugprone-unhandled-code-paths
+  <clang-tidy/checks/bugprone/unhandled-code-paths>`.
+  The `hicpp-multiway-paths-covered` name is kept as an alias.
+
 - Renamed :doc:`hicpp-no-assembler <clang-tidy/checks/hicpp/no-assembler>`
   to :doc:`portability-no-assembler
   <clang-tidy/checks/portability/no-assembler>`. The `hicpp-no-assembler`
