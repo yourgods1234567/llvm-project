@@ -8680,3 +8680,138 @@ bool CombinerHelper::matchCtls(MachineInstr &CtlzMI,
 
   return true;
 }
+
+static bool matchAnySExt(MachineRegisterInfo &MRI, Register Reg,
+                         Register &ExtSrc) {
+  if (mi_match(Reg, MRI, m_GSExt(m_Reg(ExtSrc))))
+    return true;
+
+  MachineInstr *ExtInst = MRI.getVRegDef(Reg);
+  if (ExtInst && ExtInst->getOpcode() == TargetOpcode::G_SEXT_INREG) {
+    ExtSrc = ExtInst->getOperand(1).getReg();
+    return true;
+  }
+  return false;
+}
+
+// Fold shr ( add ( ext X, ext Y ), 1 ) -> avgfloor ( x, y )
+bool CombinerHelper::matchAVGFloor(MachineInstr &MI, Register X, Register Y,
+                                   Register ShiftAmtReg, bool IsSigned,
+                                   MachineRegisterInfo &MRI,
+                                   BuildFnTy &MatchInfo) const {
+  assert((MI.getOpcode() == TargetOpcode::G_LSHR ||
+          MI.getOpcode() == TargetOpcode::G_ASHR) &&
+         "Expected G_LSHR/G_ASHR");
+
+  if (!isOneOrOneSplat(ShiftAmtReg, false))
+    return false;
+
+  LLT XTy = MRI.getType(X);
+  LLT YTy = MRI.getType(Y);
+
+  if (XTy != YTy)
+    return false;
+
+  Register Dst = MI.getOperand(0).getReg();
+  LLT DstTy = MRI.getType(Dst);
+
+  if (!DstTy.isVector() || DstTy.getSizeInBits() > 128)
+    return false;
+
+  bool NeedExt = DstTy.getSizeInBits() > XTy.getSizeInBits();
+
+  MatchInfo = [=](MachineIRBuilder &B) {
+    CombinerHelper::applyAVG(B, Dst, X, Y, XTy, DstTy, IsSigned, NeedExt,
+                             false);
+  };
+
+  return true;
+}
+
+// Fold shr ( add ( ext X, ext Y, 1 ), 1 ) -> avgceil ( x, y )
+bool CombinerHelper::matchAVGCeil(MachineInstr &MI, Register Ext1,
+                                  Register Ext2, Register ShiftAmtReg,
+                                  Register OneAmtReg, bool IsSigned,
+                                  MachineRegisterInfo &MRI,
+                                  BuildFnTy &MatchInfo) const {
+  assert((MI.getOpcode() == TargetOpcode::G_LSHR ||
+          MI.getOpcode() == TargetOpcode::G_ASHR) &&
+         "Expected G_LSHR/G_ASHR");
+
+  if (!isOneOrOneSplat(ShiftAmtReg, false) ||
+      !isOneOrOneSplat(OneAmtReg, false))
+    return false;
+
+  Register X, Y;
+  if (IsSigned) {
+    if (!matchAnySExt(MRI, Ext1, X) || !matchAnySExt(MRI, Ext2, Y)) {
+      return false;
+    }
+  } else {
+    if (!mi_match(Ext1, MRI, m_GZExt(m_Reg(X))) ||
+        !mi_match(Ext2, MRI, m_GZExt(m_Reg(Y))))
+      return false;
+  }
+
+  LLT XTy = MRI.getType(X);
+  LLT YTy = MRI.getType(Y);
+
+  if (XTy != YTy)
+    return false;
+
+  Register Dst = MI.getOperand(0).getReg();
+  LLT DstTy = MRI.getType(Dst);
+
+  if (!DstTy.isVector() || DstTy.getSizeInBits() > 128)
+    return false;
+
+  bool NeedExt = DstTy.getSizeInBits() > XTy.getSizeInBits();
+
+  MatchInfo = [=](MachineIRBuilder &B) {
+    CombinerHelper::applyAVG(B, Dst, X, Y, XTy, DstTy, IsSigned, NeedExt, true);
+  };
+
+  return true;
+}
+
+void CombinerHelper::applyAVG(MachineIRBuilder &B, Register Dst, Register X,
+                              Register Y, LLT XTy, LLT DstTy, bool IsSigned,
+                              bool NeedExt, bool IsCeil) const {
+  unsigned TargetOpc;
+  if (IsCeil)
+    TargetOpc = IsSigned ? TargetOpcode::G_SAVGCEIL : TargetOpcode::G_UAVGCEIL;
+  else
+    TargetOpc =
+        IsSigned ? TargetOpcode::G_SAVGFLOOR : TargetOpcode::G_UAVGFLOOR;
+
+  if (!NeedExt) {
+    B.buildInstr(TargetOpc, {Dst}, {X, Y});
+    return;
+  }
+
+  if (DstTy.isVector() && XTy.getSizeInBits() < 64) {
+    Register ExtX = B.buildAnyExt(DstTy, X).getReg(0);
+    Register ExtY = B.buildAnyExt(DstTy, Y).getReg(0);
+    unsigned NarrowSize = XTy.getScalarSizeInBits();
+
+    Register PromotedX, PromotedY;
+    if (IsSigned) {
+      PromotedX = B.buildSExtInReg(DstTy, ExtX, NarrowSize).getReg(0);
+      PromotedY = B.buildSExtInReg(DstTy, ExtY, NarrowSize).getReg(0);
+    } else {
+      auto Mask = B.buildConstant(
+          DstTy, APInt::getLowBitsSet(DstTy.getScalarSizeInBits(), NarrowSize));
+      PromotedX = B.buildAnd(DstTy, ExtX, Mask).getReg(0);
+      PromotedY = B.buildAnd(DstTy, ExtY, Mask).getReg(0);
+    }
+
+    B.buildInstr(TargetOpc, {Dst}, {PromotedX, PromotedY});
+    return;
+  }
+
+  auto Avg = B.buildInstr(TargetOpc, {XTy}, {X, Y});
+  if (IsSigned)
+    B.buildSExt(Dst, Avg);
+  else
+    B.buildZExt(Dst, Avg);
+}

@@ -1054,6 +1054,20 @@ public:
   // (ctlz (or (shl (xor x, (sra x, bitwidth-1)), 1), 1) -> (ctls x)
   bool matchCtls(MachineInstr &CtlzMI, BuildFnTy &MatchInfo) const;
 
+  // shr ( add ( ext X, ext Y ), 1 ) -> avgfloor ( x, y )
+  bool matchAVGFloor(MachineInstr &MI, Register X, Register Y,
+                     Register ShiftAmtReg, bool IsSigned,
+                     MachineRegisterInfo &MRI, BuildFnTy &MatchInfo) const;
+
+  // shr ( add ( ext X, ext Y, 1 ), 1 ) -> avgceil ( x, y )
+  bool matchAVGCeil(MachineInstr &MI, Register Ext1, Register Ext2,
+                    Register ShiftAmtReg, Register OneAmtReg, bool IsSigned,
+                    MachineRegisterInfo &MRI, BuildFnTy &MatchInfo) const;
+
+  void applyAVG(MachineIRBuilder &B, Register Dst, Register X, Register Y,
+                LLT XTy, LLT DstTy, bool IsSigned, bool NeedExt,
+                bool IsCeil) const;
+
 private:
   /// Checks for legality of an indexed variant of \p LdSt.
   bool isIndexedLoadStoreLegal(GLoadStore &LdSt) const;
