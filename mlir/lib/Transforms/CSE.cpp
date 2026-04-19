@@ -401,7 +401,8 @@ void CSEDriver::simplify(Operation *op, bool *changed) {
   for (auto *op : opsToErase) {
     for (Region &region : op->getRegions()) {
       domInfo->invalidate(&region);
-      postDomInfo->invalidate(&region);
+      if (postDomInfo != nullptr)
+        postDomInfo->invalidate(&region);
     }
     rewriter.eraseOp(op);
   }
@@ -428,10 +429,13 @@ struct CSE : public impl::CSEPassBase<CSE> {
 } // namespace
 
 void CSE::runOnOperation() {
+  PostDominanceInfo *postDomInfo = nullptr;
+  if (auto dominate = getCachedAnalysis<PostDominanceInfo>())
+    postDomInfo = &dominate.value().get();
+
   // Simplify the IR.
   IRRewriter rewriter(&getContext());
-  CSEDriver driver(rewriter, &getAnalysis<DominanceInfo>(),
-                   &getAnalysis<PostDominanceInfo>());
+  CSEDriver driver(rewriter, &getAnalysis<DominanceInfo>(), postDomInfo);
   bool changed = false;
   driver.simplify(getOperation(), &changed);
 
