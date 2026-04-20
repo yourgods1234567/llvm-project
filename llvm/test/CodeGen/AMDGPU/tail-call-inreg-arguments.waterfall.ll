@@ -189,7 +189,6 @@ define amdgpu_kernel void @v_multiple_frame_indexes_literal_offsets() #0 {
 ; CHECK-NEXT:    s_mov_b32 s13, s50
 ; CHECK-NEXT:    s_mov_b32 s14, s33
 ; CHECK-NEXT:    s_mov_b32 s0, s16
-; CHECK-NEXT:    ; implicit-def: $sgpr15
 ; CHECK-NEXT:    s_waitcnt lgkmcnt(0)
 ; CHECK-NEXT:    s_swappc_b64 s[30:31], s[18:19]
 ; CHECK-NEXT:    ; implicit-def: $vgpr3
@@ -259,7 +258,6 @@ define amdgpu_kernel void @call_user_i32_inreg_i32_i32_inreg(i32 %a, i32 %a1, i3
 ; CHECK-NEXT:    v_mov_b32_e32 v0, s70
 ; CHECK-NEXT:    s_mov_b32 s1, s16
 ; CHECK-NEXT:    s_mov_b32 s0, s17
-; CHECK-NEXT:    ; implicit-def: $sgpr15
 ; CHECK-NEXT:    s_waitcnt lgkmcnt(0)
 ; CHECK-NEXT:    s_swappc_b64 s[30:31], s[18:19]
 ; CHECK-NEXT:    ; implicit-def: $vgpr4
@@ -330,7 +328,6 @@ define amdgpu_kernel void @call_user_ft_inreg_ft_ft_inreg(i32 %a, float %a1, flo
 ; CHECK-NEXT:    v_mov_b32_e32 v0, s70
 ; CHECK-NEXT:    s_mov_b32 s1, s16
 ; CHECK-NEXT:    s_mov_b32 s0, s17
-; CHECK-NEXT:    ; implicit-def: $sgpr15
 ; CHECK-NEXT:    s_waitcnt lgkmcnt(0)
 ; CHECK-NEXT:    s_swappc_b64 s[30:31], s[18:19]
 ; CHECK-NEXT:    ; implicit-def: $vgpr4
@@ -419,7 +416,6 @@ define amdgpu_kernel void @call_user_2xft_inreg_ft_2xft_inreg(i32 %a, <2 x float
 ; CHECK-NEXT:    s_mov_b32 s2, s17
 ; CHECK-NEXT:    s_mov_b32 s1, s18
 ; CHECK-NEXT:    s_mov_b32 s0, s19
-; CHECK-NEXT:    ; implicit-def: $sgpr15
 ; CHECK-NEXT:    s_waitcnt lgkmcnt(0)
 ; CHECK-NEXT:    s_swappc_b64 s[30:31], s[20:21]
 ; CHECK-NEXT:    ; implicit-def: $vgpr6
