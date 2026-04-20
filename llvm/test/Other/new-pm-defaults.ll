@@ -234,7 +234,6 @@
 ; CHECK-O-NEXT: Running pass: CoroCleanupPass
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
-; CHECK-O-NEXT: Running pass: LowerCommentStringPass
 ; CHECK-DEFAULT-NEXT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-LTO-NOT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O-NEXT: Running pass: ReversePostOrderFunctionAttrsPass
@@ -293,6 +292,7 @@
 ; CHECK-DEFAULT-NEXT: Running pass: CGProfilePass
 ; CHECK-DEFAULT-NEXT: Running pass: RelLookupTableConverterPass
 ; CHECK-LTO-NOT: Running pass: RelLookupTableConverterPass
+; CHECK-O-NEXT: Running pass: LowerCommentStringPass
 ; CHECK-O-NEXT: Running pass: AnnotationRemarksPass on foo
 ; CHECK-LTO-NEXT: Running pass: CanonicalizeAliasesPass
 ; CHECK-LTO-NEXT: Running pass: NameAnonGlobalPass

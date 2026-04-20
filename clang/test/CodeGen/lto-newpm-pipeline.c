@@ -27,7 +27,6 @@
 
 // CHECK-FULL-O0: Running pass: VerifierPass
 // CHECK-FULL-O0-NEXT: Running analysis: VerifierAnalysis
-// CHECK-FULL-O0-NEXT: Running pass: LowerCommentStringPass
 // CHECK-FULL-O0-NEXT: Running analysis: InnerAnalysisManagerProxy
 // CHECK-FULL-O0-NEXT: Running pass: EntryExitInstrumenterPass
 // CHECK-FULL-O0-NEXT: Running pass: AlwaysInlinerPass
@@ -37,12 +36,12 @@
 // CHECK-FULL-O0-NEXT: Running pass: NameAnonGlobalPass
 // CHECK-FULL-O0-NEXT: Running pass: AnnotationRemarksPass
 // CHECK-FULL-O0-NEXT: Running analysis: TargetLibraryAnalysis
+// CHECK-FULL-O0-NEXT: Running pass: LowerCommentStringPass
 // CHECK-FULL-O0-NEXT: Running pass: VerifierPass
 // CHECK-FULL-O0-NEXT: Running pass: BitcodeWriterPass
 
 // CHECK-THIN-O0: Running pass: VerifierPass
 // CHECK-THIN-O0-NEXT: Running analysis: VerifierAnalysis
-// CHECK-THIN-O0-NEXT: Running pass: LowerCommentStringPass
 // CHECK-THIN-O0-NEXT: Running analysis: InnerAnalysisManagerProxy
 // CHECK-THIN-O0-NEXT: Running pass: EntryExitInstrumenterPass
 // CHECK-THIN-O0-NEXT: Running pass: AlwaysInlinerPass
@@ -52,6 +51,7 @@
 // CHECK-THIN-O0-NEXT: Running pass: NameAnonGlobalPass
 // CHECK-THIN-O0-NEXT: Running pass: AnnotationRemarksPass
 // CHECK-THIN-O0-NEXT: Running analysis: TargetLibraryAnalysis
+// CHECK-THIN-O0-NEXT: Running pass: LowerCommentStringPass
 // CHECK-THIN-O0-NEXT: Running pass: VerifierPass
 // CHECK-THIN-O0-NEXT: Running pass: ThinLTOBitcodeWriterPass
 
