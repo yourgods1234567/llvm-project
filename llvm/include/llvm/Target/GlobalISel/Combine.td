@@ -1390,6 +1390,23 @@ def constant_fold_cast_op : GICombineRule<
    [{ return Helper.matchConstantFoldCastOp(*${d}, ${matchinfo}); }]),
   (apply [{ Helper.replaceInstWithConstant(*${d}, ${matchinfo}); }])>;
 
+def constant_fold_bitcast_of_const : GICombineRule<
+  (defs root:$d, build_fn_matchinfo:$matchinfo),
+  (match (G_CONSTANT $src, $imm),
+         (G_BITCAST $d, $src):$mi,
+   [{ return Helper.matchConstantFoldBitcast(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyBuildFn(*${mi}, ${matchinfo}); }])>;
+
+def constant_fold_bitcast_of_fconst : GICombineRule<
+  (defs root:$d, build_fn_matchinfo:$matchinfo),
+  (match (G_FCONSTANT $src, $imm),
+         (G_BITCAST $d, $src):$mi,
+   [{ return Helper.matchConstantFoldBitcast(*${mi}, ${matchinfo}); }]),
+  (apply [{ Helper.applyBuildFn(*${mi}, ${matchinfo}); }])>;
+
+def constant_fold_bitcast : GICombineGroup<[constant_fold_bitcast_of_const,
+                                            constant_fold_bitcast_of_fconst]>;
+
 def mulo_by_2: GICombineRule<
   (defs root:$root, build_fn_matchinfo:$matchinfo),
   (match (wip_match_opcode G_UMULO, G_SMULO):$root,
@@ -2366,7 +2383,7 @@ def all_combines : GICombineGroup<[integer_reassoc_combines, trivial_combines,
     shift_immed_chain, shift_of_shifted_logic_chain, load_or_combine,
     div_rem_to_divrem, funnel_shift_combines, bitreverse_shift, commute_shift,
     form_bitfield_extract, constant_fold_binops, constant_fold_fma,
-    constant_fold_cast_op, fabs_fneg_fold,
+    constant_fold_cast_op, constant_fold_bitcast, fabs_fneg_fold,
     mulh_combines, redundant_neg_operands,
     and_or_disjoint_mask, fma_combines, fold_binop_into_select,
     intrem_combines, intdiv_combines, fdiv_repeated_divison,
