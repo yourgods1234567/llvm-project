@@ -63,6 +63,11 @@ ABI Changes in This Version
   incompatibilities with code compiled by earlier versions of Clang that uses
   the ``__regcall`` calling convention on these targets. (#GH62999) (#GH98635)
 
+- Records carrying the trivial_abi attribute are now returned directly in registers
+  in more cases when using the Microsoft ABI. It is not possible to pass trivial_abi
+  records between MSVC and Clang, so there is no ABI compatibility requirement. This
+  is an ABI break with old versions of Clang. (#GH87993)
+
 AST Dumping Potentially Breaking Changes
 ----------------------------------------
 
