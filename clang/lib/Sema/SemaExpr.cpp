@@ -10329,7 +10329,7 @@ AssignConvertType Sema::CheckSingleAssignmentConstraints(QualType LHSType,
     }
 
     if (ConvertRHS)
-      RHS = ImpCastExprToType(E, Ty, Kind);
+      RHS = ImpCastExprToType(E, Ty, Kind, E->getValueKind());
   }
 
   return result;
@@ -15474,6 +15474,17 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     InitializedEntity Entity =
         InitializedEntity::InitializeTemporary(LHSExpr->getType());
     InitializationSequence InitSeq(*this, Entity, Kind, RHSExpr);
+
+    // If this is HLSL and LHS is a record we transform the init list.
+    if (getLangOpts().HLSL && LHSExpr->getType()->isRecordType()) {
+      InitListExpr *ILE = cast<InitListExpr>(RHSExpr);
+      if (!HLSL().transformInitList(Entity, ILE))
+        InitSeq.SetFailed(
+            InitializationSequence::FK_HLSLInitListFlatteningFailed);
+      else
+        RHSExpr = ILE;
+    }
+
     ExprResult Init = InitSeq.Perform(*this, Entity, Kind, RHSExpr);
     if (Init.isInvalid())
       return Init;

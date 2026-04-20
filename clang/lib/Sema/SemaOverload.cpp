@@ -15824,13 +15824,14 @@ ExprResult Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
       // For class as left operand for assignment or compound assignment
       // operator do not fall through to handling in built-in, but report that
       // no overloaded assignment operator found
+      // Unless this is HLSL then do fall through to handling in built-in.
       ExprResult Result = ExprError();
       StringRef OpcStr = BinaryOperator::getOpcodeStr(Opc);
       auto Cands = CandidateSet.CompleteCandidates(*this, OCD_AllCandidates,
                                                    Args, OpLoc);
       DeferDiagsRAII DDR(*this,
                          CandidateSet.shouldDeferDiags(*this, Args, OpLoc));
-      if (Args[0]->getType()->isRecordType() &&
+      if (Args[0]->getType()->isRecordType() && !getLangOpts().HLSL &&
           Opc >= BO_Assign && Opc <= BO_OrAssign) {
         Diag(OpLoc,  diag::err_ovl_no_viable_oper)
              << BinaryOperator::getOpcodeStr(Opc)
@@ -15851,6 +15852,10 @@ ExprResult Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
         // No viable function; try to create a built-in operation, which will
         // produce an error. Then, show the non-viable candidates.
         Result = CreateBuiltinBinOp(OpLoc, Opc, Args[0], Args[1]);
+
+        // If this was HLSL it might not have produced an error which is ok.
+        if (getLangOpts().HLSL && !Result.isInvalid())
+          return Result;
       }
       assert(Result.isInvalid() &&
              "C++ binary operator overloading is missing candidates!");

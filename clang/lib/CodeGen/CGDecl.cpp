@@ -1527,7 +1527,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     if (D.getInit() && (Ty->isArrayType() || Ty->isRecordType()) &&
         (D.isConstexpr() ||
          ((Ty.isPODType(getContext()) ||
-           getContext().getBaseElementType(Ty)->isObjCObjectPointerType()) &&
+           getContext().getBaseElementType(Ty)->isObjCObjectPointerType() ||
+           // If HLSL, then check if it is a constant initializer because
+           // PODness will no longer be true for any user defined structs.
+           getLangOpts().HLSL) &&
           D.getInit()->isConstantInitializer(getContext())))) {
 
       // If the variable's a const type, and it's neither an NRVO

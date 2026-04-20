@@ -521,6 +521,8 @@ static bool tryDiagnoseOverloadedCast(Sema &S, CastType CT,
     break;
   case InitializationSequence::FK_ConstructorOverloadFailed:
   case InitializationSequence::FK_UserConversionOverloadFailed:
+    // HLSL list initialization must have failed as a constructor replacement.
+  case InitializationSequence::FK_HLSLInitListFlatteningFailed:
     break;
   }
 
@@ -532,7 +534,9 @@ static bool tryDiagnoseOverloadedCast(Sema &S, CastType CT,
   switch (sequence.getFailedOverloadResult()) {
   case OR_Success: llvm_unreachable("successful failed overload");
   case OR_No_Viable_Function:
-    if (candidates.empty())
+    // HLSL doesn't currently support conversion operators, so
+    // produce the other diagnostic.
+    if (candidates.empty() && !S.getLangOpts().HLSL)
       msg = diag::err_ovl_no_conversion_in_cast;
     else
       msg = diag::err_ovl_no_viable_conversion_in_cast;

@@ -14782,6 +14782,14 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl) {
       = InitializationKind::CreateDefault(Var->getLocation());
 
     InitializationSequence InitSeq(*this, Entity, Kind, {});
+
+    // In HLSL don't default initialize user defined structs.
+    // Must have failed because there was no valid defined default constructor
+    if (InitSeq.Failed() && getLangOpts().HLSL &&
+        InitSeq.getFailureKind() ==
+            InitializationSequence::FK_ConstructorOverloadFailed)
+      return;
+
     ExprResult Init = InitSeq.Perform(*this, Entity, Kind, {});
 
     if (Init.get()) {
