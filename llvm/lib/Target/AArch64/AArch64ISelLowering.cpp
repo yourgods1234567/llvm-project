@@ -25790,13 +25790,17 @@ static SDValue vectorToScalarBitmask(SDNode *N, SelectionDAG &DAG) {
     SDValue RepresentativeBits =
         DAG.getNode(ISD::AND, DL, VecVT, ComparisonResult, Mask);
 
-    SDValue UpperRepresentativeBits =
-        DAG.getNode(AArch64ISD::EXT, DL, VecVT, RepresentativeBits,
-                    RepresentativeBits, DAG.getConstant(8, DL, MVT::i32));
-    SDValue Zipped = DAG.getNode(AArch64ISD::ZIP1, DL, VecVT,
-                                 RepresentativeBits, UpperRepresentativeBits);
-    Zipped = DAG.getNode(ISD::BITCAST, DL, MVT::v8i16, Zipped);
-    return DAG.getNode(ISD::VECREDUCE_ADD, DL, MVT::i16, Zipped);
+    // After the AND with powers-of-two, each byte lane has at most one bit
+    // set within its 8-byte group, so pairwise addition equals OR and cannot
+    // carry. Three levels of ADDP losslessly pack the 16 per-lane bits into
+    // the low i16 of the result vector.
+    SDValue V = RepresentativeBits;
+    V = DAG.getNode(AArch64ISD::ADDP, DL, VecVT, V, V);
+    V = DAG.getNode(AArch64ISD::ADDP, DL, VecVT, V, V);
+    V = DAG.getNode(AArch64ISD::ADDP, DL, VecVT, V, V);
+    V = DAG.getNode(ISD::BITCAST, DL, MVT::v8i16, V);
+    return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, MVT::i16, V,
+                       DAG.getConstant(0, DL, MVT::i64));
   }
 
   // All other vector sizes.
