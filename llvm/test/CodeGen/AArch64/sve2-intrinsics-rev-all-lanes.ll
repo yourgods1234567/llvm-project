@@ -101,16 +101,3 @@ define <vscale x 2 x i64> @test_revw_i64(<vscale x 2 x i64> %a) {
   ret <vscale x 2 x i64> %res
 }
 
-declare <vscale x 16 x i8> @llvm.aarch64.sve.revd.nxv16i8(<vscale x 16 x i8>, <vscale x 16 x i1>, <vscale x 16 x i8>)
-declare <vscale x 8 x i16> @llvm.aarch64.sve.revd.nxv8i16(<vscale x 8 x i16>, <vscale x 8 x i1>, <vscale x 8 x i16>)
-declare <vscale x 4 x i32> @llvm.aarch64.sve.revd.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i1>, <vscale x 4 x i32>)
-declare <vscale x 2 x i64> @llvm.aarch64.sve.revd.nxv2i64(<vscale x 2 x i64>, <vscale x 2 x i1>, <vscale x 2 x i64>)
-
-declare <vscale x 8 x i16> @llvm.aarch64.sve.revb.nxv8i16(<vscale x 8 x i16>, <vscale x 8 x i1>, <vscale x 8 x i16>)
-declare <vscale x 4 x i32> @llvm.aarch64.sve.revb.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i1>, <vscale x 4 x i32>)
-declare <vscale x 2 x i64> @llvm.aarch64.sve.revb.nxv2i64(<vscale x 2 x i64>, <vscale x 2 x i1>, <vscale x 2 x i64>)
-
-declare <vscale x 4 x i32> @llvm.aarch64.sve.revh.nxv4i32(<vscale x 4 x i32>, <vscale x 4 x i1>, <vscale x 4 x i32>)
-declare <vscale x 2 x i64> @llvm.aarch64.sve.revh.nxv2i64(<vscale x 2 x i64>, <vscale x 2 x i1>, <vscale x 2 x i64>)
-
-declare <vscale x 2 x i64> @llvm.aarch64.sve.revw.nxv2i64(<vscale x 2 x i64>, <vscale x 2 x i1>, <vscale x 2 x i64>)
