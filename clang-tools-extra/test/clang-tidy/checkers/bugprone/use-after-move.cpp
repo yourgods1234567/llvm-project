@@ -15,12 +15,13 @@
 #include <forward_list>
 #include <list>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include <memory>
 #include <vector>
 
 typedef decltype(nullptr) nullptr_t;
@@ -1789,4 +1790,39 @@ void Run() {
   RegularReset(db6);
   db6.Query();
 }
+
 } // namespace custom_reinitialization
+
+// Tests for std::tie() reinitialization.
+std::pair<std::string, std::string> makeStringPair(std::string a,
+                                                   std::string b);
+
+void stdTieIsReinit() {
+  // std::tie on the LHS reinitializes all captured variables.
+  std::string a, b;
+  std::move(a);
+  std::move(b);
+  std::tie(a, b) = makeStringPair("x", "y"); // no-warning: both reinitialized
+  a.size();
+  b.size();
+}
+
+void stdTiePartialReinit() {
+  // Only variables named in std::tie are reinitialized.
+  std::string a, b;
+  std::move(a);
+  std::tie(b) = std::make_tuple(std::string("y")); // reinitializes b, not a
+  b.size();  // no-warning: b was reinitialized
+  a.size(); // expected-warning{{'a' used after it was moved}}
+  // CHECK-NOTES: [[@LINE-1]]:3: warning: 'a' used after it was moved
+  // CHECK-NOTES: [[@LINE-4]]:3: note: move occurred here
+}
+
+void stdTieInLoop() {
+  // std::tie on the LHS reinitializes before the next iteration.
+  std::string a, b;
+  while (true) {
+    std::tie(a, b) = makeStringPair(std::move(a), std::move(b));
+    std::tie(a, b) = makeStringPair(std::move(a), std::move(b)); // no-warning
+  }
+}

@@ -230,6 +230,14 @@ New check aliases
 Changes in existing checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Improved :doc:`bugprone-use-after-move
+  <clang-tidy/checks/bugprone/use-after-move>` check to no longer emit a
+  false positive when a moved-from variable is reinitialized via a
+  ``std::tie()`` assignment (e.g. ``std::tie(a, b) = f(std::move(a),
+  std::move(b))``). The tuple assignment writes back through the stored
+  references, which fully reinitializes the captured variables.
+
+
 - Improved :doc:`bugprone-argument-comment
   <clang-tidy/checks/bugprone/argument-comment>` to also check for C++11
   inherited constructors.
