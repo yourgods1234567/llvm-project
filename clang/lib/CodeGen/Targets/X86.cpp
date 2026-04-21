@@ -2961,7 +2961,12 @@ X86_64ABIInfo::classifyRegCallStructType(QualType Ty, unsigned &NeededInt,
 }
 
 void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
-  if (!getTarget().getTriple().isPS() &&
+  bool shouldRespectFunctionAVXLevel =
+      !getTarget().getTriple().isPS() &&
+      getContext().getLangOpts().getClangABICompat() >
+          LangOptions::ClangABI::Ver22;
+
+  if (shouldRespectFunctionAVXLevel &&
       FI.getX86AVXABILevel() != static_cast<unsigned>(AVXLevel)) {
     auto EffectiveAVXLevel =
         static_cast<X86AVXABILevel>(FI.getX86AVXABILevel());
