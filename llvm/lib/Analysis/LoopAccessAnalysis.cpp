@@ -244,7 +244,7 @@ static bool evaluatePtrAddRecAtMaxBTCWillNotWrap(
                          if (!isValidAssumeForContext(Assume, CtxI, DT))
                            return false;
                          if (StartPtrV->canBeFreed() &&
-                             !willNotFreeBetween(Assume, CtxI))
+                             !willNotFreeOrSyncBetween(Assume, CtxI))
                            return false;
                          DerefRK = std::max(DerefRK, RK);
                          return true;
@@ -257,7 +257,6 @@ static bool evaluatePtrAddRecAtMaxBTCWillNotWrap(
     DerefRKSCEV = SE.getNoopOrZeroExtend(DerefRKSCEV, CommonTy);
     DerefBytesSCEV = SE.getUMaxExpr(DerefBytesSCEV, DerefRKSCEV);
   }
-
   if (DerefBytesSCEV->isZero())
     return false;
 

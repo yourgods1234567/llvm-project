@@ -632,8 +632,8 @@ LLVM_ABI bool isValidAssumeForContext(const Instruction *I,
 /// Returns true, if no instruction between \p Assume and \p CtxI may free
 /// memory and the function is marked as NoSync. The latter ensures the current
 /// function cannot arrange for another thread to free on its behalf.
-LLVM_ABI bool willNotFreeBetween(const Instruction *Assume,
-                                 const Instruction *CtxI);
+LLVM_ABI bool willNotFreeOrSyncBetween(const Instruction *Assume,
+                                       const Instruction *CtxI);
 
 enum class OverflowResult {
   /// Always overflows in the direction of signed/unsigned min value.
@@ -817,6 +817,10 @@ inline bool isGuaranteedNotToBePoison(const Value *V, AssumptionCache *AC,
   // implementation.
   return isGuaranteedNotToBePoison(V, AC, &*CtxI, DT, Depth);
 }
+
+/// Returns true if this is an atomic which has an ordering stronger than
+/// unordered.
+bool isOrderedAtomic(const Instruction *I);
 
 /// Returns true if V cannot be undef, but may be poison.
 LLVM_ABI bool isGuaranteedNotToBeUndef(const Value *V,
