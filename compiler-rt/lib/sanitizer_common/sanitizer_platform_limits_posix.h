@@ -557,6 +557,14 @@ struct __sanitizer_dirent {
   unsigned short d_reclen;
   // more fields that we don't care about
 };
+#  elif defined(__alpha__)
+struct __sanitizer_dirent {
+  unsigned int d_ino;  // ino_t is 32-bit on Alpha
+  int __pad;           // explicit padding before d_off
+  unsigned long d_off;
+  unsigned short d_reclen;
+  // more fields that we don't care about
+};
 #  else
 struct __sanitizer_dirent {
   uptr d_ino;
