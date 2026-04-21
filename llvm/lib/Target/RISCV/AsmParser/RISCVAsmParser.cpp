@@ -608,6 +608,17 @@ public:
            VK == ELF::R_RISCV_TPREL_ADD;
   }
 
+  bool isREGRelAddSymbol() const {
+    int64_t Imm;
+    // Must be of 'immediate' type but not a constant.
+    if (!isExpr() || evaluateConstantExpr(getExpr(), Imm))
+      return false;
+
+    RISCV::Specifier VK = RISCV::S_None;
+    return RISCVAsmParser::classifySymbolRef(getExpr(), VK) &&
+           VK == ELF::R_RISCV_REGREL_ADD;
+  }
+
   bool isTLSDESCCallSymbol() const {
     int64_t Imm;
     // Must be of 'immediate' type but not a constant.
@@ -880,7 +891,8 @@ public:
     RISCV::Specifier VK = RISCV::S_None;
     return RISCVAsmParser::classifySymbolRef(getExpr(), VK) &&
            (VK == RISCV::S_LO || VK == RISCV::S_PCREL_LO ||
-            VK == RISCV::S_TPREL_LO || VK == ELF::R_RISCV_TLSDESC_LOAD_LO12 ||
+            VK == RISCV::S_REGREL_LO || VK == RISCV::S_TPREL_LO ||
+            VK == ELF::R_RISCV_TLSDESC_LOAD_LO12 ||
             VK == ELF::R_RISCV_TLSDESC_ADD_LO12);
   }
 
