@@ -690,18 +690,27 @@ public:
 
       if (type->isHalfType() &&
           !cgf.getContext().getLangOpts().NativeHalfType) {
-        cgf.cgm.errorNYI(e->getSourceRange(), "Unary inc/dec half");
-        return {};
+        // Another special case: half FP increment should be done via float
+        if (cgf.getContext().getTargetInfo().useFP16ConversionIntrinsics()) {
+          mlir::Location loc = cgf.getLoc(e->getSourceRange());
+          cgf.cgm.errorNYI(loc, "cast via llvm.convert.from.fp16");
+        } else {
+          value = builder.createFloatingCast(input, builder.getSingleTy());
+        }
       }
 
-      if (mlir::isa<cir::SingleType, cir::DoubleType, cir::LongDoubleType>(
-              value.getType())) {
-        // Create the inc/dec operation.
-        // NOTE(CIR): clang calls CreateAdd but folds this to a unary op
-        value = emitIncOrDec(e, value);
-      } else {
-        cgf.cgm.errorNYI(e->getSourceRange(), "Unary inc/dec other fp type");
-        return {};
+      // Create the inc/dec operation.
+      // NOTE(CIR): clang calls CreateAdd but folds this to a unary op
+      value = emitIncOrDec(e, value);
+
+      if (type->isHalfType() &&
+          !cgf.getContext().getLangOpts().NativeHalfType) {
+        if (cgf.getContext().getTargetInfo().useFP16ConversionIntrinsics()) {
+          mlir::Location loc = cgf.getLoc(e->getSourceRange());
+          cgf.cgm.errorNYI(loc, "cast via llvm.convert.to.fp16");
+        } else {
+          value = builder.createFloatingCast(value, builder.getFp16Ty());
+        }
       }
     } else if (type->isFixedPointType()) {
       cgf.cgm.errorNYI(e->getSourceRange(), "Unary inc/dec other fixed point");
