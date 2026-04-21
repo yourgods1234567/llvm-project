@@ -4318,6 +4318,7 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
   case Type::Decltype:
   case Type::PackIndexing:
   case Type::UnaryTransform:
+  case Type::LateParsedAttr:
     break;
   }
 
