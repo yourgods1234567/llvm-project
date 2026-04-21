@@ -427,7 +427,7 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
         Actions.ActOnParamDefaultArgumentError(Param, EqualLoc,
                                                /*DefaultArg=*/nullptr);
       } else {
-        if (Tok.isNot(tok::eof) || Tok.getEofData() != Param) {
+        if (!isAtInputEnd(Tok) || Tok.getEofData() != Param) {
           // The last two tokens are the terminator and the saved value of
           // Tok; the last token in the default argument is the one before
           // those.
@@ -442,7 +442,7 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
 
       // There could be leftover tokens (e.g. because of an error).
       // Skip through until we reach the 'end of default argument' token.
-      while (Tok.isNot(tok::eof))
+      while (!isAtInputEnd(Tok))
         ConsumeAnyToken();
 
       if (Tok.is(tok::eof) && Tok.getEofData() == Param)
@@ -535,7 +535,7 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
                                        DynamicExceptionRanges, NoexceptExpr,
                                        ExceptionSpecTokens);
 
-    if (Tok.isNot(tok::eof) || Tok.getEofData() != LM.Method)
+    if (!isAtInputEnd(Tok) || Tok.getEofData() != LM.Method)
       Diag(Tok.getLocation(), diag::err_except_spec_unparsed);
 
     // Attach the exception-specification to the method.
@@ -548,7 +548,7 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
 
     // There could be leftover tokens (e.g. because of an error).
     // Skip through until we reach the original token position.
-    while (Tok.isNot(tok::eof))
+    while (!isAtInputEnd(Tok))
       ConsumeAnyToken();
 
     // Clean up the remaining EOF token.
@@ -605,7 +605,7 @@ void Parser::ParseLexedMethodDef(LexedMethod &LM) {
   Actions.ActOnStartOfFunctionDef(getCurScope(), LM.D);
 
   llvm::scope_exit _([&]() {
-    while (Tok.isNot(tok::eof))
+    while (!isAtInputEnd(Tok))
       ConsumeAnyToken();
 
     if (Tok.is(tok::eof) && Tok.getEofData() == LM.D)
@@ -692,7 +692,7 @@ void Parser::ParseLexedMemberInitializer(LateParsedMemberInitializer &MI) {
   Actions.ActOnFinishCXXInClassMemberInitializer(MI.Field, EqualLoc, Init);
 
   // The next token should be our artificial terminating EOF token.
-  if (Tok.isNot(tok::eof)) {
+  if (!isAtInputEnd(Tok)) {
     if (!Init.isInvalid()) {
       SourceLocation EndLoc = PP.getLocForEndOfToken(PrevTokLocation);
       if (!EndLoc.isValid())
@@ -702,7 +702,7 @@ void Parser::ParseLexedMemberInitializer(LateParsedMemberInitializer &MI) {
     }
 
     // Consume tokens until we hit the artificial EOF.
-    while (Tok.isNot(tok::eof))
+    while (!isAtInputEnd(Tok))
       ConsumeAnyToken();
   }
   // Make sure this is *our* artificial EOF token.
@@ -798,7 +798,7 @@ void Parser::ParseLexedAttribute(LateParsedAttribute &LA,
 
   // Due to a parsing error, we either went over the cached tokens or
   // there are still cached tokens left, so we skip the leftover tokens.
-  while (Tok.isNot(tok::eof))
+  while (!isAtInputEnd(Tok))
     ConsumeAnyToken();
 
   if (Tok.is(tok::eof) && Tok.getEofData() == AttrEnd.getEofData())
