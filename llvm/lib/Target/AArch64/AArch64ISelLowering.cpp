@@ -26357,7 +26357,7 @@ static bool findMoreOptimalIndexType(const MaskedGatherScatterSDNode *N,
     SDValue RHS = Index.getOperand(1);
     if (auto *Shift =
             dyn_cast_or_null<ConstantSDNode>(DAG.getSplatValue(RHS))) {
-      int64_t Step = (int64_t)Index.getOperand(0).getConstantOperandVal(1);
+      int64_t Step = (int64_t)Index.getOperand(0).getConstantOperandVal(0);
       Stride = Step << Shift->getZExtValue();
     }
   }
