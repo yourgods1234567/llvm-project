@@ -2395,11 +2395,10 @@ public:
   /// or direct value.
   /// \param IsTeamsReduction   Optional flag set if it is a teams
   ///                           reduction.
-  LLVM_ABI InsertPointOrErrorTy
-  createReductions(const LocationDescription &Loc, InsertPointTy AllocaIP,
-                   ArrayRef<ReductionInfo> ReductionInfos,
-                   ArrayRef<bool> IsByRef, bool IsNoWait = false,
-                   bool IsTeamsReduction = false, bool IsNoTree = false);
+  LLVM_ABI InsertPointOrErrorTy createReductions(
+      const LocationDescription &Loc, InsertPointTy AllocaIP,
+      ArrayRef<ReductionInfo> ReductionInfos, ArrayRef<bool> IsByRef,
+      bool IsNoWait = false, bool IsTeamsReduction = false);
 
   ///}
 

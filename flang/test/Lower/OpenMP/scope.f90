@@ -53,9 +53,10 @@ subroutine omp_scope_private()
   ! CHECK: hlfir.declare %{{.*}} {uniq_name = "_QFomp_scope_privateEi"}
   i = 10
 
-  ! CHECK: omp.scope private(@_QFomp_scope_privateEi_private_i32 %{{.*}}#0 -> %[[IARG:.*]] : !fir.ref<i32>) {
-  ! CHECK: hlfir.declare %[[IARG]] {uniq_name = "_QFomp_scope_privateEi"}
+  ! CHECK: omp.scope private(@_QFomp_scope_privateEi_private_i32 %{{.*}}#0 -> %[[PRIV:.*]] : !fir.ref<i32>) {
+  ! CHECK: %[[PDECL:.*]]:2 = hlfir.declare %[[PRIV]] {uniq_name = "_QFomp_scope_privateEi"}
   !$omp scope private(i)
+  ! CHECK: fir.load %[[PDECL]]#0 : !fir.ref<i32>
   print *, "omp scope", i
   ! CHECK: omp.terminator
   ! CHECK: }
@@ -68,11 +69,11 @@ subroutine omp_scope_reduction()
   ! CHECK: hlfir.declare %{{.*}} {uniq_name = "_QFomp_scope_reductionEsum"}
   sum = 0
 
-  ! CHECK: omp.scope reduction(@add_reduction_i32 %{{.*}}#0 -> %[[SUMARG:.*]] : !fir.ref<i32>) {
-  ! CHECK: hlfir.declare %[[SUMARG]] {uniq_name = "_QFomp_scope_reductionEsum"}
-  ! CHECK: fir.load %{{.*}} : !fir.ref<i32>
+  ! CHECK: omp.scope reduction(@add_reduction_i32 %{{.*}}#0 -> %[[REDUC:.*]] : !fir.ref<i32>) {
+  ! CHECK: %[[RDECL:.*]]:2 = hlfir.declare %[[REDUC]] {uniq_name = "_QFomp_scope_reductionEsum"}
+  ! CHECK: fir.load %[[RDECL]]#0 : !fir.ref<i32>
   ! CHECK: arith.addi %{{.*}}, %{{.*}} : i32
-  ! CHECK: hlfir.assign %{{.*}} to %{{.*}} : i32, !fir.ref<i32>
+  ! CHECK: hlfir.assign %{{.*}} to %[[RDECL]]#0 : i32, !fir.ref<i32>
   !$omp scope reduction(+:sum)
   sum = sum + 1
   ! CHECK: omp.terminator
@@ -86,9 +87,10 @@ subroutine omp_scope_firstprivate()
   ! CHECK: hlfir.declare %{{.*}} {uniq_name = "_QFomp_scope_firstprivateEi"}
   i = 42
 
-  ! CHECK: omp.scope private(@_QFomp_scope_firstprivateEi_firstprivate_i32 %{{.*}}#0 -> %[[IARG:.*]] : !fir.ref<i32>) {
-  ! CHECK: hlfir.declare %[[IARG]] {uniq_name = "_QFomp_scope_firstprivateEi"}
+  ! CHECK: omp.scope private(@_QFomp_scope_firstprivateEi_firstprivate_i32 %{{.*}}#0 -> %[[FP:.*]] : !fir.ref<i32>) {
+  ! CHECK: %[[FPDECL:.*]]:2 = hlfir.declare %[[FP]] {uniq_name = "_QFomp_scope_firstprivateEi"}
   !$omp scope firstprivate(i)
+  ! CHECK: fir.load %[[FPDECL]]#0 : !fir.ref<i32>
   print *, "omp scope", i
   ! CHECK: omp.terminator
   ! CHECK: }
@@ -101,9 +103,10 @@ subroutine omp_scope_allocate()
   ! CHECK: hlfir.declare %{{.*}} {uniq_name = "_QFomp_scope_allocateEi"}
   i = 0
 
-  ! CHECK: omp.scope allocate(%{{.*}} : i32 -> %{{.*}}#0 : !fir.ref<i32>) private(@_QFomp_scope_allocateEi_private_i32 %{{.*}}#0 -> %[[IARG:.*]] : !fir.ref<i32>) {
-  ! CHECK: hlfir.declare %[[IARG]] {uniq_name = "_QFomp_scope_allocateEi"}
+  ! CHECK: omp.scope allocate(%{{.*}} : i32 -> %{{.*}}#0 : !fir.ref<i32>) private(@_QFomp_scope_allocateEi_private_i32 %{{.*}}#0 -> %[[APRIV:.*]] : !fir.ref<i32>) {
+  ! CHECK: %[[ADECL:.*]]:2 = hlfir.declare %[[APRIV]] {uniq_name = "_QFomp_scope_allocateEi"}
   !$omp scope private(i) allocate(i)
+  ! CHECK: hlfir.assign %{{.*}} to %[[ADECL]]#0 : i32, !fir.ref<i32>
   i = 1
   ! CHECK: omp.terminator
   ! CHECK: }

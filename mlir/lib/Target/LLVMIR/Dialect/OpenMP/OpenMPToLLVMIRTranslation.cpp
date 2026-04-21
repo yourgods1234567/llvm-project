@@ -1426,18 +1426,6 @@ inlineOmpRegionCleanup(llvm::SmallVectorImpl<Region *> &cleanupRegions,
   return success();
 }
 
-// Returns true when tree-based reduction should be suppressed (isNoTree).
-// With nowait, the tree path has an internal barrier that defeats nowait
-// semantics.
-static bool
-needsNoTreeReduction(bool isNowait,
-                     ArrayRef<omp::DeclareReductionOp> reductionDecls) {
-  return isNowait &&
-         llvm::any_of(reductionDecls, [](omp::DeclareReductionOp decl) {
-           return decl.getAtomicReductionRegion().empty();
-         });
-}
-
 // TODO: not used by ParallelOp
 template <class OP>
 static LogicalResult createReductionsAndCleanup(
@@ -1446,8 +1434,7 @@ static LogicalResult createReductionsAndCleanup(
     llvm::OpenMPIRBuilder::InsertPointTy &allocaIP,
     SmallVectorImpl<omp::DeclareReductionOp> &reductionDecls,
     ArrayRef<llvm::Value *> privateReductionVariables, ArrayRef<bool> isByRef,
-    bool isNowait = false, bool isTeamsReduction = false,
-    bool isNoTree = false) {
+    bool isNowait = false, bool isTeamsReduction = false) {
   // Process the reductions if required.
   if (op.getNumReductionVars() == 0)
     return success();
@@ -1473,8 +1460,7 @@ static LogicalResult createReductionsAndCleanup(
   builder.SetInsertPoint(tempTerminator);
   llvm::OpenMPIRBuilder::InsertPointOrErrorTy contInsertPoint =
       ompBuilder->createReductions(builder.saveIP(), allocaIP, reductionInfos,
-                                   isByRef, isNowait, isTeamsReduction,
-                                   isNoTree);
+                                   isByRef, isNowait, isTeamsReduction);
 
   if (failed(handleError(contInsertPoint, *op)))
     return failure();
@@ -1483,7 +1469,7 @@ static LogicalResult createReductionsAndCleanup(
     return op->emitOpError() << "failed to convert reductions";
 
   llvm::OpenMPIRBuilder::InsertPointTy afterIP = *contInsertPoint;
-  if (!isTeamsReduction && !isNoTree) {
+  if (!isTeamsReduction) {
     llvm::OpenMPIRBuilder::InsertPointOrErrorTy barrierIP =
         ompBuilder->createBarrier(*contInsertPoint, llvm::omp::OMPD_for);
 
@@ -2030,11 +2016,10 @@ convertOmpScope(omp::ScopeOp &scopeOp, llvm::IRBuilderBase &builder,
   builder.restoreIP(*afterIP);
 
   // Process the reductions if required.
-  bool isNoTree = needsNoTreeReduction(scopeOp.getNowait(), reductionDecls);
   return createReductionsAndCleanup(
       scopeOp, builder, moduleTranslation, allocaIP, reductionDecls,
       privateReductionVariables, isByRef, scopeOp.getNowait(),
-      /*isTeamsReduction=*/false, isNoTree);
+      /*isTeamsReduction=*/false);
 }
 
 /// Converts an OpenMP single construct into LLVM IR using OpenMPIRBuilder.

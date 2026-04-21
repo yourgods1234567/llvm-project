@@ -4642,7 +4642,7 @@ static Error populateReductionFunction(
 OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createReductions(
     const LocationDescription &Loc, InsertPointTy AllocaIP,
     ArrayRef<ReductionInfo> ReductionInfos, ArrayRef<bool> IsByRef,
-    bool IsNoWait, bool IsTeamsReduction, bool IsNoTree) {
+    bool IsNoWait, bool IsTeamsReduction) {
   assert(ReductionInfos.size() == IsByRef.size());
   if (Config.isGPU())
     return createReductionsGPU(Loc, AllocaIP, Builder.saveIP(), ReductionInfos,
@@ -4703,15 +4703,10 @@ OpenMPIRBuilder::InsertPointOrErrorTy OpenMPIRBuilder::createReductions(
   Function *ReduceFunc = getOrCreateRuntimeFunctionPtr(
       IsNoWait ? RuntimeFunction::OMPRTL___kmpc_reduce_nowait
                : RuntimeFunction::OMPRTL___kmpc_reduce);
-  // When IsNoTree is set, pass null for the reduction function so the
-  // runtime condition (reduce_func != NULL) is false, selecting
-  // critical_reduce_block instead of tree_reduce_block.
-  Value *ReduceFuncArg = IsNoTree ? ConstantPointerNull::get(Builder.getPtrTy())
-                                  : static_cast<Value *>(ReductionFunc);
   CallInst *ReduceCall =
       createRuntimeFunctionCall(ReduceFunc,
                                 {Ident, ThreadId, NumVariables, RedArraySize,
-                                 RedArray, ReduceFuncArg, Lock},
+                                 RedArray, ReductionFunc, Lock},
                                 "reduce");
 
   // Create final reduction entry blocks for the atomic and non-atomic case.

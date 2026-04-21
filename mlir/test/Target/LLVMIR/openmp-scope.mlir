@@ -41,19 +41,18 @@ llvm.func @scope_nowait() {
 // -----
 
 // Scope with reduction: reduction vars initialized before scope body,
-// __kmpc_reduce / __kmpc_end_reduce emitted after, post-reduction barrier present.
+// __kmpc_reduce / __kmpc_end_reduce emitted + scope barrier
 // CHECK-LABEL: define internal void @scope_reduction..omp_par
 // CHECK:       omp.reduction.init:
 // CHECK:         store float 0.000000e+00, ptr
 // CHECK:       omp.scope.region:
 // CHECK:         fadd float
 // CHECK:       omp_region.finalize:
+// CHECK:         call void @__kmpc_barrier(
 // CHECK:         call i32 @__kmpc_reduce(
 // CHECK:       reduce.switch.nonatomic:
 // CHECK:         fadd float
 // CHECK:         call void @__kmpc_end_reduce(
-// CHECK:       reduce.finalize:
-// CHECK:         call void @__kmpc_barrier(
 
 omp.declare_reduction @add_f32 : f32 init {
 ^bb0(%arg0: f32):
@@ -81,20 +80,18 @@ llvm.func @scope_reduction(%ptr: !llvm.ptr) {
 
 // -----
 
-// Scope with reduction + nowait: __kmpc_reduce_nowait / __kmpc_end_reduce_nowait
-// emitted, no post-reduction barrier, and no pre-reduction barrier.
+// Scope with reduction + nowait: nowait suppresses the scope barrier
+// __kmpc_reduce_nowait / __kmpc_end_reduce_nowait emitted
 // CHECK-LABEL: define internal void @scope_reduction_nowait..omp_par
 // CHECK:       omp.reduction.init:
 // CHECK:         store float 0.000000e+00, ptr
 // CHECK:       omp.scope.region:
 // CHECK:         fadd float
 // CHECK:       omp_region.finalize:
-// CHECK:         call i32 @__kmpc_reduce_nowait({{.*}}, ptr null, {{.*}})
+// CHECK-NOT:     call void @__kmpc_barrier(
+// CHECK:         call i32 @__kmpc_reduce_nowait(
 // CHECK:       reduce.switch.nonatomic:
 // CHECK:         call void @__kmpc_end_reduce_nowait(
-// CHECK:       reduce.finalize:
-// CHECK-NOT:     call void @__kmpc_barrier(
-// CHECK:         ret void
 
 omp.declare_reduction @add_f32_2 : f32 init {
 ^bb0(%arg0: f32):

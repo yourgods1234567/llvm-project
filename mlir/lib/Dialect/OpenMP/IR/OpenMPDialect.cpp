@@ -2920,6 +2920,9 @@ LogicalResult ScopeOp::verify() {
     return emitError(
         "expected equal sizes for allocate and allocator variables");
 
+  if (failed(verifyPrivateVarList(*this)))
+    return failure();
+
   return verifyReductionVarList(*this, getReductionSyms(), getReductionVars(),
                                 getReductionByref());
 }
