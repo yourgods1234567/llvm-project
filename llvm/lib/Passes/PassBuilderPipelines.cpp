@@ -149,6 +149,7 @@
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/RelLookupTableConverter.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
+#include "llvm/Transforms/Vectorize/LoopReduceMotion.h"
 #include "llvm/Transforms/Vectorize/LoopVectorize.h"
 #include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 #include "llvm/Transforms/Vectorize/VectorCombine.h"
@@ -1445,6 +1446,11 @@ void PassBuilder::addVectorPasses(OptimizationLevel Level,
     // the CFG mess this may created if allowed to modify CFG, so forbid that.
     FPM.addPass(SROAPass(SROAOptions::PreserveCFG));
   }
+
+  LoopPassManager LPM;
+  // Try to sink ReduceCall out of loop
+  LPM.addPass(LoopReduceMotionPass());
+  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM)));
 
   FPM.addPass(InferAlignmentPass());
   FPM.addPass(InstCombinePass());
