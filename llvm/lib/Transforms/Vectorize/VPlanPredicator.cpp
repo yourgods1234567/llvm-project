@@ -34,6 +34,9 @@ class VPPredicator {
   /// Post-dominator tree for the VPlan.
   VPPostDominatorTree VPPDT;
 
+  /// Post-dominator frontier for the VPlan.
+  VPPostDominanceFrontier VPPDF;
+
   /// When we if-convert we need to create edge masks. We have to cache values
   /// so that we don't end up with exponential recursion/IR.
   using EdgeMaskCacheTy =
@@ -70,7 +73,7 @@ class VPPredicator {
   }
 
 public:
-  VPPredicator(VPlan &Plan) : VPDT(Plan), VPPDT(Plan) {}
+  VPPredicator(VPlan &Plan) : VPDT(Plan), VPPDT(Plan), VPPDF(VPPDT) {}
 
   /// Returns the *entry* mask for \p VPBB.
   VPValue *getBlockInMask(const VPBasicBlock *VPBB) const {
@@ -84,6 +87,11 @@ public:
 
   /// Compute the predicate of \p VPBB.
   void createBlockInMask(VPBasicBlock *VPBB);
+
+  /// Compute the masks for a VPBlendRecipe in \p VPBB from the minimum number
+  /// of edge masks required.
+  DenseMap<const VPBasicBlock *, VPValue *>
+  computeBlendMasks(VPBasicBlock *VPBB);
 
   /// Convert phi recipes in \p VPBB to VPBlendRecipes.
   void convertPhisToBlends(VPBasicBlock *VPBB);
@@ -224,10 +232,100 @@ void VPPredicator::createSwitchEdgeMasks(const VPInstruction *SI) {
   setEdgeMask(Src, DefaultDst, DefaultMask);
 }
 
+// Compute the blend masks required for each incoming block for a phi. Do this
+// by traversing the iterated post-dominance frontier for each incoming block
+// until we find the "frontier" of the subgraph that uniquely leads to that
+// incoming block. The final blend mask is then the disjunction of edges from
+// the frontier into the subgraph that uniquely leads to the incoming block.
+//
+// In the example below:
+//        a
+//       / \
+//      b   c
+//     / |  |
+//    d  e  |
+//   /| / \ /
+//  / f    g
+// …   \  /
+//     phi
+//
+// For the incoming block f, we iterate the post-dominance frontier until we get
+// the frontier of blocks that no longer only lead to f, {b,e}. For b we add the
+// edge b->d because d uniquely leads to f. For e we add the edge f because e->f
+// uniquely leads to f.
+//
+// For the incoming block g, the "frontier" is {e,a}. We add e->g and a->c.
+//
+// The final edge masks are f := b->d v e->f, f := e->g v a->c.
+DenseMap<const VPBasicBlock *, VPValue *>
+VPPredicator::computeBlendMasks(VPBasicBlock *VPBB) {
+  // For each ancestor of VPBB compute the set of incoming blocks it can reach.
+  DenseMap<VPBlockBase *, SmallPtrSet<VPBlockBase *, 8>> Reachable;
+  for (VPBlockBase *Pred : VPBB->predecessors())
+    for (VPBlockBase *Ancestor : vp_inverse_depth_first_shallow(Pred))
+      Reachable[Ancestor].insert(Pred);
+
+  // Then for each incoming block, compute the disjunction of the incoming edges
+  // to its "unique" subgraph.
+  DenseMap<const VPBasicBlock *, VPValue *> Masks;
+  for (VPBlockBase *InVPBBBase : VPBB->predecessors()) {
+    auto *InVPBB = cast<VPBasicBlock>(InVPBBBase);
+
+    // If the incoming block isn't unique, we need to use the incoming edge
+    // mask.
+    if (Reachable[InVPBB].size() > 1) {
+      Masks[InVPBB] = createEdgeMask(InVPBB, VPBB);
+      continue;
+    }
+
+    // Traverse the post dominator frontier and find the edges where the path
+    // can now reach multiple incoming edges.
+    // TODO: If two incoming edges have the same incoming value, consider them
+    // equal.
+    SmallVector<VPBlockBase *> Worklist = {InVPBB};
+    MapVector<VPBlockBase *, SmallSetVector<VPBlockBase *, 8>> Edges;
+    while (!Worklist.empty()) {
+      auto *X = cast<VPBasicBlock>(Worklist.pop_back_val());
+      if (Reachable[X].size() == 1) {
+        assert(Reachable[X].contains(InVPBB) && "Reachable block not InVPBB?");
+        append_range(Worklist, VPPDF.find(X)->second);
+        continue;
+      }
+      // Find edges that uniquely lead to InVPBB add them to the mask.
+      for (VPBlockBase *Succ : X->successors())
+        if (Reachable[Succ].size() == 1 && Reachable[Succ].contains(InVPBB))
+          Edges[Succ].insert(X);
+    }
+
+    VPValue *Mask = nullptr;
+    for (const auto &[DstBase, Preds] : Edges) {
+      auto *Dst = cast<VPBasicBlock>(DstBase);
+      // If the blend mask uses all the edges to Dst, reuse Dst's block-in mask.
+      if (Preds.size() == Dst->getNumPredecessors()) {
+        Mask = Mask ? Builder.createOr(Mask, getBlockInMask(Dst))
+                    : getBlockInMask(Dst);
+        continue;
+      }
+      for (VPBlockBase *Pred : Preds) {
+        VPValue *Edge = createEdgeMask(cast<VPBasicBlock>(Pred), Dst);
+        Mask = Mask ? Builder.createOr(Mask, Edge) : Edge;
+      }
+    }
+    Masks[InVPBB] = Mask;
+  }
+
+  return Masks;
+}
+
 void VPPredicator::convertPhisToBlends(VPBasicBlock *VPBB) {
   SmallVector<VPPhi *> Phis;
   for (VPRecipeBase &R : VPBB->phis())
     Phis.push_back(cast<VPPhi>(&R));
+
+  DenseMap<const VPBasicBlock *, VPValue *> BlendMasks;
+  if (!Phis.empty())
+    BlendMasks = computeBlendMasks(VPBB);
+
   for (VPPhi *PhiR : Phis) {
     // The non-header Phi is converted into a Blend recipe below,
     // so we don't have to worry about the insertion order and we can just use
@@ -248,7 +346,7 @@ void VPPredicator::convertPhisToBlends(VPBasicBlock *VPBB) {
     SmallVector<VPValue *, 2> OperandsWithMask;
     for (const auto &[InVPV, InVPBB] : PhiR->incoming_values_and_blocks()) {
       OperandsWithMask.push_back(InVPV);
-      OperandsWithMask.push_back(createEdgeMask(InVPBB, VPBB));
+      OperandsWithMask.push_back(BlendMasks[InVPBB]);
     }
     PHINode *IRPhi = cast_or_null<PHINode>(PhiR->getUnderlyingValue());
     auto *Blend =
