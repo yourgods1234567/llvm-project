@@ -934,10 +934,9 @@ define void @uniform_load_store(ptr %p, ptr %q, i32 %n) {
 ; SCALABLE:       [[MIDDLE_BLOCK]]:
 ; SCALABLE-NEXT:    br label %[[EXIT:.*]]
 ; SCALABLE:       [[SCALAR_PH]]:
-; SCALABLE-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i32 [ 0, %[[VECTOR_SCEVCHECK]] ], [ 0, %[[VECTOR_MEMCHECK]] ]
 ; SCALABLE-NEXT:    br label %[[LOOP:.*]]
 ; SCALABLE:       [[LOOP]]:
-; SCALABLE-NEXT:    [[IV:%.*]] = phi i32 [ [[BC_RESUME_VAL]], %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
+; SCALABLE-NEXT:    [[IV:%.*]] = phi i32 [ 0, %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
 ; SCALABLE-NEXT:    [[GEP:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
 ; SCALABLE-NEXT:    [[X:%.*]] = load i32, ptr [[GEP]], align 4
 ; SCALABLE-NEXT:    [[Y:%.*]] = add i32 [[X]], 1
@@ -1047,10 +1046,9 @@ define void @uniform_load_store(ptr %p, ptr %q, i32 %n) {
 ; TF-SCALABLE:       [[MIDDLE_BLOCK]]:
 ; TF-SCALABLE-NEXT:    br label %[[EXIT:.*]]
 ; TF-SCALABLE:       [[SCALAR_PH]]:
-; TF-SCALABLE-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i32 [ 0, %[[VECTOR_SCEVCHECK]] ], [ 0, %[[VECTOR_MEMCHECK]] ]
 ; TF-SCALABLE-NEXT:    br label %[[LOOP:.*]]
 ; TF-SCALABLE:       [[LOOP]]:
-; TF-SCALABLE-NEXT:    [[IV:%.*]] = phi i32 [ [[BC_RESUME_VAL]], %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
+; TF-SCALABLE-NEXT:    [[IV:%.*]] = phi i32 [ 0, %[[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], %[[LOOP]] ]
 ; TF-SCALABLE-NEXT:    [[GEP:%.*]] = getelementptr i32, ptr [[P]], i32 [[IV]]
 ; TF-SCALABLE-NEXT:    [[X:%.*]] = load i32, ptr [[GEP]], align 4
 ; TF-SCALABLE-NEXT:    [[Y:%.*]] = add i32 [[X]], 1

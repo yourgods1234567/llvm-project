@@ -1801,8 +1801,6 @@ void VPlanTransforms::narrowScatters(VPlan &Plan, VPCostContext &Ctx,
           !vputils::isUniformAcrossVFsAndUFs(WidenStoreR->getAddr()) ||
           WidenStoreR->isConsecutive())
         continue;
-      assert(!WidenStoreR->isReverse() &&
-             "Not consecutive memory recipes shouldn't be reversed");
       VPValue *Mask = WidenStoreR->getMask();
 
       // Convert the scatter to a scalar store if it is unmasked or header
