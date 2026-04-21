@@ -160,6 +160,7 @@ void registerTestPassStateExtensionCommunication();
 void registerTestVectorLowerings();
 void registerTestVectorReductionToSPIRVDotProd();
 void registerTestVulkanRunnerPipeline();
+void registerTestWideningAnalysisPass();
 void registerTestWrittenToPass();
 void registerTestXeGPULowerings();
 #if MLIR_ENABLE_PDL_IN_PATTERNMATCH
@@ -308,6 +309,7 @@ static void registerTestPasses() {
   mlir::test::registerTestVectorLowerings();
   mlir::test::registerTestVectorReductionToSPIRVDotProd();
   mlir::test::registerTestVulkanRunnerPipeline();
+  mlir::test::registerTestWideningAnalysisPass();
   mlir::test::registerTestWrittenToPass();
   mlir::test::registerTestXeGPULowerings();
 #if MLIR_ENABLE_PDL_IN_PATTERNMATCH
