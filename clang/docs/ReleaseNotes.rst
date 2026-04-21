@@ -410,6 +410,10 @@ Improvements to Clang's diagnostics
 
 - Removed the body of lambdas from some diagnostic messages.
 
+- The warning about static local variables declared inside `inline` 
+  functions is now correctly converted to an error if `-pedantic-errors` is 
+  passed (#GH39524).
+
 Improvements to Clang's time-trace
 ----------------------------------
 
