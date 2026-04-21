@@ -1136,7 +1136,9 @@ void TargetInfo::scanSectionImpl(InputSectionBase &sec, Relocs<RelTy> rels) {
 
   // Sort relocations by offset for more efficient searching for
   // R_RISCV_PCREL_HI20 and the branch-to-branch optimization.
-  if (ctx.arg.emachine == EM_RISCV || ctx.arg.branchToBranch)
+  // relaxCFIJumpTables() also expects relocations to be sorted.
+  if (ctx.arg.emachine == EM_RISCV || ctx.arg.branchToBranch ||
+      sec.type == SHT_LLVM_CFI_JUMP_TABLE)
     llvm::stable_sort(sec.relocs(),
                       [](const Relocation &lhs, const Relocation &rhs) {
                         return lhs.offset < rhs.offset;
