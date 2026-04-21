@@ -237,7 +237,6 @@ Changes in existing checks
   std::move(b))``). The tuple assignment writes back through the stored
   references, which fully reinitializes the captured variables.
 
-
 - Improved :doc:`bugprone-argument-comment
   <clang-tidy/checks/bugprone/argument-comment>` to also check for C++11
   inherited constructors.
