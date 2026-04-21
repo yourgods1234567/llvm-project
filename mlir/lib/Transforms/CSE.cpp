@@ -21,6 +21,7 @@
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/ScopedHashTable.h"
 #include "llvm/Support/Allocator.h"
+#include "llvm/Support/DebugLog.h"
 #include "llvm/Support/RecyclingAllocator.h"
 #include <deque>
 
@@ -29,6 +30,7 @@ namespace mlir {
 #include "mlir/Transforms/Passes.h.inc"
 } // namespace mlir
 
+#define DEBUG_TYPE "cse"
 using namespace mlir;
 
 namespace {
@@ -59,8 +61,9 @@ namespace {
 /// Simple common sub-expression elimination.
 class CSEDriver {
 public:
-  CSEDriver(RewriterBase &rewriter, DominanceInfo *domInfo)
-      : rewriter(rewriter), domInfo(domInfo) {}
+  CSEDriver(RewriterBase &rewriter, DominanceInfo *domInfo,
+            bool hoistPureOps = true)
+      : rewriter(rewriter), domInfo(domInfo), hoistPureOps(hoistPureOps) {}
 
   /// Simplify all operations within the given op.
   void simplify(Operation *op, bool *changed = nullptr);
@@ -101,13 +104,17 @@ private:
 
   /// Attempt to eliminate a redundant operation. Returns success if the
   /// operation was marked for removal, failure otherwise.
-  LogicalResult simplifyOperation(ScopedMapTy &knownValues, Operation *op,
+  LogicalResult simplifyOperation(ScopedMapTy &knownValues,
+                                  ScopedMapTy &knownPureOps, Operation *op,
                                   bool hasSSADominance);
-  void simplifyBlock(ScopedMapTy &knownValues, Block *bb, bool hasSSADominance);
-  void simplifyRegion(ScopedMapTy &knownValues, Region &region);
+  void simplifyBlock(ScopedMapTy &knownValues, ScopedMapTy &knownPureOps,
+                     Block *bb, bool hasSSADominance);
+  void simplifyRegion(ScopedMapTy &knownValues, ScopedMapTy &knownPureOps,
+                      Region &region);
 
   void replaceUsesAndDelete(ScopedMapTy &knownValues, Operation *op,
                             Operation *existing, bool hasSSADominance);
+  LogicalResult hoistPureOp(Operation *existing, Operation *op);
 
   /// Check if there is side-effecting operations other than the given effect
   /// between the two operations.
@@ -117,15 +124,128 @@ private:
   RewriterBase &rewriter;
 
   /// Operations marked as dead and to be erased.
-  std::vector<Operation *> opsToErase;
+  SmallVector<Operation *> opsToErase;
   DominanceInfo *domInfo = nullptr;
+  bool hoistPureOps = true;
   MemEffectsCache memEffectsCache;
 
   // Various statistics.
   int64_t numCSE = 0;
   int64_t numDCE = 0;
+
+  // The map uses region op as the key and a list of operations as the
+  // value. This list describes the dependencies of the region op, as the
+  // operations within the region op consume results from the value in
+  // the map. Therefore, it is necessary to consider these dependent operations
+  // when hoisting a region op.
+  DenseMap<Operation *, SmallVector<Operation *>> hoistBlockingDeps;
+
+  // The keys of this map are exiting ops, and the values are lists of
+  // operations. Each entry describes an exiting op that has been hoisted along
+  // with its associated operations. When an exiting op and its equivalent
+  // operations are hoisted for the first time, they are added to this map.
+  // During subsequent hoistings of the same exiting op(hoisting exiting op
+  // multiple times), the operations stored in the map's value will also be
+  // hoisted together with it.
+  DenseMap<Operation *, SmallVector<Operation *>> hoistOpsSet;
 };
 } // namespace
+
+/// Returns true if the path between block 'a' and block 'b' in the region
+/// hierarchy crosses an operation with the 'IsIsolatedFromAbove' trait.
+static bool isBlockCrossIsIsolatedFromAbove(DominanceInfo *dominate, Block *a,
+                                            Block *b) {
+  if (a == b)
+    return false;
+  if (a->getParent() == b->getParent())
+    return false;
+  if (dominate->dominates(b, a))
+    std::swap(b, a);
+  while (b && b->getParentOp()) {
+    Operation *parentOp = b->getParentOp();
+    if (parentOp->mightHaveTrait<OpTrait::IsIsolatedFromAbove>())
+      return true;
+    b = parentOp->getBlock();
+    if (b == a)
+      return false;
+  }
+  return false;
+}
+
+/// Hoist the pure ops to the location of the Nearest Common Dominator.
+LogicalResult CSEDriver::hoistPureOp(Operation *existing, Operation *op) {
+  Block *ancestorBlock =
+      domInfo->findNearestCommonDominator(existing->getBlock(), op->getBlock());
+  if (!ancestorBlock) {
+    LDBG() << "hoist " << OpWithFlags(existing, OpPrintingFlags().skipRegions())
+           << " and " << OpWithFlags(op, OpPrintingFlags().skipRegions())
+           << " failed";
+    return failure();
+  }
+
+  if (isBlockCrossIsIsolatedFromAbove(domInfo, ancestorBlock,
+                                      existing->getBlock()) ||
+      isBlockCrossIsIsolatedFromAbove(domInfo, ancestorBlock, op->getBlock()))
+    return failure();
+
+  if (existing->getParentOp() != ancestorBlock->getParentOp() &&
+      !existing->use_empty()) {
+    LDBG() << "add "
+           << OpWithFlags(existing->getParentOp(),
+                          OpPrintingFlags().skipRegions())
+           << " dependents "
+           << OpWithFlags(existing, OpPrintingFlags().skipRegions());
+    hoistBlockingDeps[existing->getParentOp()].push_back(existing);
+  }
+
+  // Find the insertion point based on dominance relationships. When hoisting a
+  // region op, we must consider not only its operands but also the dominance
+  // relationships of the operations within the region when determining the
+  // insertion point
+  Operation *insertPoint = nullptr;
+  SmallVector<Value> dependentOperands(existing->getOperands());
+  if (hoistBlockingDeps.contains(existing) &&
+      !hoistBlockingDeps[existing].empty()) {
+    for (Operation *dependentOp : hoistBlockingDeps[existing])
+      dependentOperands.append(dependentOp->getResults().begin(),
+                               dependentOp->getResults().end());
+  }
+
+  for (Value operand : dependentOperands) {
+    if (domInfo->properlyDominates(operand, &ancestorBlock->front()))
+      continue;
+    if (!insertPoint) {
+      insertPoint = operand.getDefiningOp();
+    } else {
+      insertPoint = domInfo->dominates(insertPoint, operand.getDefiningOp())
+                        ? operand.getDefiningOp()
+                        : insertPoint;
+    }
+  }
+
+  // We hoist both `op` and `existing` here because if they are identical
+  // regionOps and we only hoist existing, the two would no longer be congruent.
+  // This would lead to a missed optimization opportunity in subsequent CSE
+  // passes. The test @cse_multiple_regions's `%r2` tests it.
+  if (!insertPoint) {
+    rewriter.moveOpBefore(existing, ancestorBlock, ancestorBlock->begin());
+    rewriter.moveOpAfter(op, existing);
+  } else {
+    rewriter.moveOpAfter(existing, insertPoint);
+    rewriter.moveOpAfter(op, existing);
+  }
+
+  // When hoisting an exiting op multiple times, we must also hoist the
+  // operations that were previously hoisted alongside it.
+  if (hoistOpsSet.contains(existing) && !hoistOpsSet[existing].empty())
+    for (Operation *op : hoistOpsSet[existing])
+      rewriter.moveOpAfter(op, existing);
+  hoistOpsSet[existing].push_back(op);
+  LDBG() << "hoist " << OpWithFlags(existing, OpPrintingFlags().skipRegions())
+         << " and " << OpWithFlags(op, OpPrintingFlags().skipRegions())
+         << " success";
+  return success();
+}
 
 void CSEDriver::replaceUsesAndDelete(ScopedMapTy &knownValues, Operation *op,
                                      Operation *existing,
@@ -141,6 +261,21 @@ void CSEDriver::replaceUsesAndDelete(ScopedMapTy &knownValues, Operation *op,
       rewriteListener->notifyOperationReplaced(op, existing);
     // Replace all uses, but do not remove the operation yet. This does not
     // notify the listener because the original op is not erased.
+    if (!domInfo->properlyDominates(existing, op)) {
+      if (!hoistPureOps || failed(hoistPureOp(existing, op)))
+        return;
+    } else {
+      // Hoist `op` even though `existing` already dominates it, because
+      // hoisting op may create further CSE optimization opportunities for
+      // subsequent region operations. The test @cse_multiple_regions's `%r3`
+      // tests it.
+      rewriter.moveOpAfter(op, existing);
+    }
+    LDBG() << "replace " << OpWithFlags(op, OpPrintingFlags().skipRegions())
+           << " with "
+           << OpWithFlags(existing, OpPrintingFlags().skipRegions());
+    LDBG() << "add " << OpWithFlags(op, OpPrintingFlags().skipRegions())
+           << " to opsToErase";
     rewriter.replaceAllUsesWith(op->getResults(), existing->getResults());
     opsToErase.push_back(op);
   } else {
@@ -155,14 +290,25 @@ void CSEDriver::replaceUsesAndDelete(ScopedMapTy &knownValues, Operation *op,
         if (all_of(v.getUses(), wasVisited))
           rewriteListener->notifyOperationReplaced(op, existing);
 
+    if (!domInfo->properlyDominates(existing, op)) {
+      if (!hoistPureOps || failed(hoistPureOp(existing, op)))
+        return;
+    }
     // Replace all uses, but do not remove the operation yet. This does not
     // notify the listener because the original op is not erased.
+    LDBG() << "replace " << OpWithFlags(op, OpPrintingFlags().skipRegions())
+           << " with "
+           << OpWithFlags(existing, OpPrintingFlags().skipRegions());
     rewriter.replaceUsesWithIf(op->getResults(), existing->getResults(),
                                wasVisited);
 
     // There may be some remaining uses of the operation.
-    if (op->use_empty())
+    if (op->use_empty()) {
+      LDBG() << "use_empty, add "
+             << OpWithFlags(op, OpPrintingFlags().skipRegions())
+             << " to opsToErase";
       opsToErase.push_back(op);
+    }
   }
 
   // If the existing operation has an unknown location and the current
@@ -252,8 +398,11 @@ bool CSEDriver::hasOtherSideEffectingOpInBetween(Operation *fromOp,
 
 /// Attempt to eliminate a redundant operation.
 LogicalResult CSEDriver::simplifyOperation(ScopedMapTy &knownValues,
+                                           ScopedMapTy &knownPureOps,
                                            Operation *op,
                                            bool hasSSADominance) {
+  LDBG() << "visit operation: "
+         << OpWithFlags(op, OpPrintingFlags().skipRegions());
   // Don't simplify terminator operations.
   if (op->hasTrait<OpTrait::IsTerminator>())
     return failure();
@@ -284,6 +433,9 @@ LogicalResult CSEDriver::simplifyOperation(ScopedMapTy &knownValues,
         return success();
       }
     }
+
+    LDBG() << "insert op: " << OpWithFlags(op, OpPrintingFlags().skipRegions())
+           << " to map";
     knownValues.insert(op, op);
     return failure();
   }
@@ -294,23 +446,38 @@ LogicalResult CSEDriver::simplifyOperation(ScopedMapTy &knownValues,
     return success();
   }
 
-  // Otherwise, we add this operation to the known values map.
-  knownValues.insert(op, op);
+  if (auto *existing = knownPureOps.lookup(op)) {
+    replaceUsesAndDelete(knownPureOps, op, existing, hasSSADominance);
+    return success();
+  }
+
+  if (mlir::isPure(op)) {
+    LDBG() << "insert op: " << OpWithFlags(op, OpPrintingFlags().skipRegions())
+           << " to pureMap";
+    knownPureOps.insert(op, op);
+  } else {
+    // Otherwise, we add this operation to the known values map.
+    LDBG() << "insert op: " << OpWithFlags(op, OpPrintingFlags().skipRegions())
+           << " to map";
+    knownValues.insert(op, op);
+  }
   return failure();
 }
 
-void CSEDriver::simplifyBlock(ScopedMapTy &knownValues, Block *bb,
+void CSEDriver::simplifyBlock(ScopedMapTy &knownValues,
+                              ScopedMapTy &knownPureOps, Block *bb,
                               bool hasSSADominance) {
+  LDBG() << "visit block #" << bb->computeBlockNumber() << " of "
+         << OpWithFlags(bb->getParentOp(), OpPrintingFlags().skipRegions());
+  // If the operation is already trivially dead just add it to the erase list.
+  // This also avoids calling `simplifyRegion` on dead region ops
+  // unnecessarily.
   for (auto &op : llvm::make_early_inc_range(*bb)) {
-    // If the operation is already trivially dead just add it to the erase list.
-    // This also avoids calling `simplifyRegion` on dead region ops
-    // unnecessarily.
     if (isOpTriviallyDead(&op)) {
       opsToErase.push_back(&op);
       ++numDCE;
       continue;
     }
-
     // Most operations don't have regions, so fast path that case.
     if (op.getNumRegions() != 0) {
       // If this operation is isolated above, we can't process nested regions
@@ -318,34 +485,40 @@ void CSEDriver::simplifyBlock(ScopedMapTy &knownValues, Block *bb,
       // implicit captures in explicit capture only regions.
       if (op.mightHaveTrait<OpTrait::IsIsolatedFromAbove>()) {
         ScopedMapTy nestedKnownValues;
+        ScopedMapTy nestedKnownPureOps;
+        ScopedMapTy::ScopeTy scope(nestedKnownValues);
+        ScopedMapTy::ScopeTy pureScope(nestedKnownPureOps);
         for (auto &region : op.getRegions())
-          simplifyRegion(nestedKnownValues, region);
+          simplifyRegion(nestedKnownValues, nestedKnownPureOps, region);
       } else {
         // Otherwise, process nested regions normally.
         for (auto &region : op.getRegions())
-          simplifyRegion(knownValues, region);
+          simplifyRegion(knownValues, knownPureOps, region);
       }
     }
 
     // If the operation is simplified, we don't process any held regions.
-    if (succeeded(simplifyOperation(knownValues, &op, hasSSADominance)))
+    if (succeeded(
+            simplifyOperation(knownValues, knownPureOps, &op, hasSSADominance)))
       continue;
   }
   // Clear the MemoryEffects cache since its usage is by block only.
   memEffectsCache.clear();
 }
 
-void CSEDriver::simplifyRegion(ScopedMapTy &knownValues, Region &region) {
+void CSEDriver::simplifyRegion(ScopedMapTy &knownValues,
+                               ScopedMapTy &knownPureOps, Region &region) {
   // If the region is empty there is nothing to do.
   if (region.empty())
     return;
+  LDBG() << "visit region #" << region.getRegionNumber() << " of "
+         << OpWithFlags(region.getParentOp(), OpPrintingFlags().skipRegions());
 
   bool hasSSADominance = domInfo->hasSSADominance(&region);
-
   // If the region only contains one block, then simplify it directly.
   if (region.hasOneBlock()) {
     ScopedMapTy::ScopeTy scope(knownValues);
-    simplifyBlock(knownValues, &region.front(), hasSSADominance);
+    simplifyBlock(knownValues, knownPureOps, &region.front(), hasSSADominance);
     return;
   }
 
@@ -373,7 +546,7 @@ void CSEDriver::simplifyRegion(ScopedMapTy &knownValues, Region &region) {
     // Check to see if we need to process this node.
     if (!currentNode->processed) {
       currentNode->processed = true;
-      simplifyBlock(knownValues, currentNode->node->getBlock(),
+      simplifyBlock(knownValues, knownPureOps, currentNode->node->getBlock(),
                     hasSSADominance);
     }
 
@@ -391,10 +564,20 @@ void CSEDriver::simplifyRegion(ScopedMapTy &knownValues, Region &region) {
 }
 
 void CSEDriver::simplify(Operation *op, bool *changed) {
-  /// Simplify all regions.
-  ScopedMapTy knownValues;
-  for (auto &region : op->getRegions())
-    simplifyRegion(knownValues, region);
+  /// Simplify all regions. Added a new scope using curly braces to release the
+  /// knownPureOps scope before deleting the operation.
+  {
+    /// The entry point for CSE simplification. A top-level scope is added for
+    /// 'knownPureOps' to track pure operations across the entire operation's
+    /// regions, enabling potential hoisting opportunities. Since only pure
+    /// operations are candidates for hoisting, 'knownValues' does not require
+    /// a corresponding top-level scope here.
+    ScopedMapTy knownValues;
+    ScopedMapTy knownPureOps;
+    ScopedMapTy::ScopeTy scope(knownPureOps);
+    for (auto &region : op->getRegions())
+      simplifyRegion(knownValues, knownPureOps, region);
+  }
 
   /// Erase any operations that were marked as dead during simplification, and
   /// remove their associated dominator trees.
@@ -420,6 +603,7 @@ void mlir::eliminateCommonSubExpressions(RewriterBase &rewriter,
 namespace {
 /// CSE pass.
 struct CSE : public impl::CSEPassBase<CSE> {
+  using impl::CSEPassBase<CSE>::CSEPassBase;
   void runOnOperation() override;
 };
 } // namespace
@@ -427,7 +611,7 @@ struct CSE : public impl::CSEPassBase<CSE> {
 void CSE::runOnOperation() {
   // Simplify the IR.
   IRRewriter rewriter(&getContext());
-  CSEDriver driver(rewriter, &getAnalysis<DominanceInfo>());
+  CSEDriver driver(rewriter, &getAnalysis<DominanceInfo>(), hoistPureOps);
   bool changed = false;
   driver.simplify(getOperation(), &changed);
 
