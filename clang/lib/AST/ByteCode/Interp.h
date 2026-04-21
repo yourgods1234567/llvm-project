@@ -1543,7 +1543,8 @@ bool GetLocal(InterpState &S, CodePtr OpPC, uint32_t I) {
 
 bool EndLifetime(InterpState &S, CodePtr OpPC);
 bool EndLifetimePop(InterpState &S, CodePtr OpPC);
-bool StartLifetime(InterpState &S, CodePtr OpPC);
+bool StartThisLifetime(InterpState &S, CodePtr OpPC);
+bool StartThisLifetime1(InterpState &S, CodePtr OpPC);
 bool MarkDestroyed(InterpState &S, CodePtr OpPC);
 
 /// 1) Pops the value from the stack.
@@ -3984,8 +3985,12 @@ inline bool BitCastPrim(InterpState &S, CodePtr OpPC, bool TargetIsUCharOrByte,
 }
 
 inline bool BitCast(InterpState &S, CodePtr OpPC) {
-  const Pointer &FromPtr = S.Stk.pop<Pointer>();
+  Pointer FromPtr = S.Stk.pop<Pointer>();
   Pointer &ToPtr = S.Stk.peek<Pointer>();
+
+  const Descriptor *D = FromPtr.getFieldDesc();
+  if (D->isPrimitiveArray() && FromPtr.isArrayRoot())
+    FromPtr = FromPtr.atIndex(0);
 
   if (!CheckLoad(S, OpPC, FromPtr))
     return false;
