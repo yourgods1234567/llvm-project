@@ -316,10 +316,8 @@ Operation *ACCImplicitData::getOriginalDataClauseOpForAlias(
         if (aliasAnalysis.alias(clauseVar, var).isMust())
           return dataClauseOp;
         // For deviceptr clauses, also check if the clause variable is
-        // directly derived from 'var' (e.g., deviceptr operates on
-        // embox(var) — the box wrapping var). This arises when a
-        // subroutine with deviceptr is inlined and the deviceptr's box
-        // and the compute region's ref are different SSA values.
+        // directly derived from 'var' (e.g., through a wrapping
+        // operation that produces the clause variable from 'var').
         if (isa<acc::DevicePtrOp>(dataClauseOp)) {
           for (Operation *user : var.getUsers()) {
             if (llvm::is_contained(user->getResults(), clauseVar))

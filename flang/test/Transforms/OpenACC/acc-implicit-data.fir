@@ -398,10 +398,19 @@ func.func private @_FortranAAllocatableSetBounds(!fir.ref<!fir.box<none>>, i32, 
 // -----
 
 // Test that acc.serial inside acc.data deviceptr generates implicit deviceptr
-// (not copyin) when the deviceptr var is an embox of the ref used by serial.
-// This pattern arises when a subroutine with !$acc data deviceptr(b) wrapping
-// !$acc serial is inlined and the deviceptr var is an embox of the ref used
-// by the serial construct.
+// (not copyin) when the deviceptr clause variable is derived from the ref used
+// by the serial construct (here, via fir.embox wrapping the declared ref).
+// This pattern arises when a subroutine containing:
+//   !$acc data deviceptr(b)    ← deviceptr operates on embox(b) (a box type)
+//     !$acc serial
+//       ... uses b ...         ← serial uses b directly (a ref type)
+//     !$acc end serial
+//   !$acc end data
+// is inlined into the caller. After inlining, the deviceptr's box and the
+// serial's ref are different SSA values with different types, so alias
+// analysis returns NoAlias. The pass must recognize that the deviceptr's
+// variable is derived from the ref and generate an implicit deviceptr clause
+// instead of falling back to copyin/copyout.
 func.func @test_serial_inside_data_deviceptr_embox() {
   %c10 = arith.constant 10 : index
   %c1 = arith.constant 1 : index
