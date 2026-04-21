@@ -203,7 +203,12 @@ static cl::opt<unsigned> VectorizeMemoryCheckThreshold(
 /// will try to fold the tail-loop (epilogue) into the vector body and predicate
 /// the instructions accordingly. If tail-folding fails, there are different
 /// fallback strategies depending on these values:
-enum class TailFoldingPolicyTy { None = 0, PreferFoldTail, MustFoldTail, FoldEpilogueTail };
+enum class TailFoldingPolicyTy {
+  None = 0,
+  PreferFoldTail,
+  MustFoldTail,
+  FoldEpilogueTail
+};
 
 static cl::opt<TailFoldingPolicyTy> TailFoldingPolicy(
     "tail-folding-policy", cl::init(TailFoldingPolicyTy::None), cl::Hidden,
