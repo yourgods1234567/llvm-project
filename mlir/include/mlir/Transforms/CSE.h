@@ -16,6 +16,7 @@
 namespace mlir {
 
 class DominanceInfo;
+class PostDominanceInfo;
 class Operation;
 class RewriterBase;
 
@@ -24,8 +25,9 @@ class RewriterBase;
 ///
 /// `changed` indicates whether the IR was modified or not.
 void eliminateCommonSubExpressions(RewriterBase &rewriter,
-                                   DominanceInfo &domInfo, Operation *op,
-                                   bool *changed = nullptr);
+                                   DominanceInfo &domInfo,
+                                   PostDominanceInfo &postDomInfo,
+                                   Operation *op, bool *changed = nullptr);
 
 } // namespace mlir
 

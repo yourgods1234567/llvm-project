@@ -59,8 +59,9 @@ namespace {
 /// Simple common sub-expression elimination.
 class CSEDriver {
 public:
-  CSEDriver(RewriterBase &rewriter, DominanceInfo *domInfo)
-      : rewriter(rewriter), domInfo(domInfo) {}
+  CSEDriver(RewriterBase &rewriter, DominanceInfo *domInfo,
+            PostDominanceInfo *postDomInfo)
+      : rewriter(rewriter), domInfo(domInfo), postDomInfo(postDomInfo) {}
 
   /// Simplify all operations within the given op.
   void simplify(Operation *op, bool *changed = nullptr);
@@ -119,6 +120,7 @@ private:
   /// Operations marked as dead and to be erased.
   std::vector<Operation *> opsToErase;
   DominanceInfo *domInfo = nullptr;
+  PostDominanceInfo *postDomInfo = nullptr;
   MemEffectsCache memEffectsCache;
 
   // Various statistics.
@@ -399,8 +401,11 @@ void CSEDriver::simplify(Operation *op, bool *changed) {
   /// Erase any operations that were marked as dead during simplification, and
   /// remove their associated dominator trees.
   for (auto *op : opsToErase) {
-    for (Region &region : op->getRegions())
+    for (Region &region : op->getRegions()) {
       domInfo->invalidate(&region);
+      if (postDomInfo != nullptr)
+        postDomInfo->invalidate(&region);
+    }
     rewriter.eraseOp(op);
   }
   if (changed)
@@ -411,9 +416,10 @@ void CSEDriver::simplify(Operation *op, bool *changed) {
 }
 
 void mlir::eliminateCommonSubExpressions(RewriterBase &rewriter,
-                                         DominanceInfo &domInfo, Operation *op,
-                                         bool *changed) {
-  CSEDriver driver(rewriter, &domInfo);
+                                         DominanceInfo &domInfo,
+                                         PostDominanceInfo &postDomInfo,
+                                         Operation *op, bool *changed) {
+  CSEDriver driver(rewriter, &domInfo, &postDomInfo);
   driver.simplify(op, changed);
 }
 
@@ -425,9 +431,16 @@ struct CSE : public impl::CSEPassBase<CSE> {
 } // namespace
 
 void CSE::runOnOperation() {
+  // The CSE implementation does not rely on PostDominanceInfo. However,
+  // since we mark it as preserved at the end, if a cached PostDominanceInfo
+  // exists, we need to update it within CSE.
+  PostDominanceInfo *postDomInfo = nullptr;
+  if (auto dominate = getCachedAnalysis<PostDominanceInfo>())
+    postDomInfo = &dominate.value().get();
+
   // Simplify the IR.
   IRRewriter rewriter(&getContext());
-  CSEDriver driver(rewriter, &getAnalysis<DominanceInfo>());
+  CSEDriver driver(rewriter, &getAnalysis<DominanceInfo>(), postDomInfo);
   bool changed = false;
   driver.simplify(getOperation(), &changed);
 
