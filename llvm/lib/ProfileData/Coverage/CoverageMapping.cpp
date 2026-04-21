@@ -878,6 +878,15 @@ Error CoverageMapping::loadFunctionRecord(
   else
     OrigFuncName = getFuncNameWithoutPrefix(OrigFuncName, Record.Filenames[0]);
 
+  // Early dedup: skip expensive counter evaluation for already-seen functions.
+  auto FilenamesHash = hash_combine_range(Record.Filenames);
+  auto FuncNameHash = hash_value(OrigFuncName);
+  {
+    auto It = RecordProvenance.find(FilenamesHash);
+    if (It != RecordProvenance.end() && It->second.count(FuncNameHash))
+      return Error::success();
+  }
+
   CounterMappingContext Ctx(Record.Expressions);
 
   std::vector<uint64_t> Counts;
@@ -944,8 +953,7 @@ Error CoverageMapping::loadFunctionRecord(
   }
 
   // Don't create records for (filenames, function) pairs we've already seen.
-  auto FilenamesHash = hash_combine_range(Record.Filenames);
-  if (!RecordProvenance[FilenamesHash].insert(hash_value(OrigFuncName)).second)
+  if (!RecordProvenance[FilenamesHash].insert(FuncNameHash).second)
     return Error::success();
 
   Functions.push_back(std::move(Function));
