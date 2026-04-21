@@ -1245,6 +1245,8 @@ uptr GetMaxVirtualAddress() {
   // loongarch64 also has multiple address space layouts: default is 47-bit.
   // RISC-V 64 also has multiple address space layouts: 39, 48 and 57-bit.
   return (1ULL << (MostSignificantSetBitIndex(GET_CURRENT_FRAME()) + 1)) - 1;
+#    elif SANITIZER_ALPHA
+  return (1ULL << 43) - 1;  // 0x000007ffffffffffUL
 #    elif SANITIZER_MIPS64
   return (1ULL << 40) - 1;  // 0x000000ffffffffffUL;
 #    elif defined(__s390x__)
