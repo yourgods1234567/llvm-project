@@ -300,8 +300,14 @@ void ScriptInterpreterPython::Initialize() {
   setenv("PYTHONMALLOC", "malloc", /*overwrite=*/true);
 #endif
 
+  // When the script interpreter is a separate shared library, the SWIG wrapper
+  // links directly against it (not liblldb), so the shared library directory
+  // helper is not needed to redirect the library path back to liblldb.
+#if !LLDB_ENABLE_DYNAMIC_SCRIPTINTERPRETERS
   HostInfo::SetSharedLibraryDirectoryHelper(
       ScriptInterpreterPython::SharedLibraryDirectoryHelper);
+#endif
+
   PluginManager::RegisterPlugin(
       GetPluginNameStatic(), GetPluginDescriptionStatic(),
       lldb::eScriptLanguagePython, ScriptInterpreterPythonImpl::CreateInstance,

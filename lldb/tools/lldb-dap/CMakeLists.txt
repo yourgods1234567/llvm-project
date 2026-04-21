@@ -1,6 +1,12 @@
-# We need to include the llvm components we depend on manually, as liblldb does
-# not re-export those.
-set(LLVM_LINK_COMPONENTS Support)
+# When LLDB_EXPORT_ALL_SYMBOLS is OFF, we need to include the LLVM components we
+# depend on manually, as liblldb does not re-export those. When it is ON, liblldb
+# exports all symbols including those from LLVM. In that case we must NOT link
+# them statically to avoid duplicate symbols (e.g. ErrorInfoBase::ID) which
+# breaks LLVM's Error handling across library boundaries.
+if (NOT LLDB_EXPORT_ALL_SYMBOLS)
+  set(LLVM_LINK_COMPONENTS Support)
+  set(llvm_link_components Option Support)
+endif()
 
 add_lldb_library(lldbDAP
   Breakpoint.cpp
@@ -75,8 +81,7 @@ add_lldb_library(lldbDAP
   Protocol/ProtocolRequests.cpp
 
   LINK_COMPONENTS
-    Option
-    Support
+    ${llvm_link_components}
   LINK_LIBS
     liblldb
     lldbHost
