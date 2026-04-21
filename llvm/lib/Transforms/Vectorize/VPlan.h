@@ -4104,6 +4104,9 @@ template <>
 struct CastInfo<VPPhiAccessors, VPRecipeBase>
     : public ForwardToPointerCast<VPPhiAccessors, VPRecipeBase *,
                                   CastInfo<VPPhiAccessors, VPRecipeBase *>> {};
+template <>
+struct CastInfo<VPPhiAccessors, VPSingleDefRecipe *>
+    : CastInfo<VPPhiAccessors, VPRecipeBase *> {};
 
 /// Support casting from VPRecipeBase -> VPIRMetadata.
 template <>
