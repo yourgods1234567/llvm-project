@@ -2882,7 +2882,7 @@ void VPlanTransforms::truncateToMinimalBitwidths(
   }
 }
 
-void VPlanTransforms::removeBranchOnConst(VPlan &Plan, bool OnlyLatches) {
+bool VPlanTransforms::removeBranchOnConst(VPlan &Plan, bool OnlyLatches) {
   std::optional<VPDominatorTree> VPDT;
   if (OnlyLatches)
     VPDT.emplace(Plan);
@@ -2891,6 +2891,7 @@ void VPlanTransforms::removeBranchOnConst(VPlan &Plan, bool OnlyLatches) {
   // ones after constant branch removal.
   SmallVector<VPBlockBase *> AllBlocks(vp_depth_first_shallow(Plan.getEntry()));
 
+  bool SimplifiedPhi = false;
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(AllBlocks)) {
     VPValue *Cond;
     // Skip blocks that are not terminated by BranchOnCond.
@@ -2916,8 +2917,10 @@ void VPlanTransforms::removeBranchOnConst(VPlan &Plan, bool OnlyLatches) {
            "There must be a single edge between VPBB and its successor");
     // Values coming from VPBB into phi recipes of RemovedSucc are removed from
     // these recipes.
-    for (VPRecipeBase &R : RemovedSucc->phis())
+    auto Phis = RemovedSucc->phis();
+    for (VPRecipeBase &R : Phis)
       cast<VPPhiAccessors>(&R)->removeIncomingValueFor(VPBB);
+    SimplifiedPhi |= !std::empty(Phis);
 
     // Disconnect blocks and remove the terminator.
     VPBlockUtils::disconnectBlocks(VPBB, RemovedSucc);
@@ -2950,6 +2953,7 @@ void VPlanTransforms::removeBranchOnConst(VPlan &Plan, bool OnlyLatches) {
       }
     }
   }
+  return SimplifiedPhi;
 }
 
 void VPlanTransforms::optimize(VPlan &Plan) {
@@ -5162,11 +5166,10 @@ void VPlanTransforms::materializePacksAndUnpacks(VPlan &Plan) {
   }
 }
 
-void VPlanTransforms::materializeVectorTripCount(VPlan &Plan,
-                                                 VPBasicBlock *VectorPHVPBB,
-                                                 bool TailByMasking,
-                                                 bool RequiresScalarEpilogue,
-                                                 VPValue *Step) {
+void VPlanTransforms::materializeVectorTripCount(
+    VPlan &Plan, VPBasicBlock *VectorPHVPBB, bool TailByMasking,
+    bool RequiresScalarEpilogue, VPValue *Step,
+    std::optional<uint64_t> MaxRuntimeStep) {
   VPSymbolicValue &VectorTC = Plan.getVectorTripCount();
   // There's nothing to do if there are no users of the vector trip count or its
   // IR value has already been set.
@@ -5183,6 +5186,16 @@ void VPlanTransforms::materializeVectorTripCount(VPlan &Plan,
     InsertPt = std::next(StepR->getIterator());
   }
   VPBuilder Builder(VectorPHVPBB, InsertPt);
+
+  // For scalable steps, if TC is a constant and is divisible by the maximum
+  // possible runtime step, then TC % Step == 0 for all valid vscale values
+  // and the vector trip count equals TC directly.
+  const APInt *TCVal;
+  if (!RequiresScalarEpilogue && match(TC, m_APInt(TCVal)) && MaxRuntimeStep &&
+      TCVal->getZExtValue() % *MaxRuntimeStep == 0) {
+    VectorTC.replaceAllUsesWith(TC);
+    return;
+  }
 
   // If the tail is to be folded by masking, round the number of iterations N
   // up to a multiple of Step instead of rounding down. This is done by first
@@ -5201,6 +5214,7 @@ void VPlanTransforms::materializeVectorTripCount(VPlan &Plan,
   // iterations are not required for correctness, or N - Step, otherwise. Step
   // is equal to the vectorization factor (number of SIMD elements) times the
   // unroll factor (number of SIMD instructions).
+
   VPValue *R =
       Builder.createNaryOp(Instruction::URem, {TC, Step},
                            DebugLoc::getCompilerGenerated(), "n.mod.vf");
