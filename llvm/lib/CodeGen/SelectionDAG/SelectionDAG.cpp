@@ -6099,6 +6099,25 @@ KnownFPClass SelectionDAG::computeKnownFPClass(SDValue Op,
     }
     break;
   }
+  case ISD::EXTRACT_VECTOR_ELT: {
+    SDValue Src = Op.getOperand(0);
+    auto *CIdx = dyn_cast<ConstantSDNode>(Op.getOperand(1));
+    EVT SrcVT = Src.getValueType();
+    if (SrcVT.isFixedLengthVector() && CIdx) {
+      if (CIdx->getAPIntValue().ult(SrcVT.getVectorNumElements())) {
+        APInt DemandedSrcElts = APInt::getOneBitSet(
+            SrcVT.getVectorNumElements(), CIdx->getZExtValue());
+        Known = computeKnownFPClass(Src, DemandedSrcElts, InterestedClasses,
+                                    Depth + 1);
+      } else {
+        // Out of bounds index is poison.
+        Known.KnownFPClasses = fcNone;
+      }
+    } else {
+      Known = computeKnownFPClass(Src, InterestedClasses, Depth + 1);
+    }
+    break;
+  }
   case ISD::SPLAT_VECTOR: {
     Known = computeKnownFPClass(Op.getOperand(0), InterestedClasses, Depth + 1);
     break;
@@ -6346,13 +6365,19 @@ bool SelectionDAG::isKnownNeverNaN(SDValue Op, const APInt &DemandedElts,
   return Known.isKnownNever(NanMask);
 }
 
-bool SelectionDAG::isKnownNeverZeroFloat(SDValue Op) const {
-  assert(Op.getValueType().isFloatingPoint() &&
-         "Floating point type expected");
+bool SelectionDAG::isKnownNeverLogicalZero(SDValue Op, unsigned Depth) const {
+  APInt DemandedElts = getDemandAllEltsMask(Op);
+  return isKnownNeverLogicalZero(Op, DemandedElts, Depth);
+}
 
-  // If the value is a constant, we can obviously see if it is a zero or not.
-  return ISD::matchUnaryFpPredicate(
-      Op, [](ConstantFPSDNode *C) { return !C->isZero(); });
+bool SelectionDAG::isKnownNeverLogicalZero(SDValue Op,
+                                           const APInt &DemandedElts,
+                                           unsigned Depth) const {
+  assert(!DemandedElts.isZero() && "No demanded elements");
+  EVT VT = Op.getValueType();
+  KnownFPClass Known =
+      computeKnownFPClass(Op, DemandedElts, fcZero | fcSubnormal, Depth);
+  return Known.isKnownNeverLogicalZero(getDenormalMode(VT));
 }
 
 bool SelectionDAG::isKnownNeverZero(SDValue Op, unsigned Depth) const {
@@ -6369,7 +6394,7 @@ bool SelectionDAG::isKnownNeverZero(SDValue Op, const APInt &DemandedElts,
   unsigned BitWidth = OpVT.getScalarSizeInBits();
 
   assert(!Op.getValueType().isFloatingPoint() &&
-         "Floating point types unsupported - use isKnownNeverZeroFloat");
+         "Floating point types unsupported - use isKnownNeverLogicalZero");
 
   // If the value is a constant, we can obviously see if it is a zero or not.
   auto IsNeverZero = [BitWidth](const ConstantSDNode *C) {
@@ -6627,7 +6652,7 @@ bool SelectionDAG::canIgnoreSignBitOfZero(const SDUse &Use) const {
     // Arithmetic with non-zero constants fixes the uncertainty around the
     // sign bit.
     SDValue Other = User->getOperand(1 - OperandNo);
-    return isKnownNeverZeroFloat(Other);
+    return isKnownNeverLogicalZero(Other);
   }
   case ISD::FP_TO_SINT:
   case ISD::FP_TO_UINT:
@@ -8301,6 +8326,9 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     assert(N1.getValueType().isFloatingPoint() &&
            "IS_FPCLASS is used for a non-floating type");
     assert(isa<ConstantSDNode>(N2) && "FPClassTest is not Constant");
+    // is.fpclass(poison, mask) -> poison
+    if (N1.getOpcode() == ISD::POISON)
+      return getPOISON(VT);
     FPClassTest Mask = static_cast<FPClassTest>(N2->getAsZExtVal());
     // If all tests are made, it doesn't matter what the value is.
     if ((Mask & fcAllFlags) == fcAllFlags)
@@ -8373,12 +8401,12 @@ SDValue SelectionDAG::getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
     if (N1.isUndef() || N2.isUndef())
       return getUNDEF(VT);
 
-    // EXTRACT_VECTOR_ELT of out-of-bounds element is an UNDEF for fixed length
+    // EXTRACT_VECTOR_ELT of out-of-bounds element is POISON for fixed length
     // vectors. For scalable vectors we will provide appropriate support for
     // dealing with arbitrary indices.
     if (N2C && N1.getValueType().isFixedLengthVector() &&
         N2C->getAPIntValue().uge(N1.getValueType().getVectorNumElements()))
-      return getUNDEF(VT);
+      return getPOISON(VT);
 
     // EXTRACT_VECTOR_ELT of CONCAT_VECTORS is often formed while lowering is
     // expanding copies of large vectors from registers. This only works for
