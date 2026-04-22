@@ -174,6 +174,8 @@ protected:
   const parser::DoConstruct *GetDoConstructIf(
       const parser::ExecutionPartConstruct &);
   Symbol *DeclareNewAccessEntity(const Symbol &, Symbol::Flag, Scope &);
+  Symbol *DeclareNewAccessEntity(
+      const SourceName &, const Symbol &, Symbol::Flag, Scope &);
   Symbol *DeclareAccessEntity(const parser::Name &, Symbol::Flag, Scope &);
   Symbol *DeclareAccessEntity(Symbol &, Symbol::Flag, Scope &);
   Symbol *DeclareOrMarkOtherAccessEntity(const parser::Name &, Symbol::Flag);
@@ -1207,15 +1209,22 @@ const parser::DoConstruct *DirectiveAttributeVisitor<T>::GetDoConstructIf(
 
 template <typename T>
 Symbol *DirectiveAttributeVisitor<T>::DeclareNewAccessEntity(
-    const Symbol &object, Symbol::Flag flag, Scope &scope) {
+    const SourceName &name, const Symbol &object, Symbol::Flag flag,
+    Scope &scope) {
   assert(object.owner() != currScope());
-  auto &symbol{MakeAssocSymbol(object.name(), object, scope)};
+  auto &symbol{MakeAssocSymbol(name, object, scope)};
   symbol.set(flag);
   if (flag == Symbol::Flag::OmpCopyIn) {
     // The symbol in copyin clause must be threadprivate entity.
     symbol.set(Symbol::Flag::OmpThreadprivate);
   }
   return &symbol;
+}
+
+template <typename T>
+Symbol *DirectiveAttributeVisitor<T>::DeclareNewAccessEntity(
+    const Symbol &object, Symbol::Flag flag, Scope &scope) {
+  return DeclareNewAccessEntity(object.name(), object, flag, scope);
 }
 
 template <typename T>
@@ -2495,12 +2504,15 @@ void OmpAttributeVisitor::CreateImplicitSymbols(
     // This would make x appear to be defined in p2, causing it to be
     // privatized in p2 and its privatization in p1 to be skipped.
     auto makeSymbol = [&](Symbol::Flags flags) {
-      const Symbol *hostSymbol =
-          lastDeclSymbol ? lastDeclSymbol : &symbol->GetUltimate();
+      const Symbol *hostSymbol = lastDeclSymbol ? lastDeclSymbol : &symbol->GetUltimate();
+      const SourceName &name =
+          (symbol->name().ToString() != hostSymbol->name().ToString())
+          ? symbol->name()
+          : hostSymbol->name();
       assert(flags.LeastElement());
       Symbol::Flag flag = *flags.LeastElement();
       lastDeclSymbol = DeclareNewAccessEntity(
-          *hostSymbol, flag, context_.FindScope(dirContext.directiveSource));
+          name, *hostSymbol, flag, context_.FindScope(dirContext.directiveSource));
       lastDeclSymbol->flags() |= flags;
       return lastDeclSymbol;
     };
