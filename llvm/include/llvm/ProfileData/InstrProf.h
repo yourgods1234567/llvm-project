@@ -119,6 +119,11 @@ inline StringRef getInstrProfValueProfMemOpFuncName() {
   return INSTR_PROF_VALUE_PROF_MEMOP_FUNC_STR;
 }
 
+/// Return the name of the GPU wave-cooperative counter increment helper.
+inline StringRef getInstrProfInstrumentGPUFuncName() {
+  return INSTR_PROF_INSTRUMENT_GPU_FUNC_STR;
+}
+
 /// Return the name prefix of variables containing instrumented function names.
 inline StringRef getInstrProfNameVarPrefix() { return "__profn_"; }
 
