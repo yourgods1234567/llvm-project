@@ -65,8 +65,10 @@ define void @reg20_localDst(i8 %val) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    aghi %r15, -184
 ; CHECK-NEXT:    .cfi_def_cfa_offset 344
-; CHECK-NEXT:    stc %r2, 164(%r15)
-; CHECK-NEXT:    mvc 165(19,%r15), 164(%r15)
+; CHECK-NEXT:    vlvgp %v0, %r2, %r2
+; CHECK-NEXT:    vrepb %v0, %v0, 7
+; CHECK-NEXT:    vstef %v0, 180(%r15), 0
+; CHECK-NEXT:    vst %v0, 164(%r15), 4
 ; CHECK-NEXT:    aghi %r15, 184
 ; CHECK-NEXT:    br %r14
   %Dst = alloca [20 x i8]
@@ -276,8 +278,9 @@ define void @imm20_localDst() {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    aghi %r15, -184
 ; CHECK-NEXT:    .cfi_def_cfa_offset 344
-; CHECK-NEXT:    mvi 164(%r15), 255
-; CHECK-NEXT:    mvc 165(19,%r15), 164(%r15)
+; CHECK-NEXT:    vgbm %v0, 65535
+; CHECK-NEXT:    vst %v0, 164(%r15), 4
+; CHECK-NEXT:    mvhi 180(%r15), -1
 ; CHECK-NEXT:    aghi %r15, 184
 ; CHECK-NEXT:    br %r14
   %Dst = alloca [20 x i8]

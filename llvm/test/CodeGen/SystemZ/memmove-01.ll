@@ -338,16 +338,12 @@ define void @fun20(ptr %Src, ptr %Dst, i8 %val) {
 define void @fun20_localDst(ptr %Src, i8 %val) {
 ; CHECK-LABEL: fun20_localDst:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    stmg %r14, %r15, 112(%r15)
-; CHECK-NEXT:    .cfi_offset %r14, -48
-; CHECK-NEXT:    .cfi_offset %r15, -40
 ; CHECK-NEXT:    aghi %r15, -184
 ; CHECK-NEXT:    .cfi_def_cfa_offset 344
-; CHECK-NEXT:    lgr %r3, %r2
-; CHECK-NEXT:    la %r2, 164(%r15)
-; CHECK-NEXT:    lghi %r4, 20
-; CHECK-NEXT:    brasl %r14, memmove@PLT
-; CHECK-NEXT:    lmg %r14, %r15, 296(%r15)
+; CHECK-NEXT:    vl %v0, 0(%r2), 3
+; CHECK-NEXT:    vst %v0, 164(%r15), 3
+; CHECK-NEXT:    mvc 180(4,%r15), 16(%r2)
+; CHECK-NEXT:    aghi %r15, 184
 ; CHECK-NEXT:    br %r14
   %Dst = alloca [20 x i8]
   call void @llvm.memmove.p0.p0.i64(ptr align 8 %Dst, ptr align 8 %Src, i64 20, i1 false)

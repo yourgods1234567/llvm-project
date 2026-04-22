@@ -83,7 +83,9 @@ define void @fun20_localDst(ptr %Src, i8 %val) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    aghi %r15, -184
 ; CHECK-NEXT:    .cfi_def_cfa_offset 344
-; CHECK-NEXT:    mvc 164(20,%r15), 0(%r2)
+; CHECK-NEXT:    vl %v0, 0(%r2), 4
+; CHECK-NEXT:    vst %v0, 164(%r15), 4
+; CHECK-NEXT:    mvc 180(4,%r15), 16(%r2)
 ; CHECK-NEXT:    aghi %r15, 184
 ; CHECK-NEXT:    br %r14
   %Dst = alloca [20 x i8]

@@ -1471,7 +1471,7 @@ bool SystemZTargetLowering::findOptimalMemOpLowering(
 
   // Don't lower unaligned operations.
   unsigned ReqAlign = Op.size() >= 8 ? 8 : (Op.size() >= 4 ? 4 : 2);
-  if (!Op.isFixedDstAlign() || !Op.isAligned(Align(ReqAlign)))
+  if (!Op.isAligned(Align(ReqAlign)))
     return false;
 
   // Try to lower Op with target instructions if those instructions will not
