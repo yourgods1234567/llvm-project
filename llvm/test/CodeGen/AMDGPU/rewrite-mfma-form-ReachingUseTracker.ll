@@ -1,10 +1,3 @@
-;
-; Verify the machine-scheduler-level rewrite() changes:
-;   1. All 9 MFMAs: opcode _vgprcd_e64 -> _e64, class vreg -> areg (AGPR form).
-;   2. Case 3 COPY: inserted after zeroinitializer def in loop.body (entry edge),
-;      converts VGPR acc -> AGPR acc before MFMA (src2/dst reclassification).
-;   3. Case 2 COPY: inserted at exit block entry (ReachingUseTracker),
-;      converts AGPR MFMA result -> VGPR before fptrunc (V_CVT_F16_F32).
 ; RUN: llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx90a \
 ; RUN:     -amdgpu-disable-rewrite-mfma-form-sched-stage=false \
 ; RUN:     < %s | FileCheck %s
@@ -12,6 +5,13 @@
 ; RUN:     -amdgpu-disable-rewrite-mfma-form-sched-stage=false \
 ; RUN:     -stop-after=machine-scheduler \
 ; RUN:     < %s | FileCheck %s --check-prefix=MIR
+;
+; Verify the machine-scheduler-level rewrite() changes:
+;   1. All 9 MFMAs: opcode _vgprcd_e64 -> _e64, class vreg -> areg (AGPR form).
+;   2. Case 3 COPY: inserted after zeroinitializer def in loop.body (entry edge),
+;      converts VGPR acc -> AGPR acc before MFMA (src2/dst reclassification).
+;   3. Case 2 COPY: inserted at exit block entry (ReachingUseTracker),
+;      converts AGPR MFMA result -> VGPR before fptrunc (V_CVT_F16_F32).
 ;
 ; CHECK-LABEL: test_ReachingUseTracker_crossblock_use:
 ; CHECK-COUNT-9: v_mfma_f32_4x4x2bf16 a[{{[0-9:]+}}], {{.*}}, {{.*}}, a[{{[0-9:]+}}]

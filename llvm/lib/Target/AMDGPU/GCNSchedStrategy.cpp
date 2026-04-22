@@ -2251,7 +2251,7 @@ void GCNSchedStage::modifyRegionSchedule(unsigned RegionIdx,
 }
 
 void RewriteMFMAFormStage::resetRewriteCandsToVGPR(
-    const std::vector<std::pair<MachineInstr *, unsigned>> &RewriteCands) {
+    ArrayRef<std::pair<MachineInstr *, unsigned>> RewriteCands) {
   for (auto &[MI, OriginalOpcode] : RewriteCands) {
     assert(TII->isMAI(*MI));
     const TargetRegisterClass *ADefRC =
@@ -2371,7 +2371,7 @@ bool RewriteMFMAFormStage::initHeuristics(
 }
 
 int64_t RewriteMFMAFormStage::getRewriteCost(
-    const std::vector<std::pair<MachineInstr *, unsigned>> &RewriteCands,
+    ArrayRef<std::pair<MachineInstr *, unsigned>> RewriteCands,
     const DenseMap<MachineBasicBlock *, std::set<Register>> &CopyForUse,
     const SmallPtrSetImpl<MachineInstr *> &CopyForDef) {
   MachineBlockFrequencyInfo *MBFI = DAG.MBFI;
@@ -2473,7 +2473,7 @@ int64_t RewriteMFMAFormStage::getRewriteCost(
 }
 
 bool RewriteMFMAFormStage::rewrite(
-    const std::vector<std::pair<MachineInstr *, unsigned>> &RewriteCands) {
+    ArrayRef<std::pair<MachineInstr *, unsigned>> RewriteCands) {
   DenseMap<MachineInstr *, unsigned> FirstMIToRegion;
   DenseMap<MachineInstr *, unsigned> LastMIToRegion;
 
