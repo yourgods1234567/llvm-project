@@ -18,6 +18,7 @@
 
 #define GET_REGINFO_HEADER
 #include "AMDGPUGenRegisterInfo.inc"
+#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 
 #include "SIDefines.h"
 
@@ -496,6 +497,11 @@ public:
              RC == &AMDGPU::VReg_64_Lo256_Align2RegClass)
                 ? 2.0
                 : 1.0);
+  }
+
+  /// return true if the physical register can be a live-in register.
+  bool cannotBeLiveInDuringSSA(MCRegister Reg) const override {
+    return Reg == AMDGPU::SCC;
   }
 };
 

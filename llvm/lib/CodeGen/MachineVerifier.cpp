@@ -893,6 +893,13 @@ MachineVerifier::visitMachineBasicBlockBefore(const MachineBasicBlock *MBB) {
   regsLive.clear();
   if (MRI->tracksLiveness()) {
     for (const auto &LI : MBB->liveins()) {
+      if (MRI->isSSA() && LI.PhysReg.isPhysical() &&
+          TRI->cannotBeLiveInDuringSSA(LI.PhysReg)) {
+        report("This physical register cannot be a live-in during SSA form",
+               MBB);
+        StringRef RegName = TRI->getRegAsmName(LI.PhysReg);
+        OS << "Register Name is " << RegName << "\n";
+      }
       if (!LI.PhysReg.isPhysical()) {
         report("MBB live-in list contains non-physical register", MBB);
         continue;

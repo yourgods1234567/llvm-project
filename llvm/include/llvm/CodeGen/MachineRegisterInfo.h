@@ -197,7 +197,7 @@ public:
   // register has a single defining instruction.
   //
   // The TwoAddressInstructionPass and PHIElimination passes take the machine
-  // function out of SSA form when they introduce multiple defs per virtual
+  // function oout of SSA form when they introduce multiple defs per virtual
   // register.
   bool isSSA() const { return MF->getProperties().hasIsSSA(); }
 
