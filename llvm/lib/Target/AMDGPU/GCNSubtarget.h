@@ -1010,6 +1010,8 @@ public:
   bool requiresWaitOnWorkgroupReleaseFence() const {
     return getGeneration() >= GFX10 || isTgSplitEnabled();
   }
+
+  bool isGloballyAddressableScratchEnabled() const;
 };
 
 class GCNUserSGPRUsageInfo {
