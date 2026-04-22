@@ -1942,6 +1942,11 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::VECREDUCE_UMIN, MVT::v2i64, Custom);
     }
 
+    for (auto VT : {MVT::v1i64, MVT::v2i64}) {
+      setOperationAction(ISD::CTLZ, VT, Custom);
+      setOperationAction(ISD::CTTZ, VT, Custom);
+    }
+
     // NOTE: Currently this has to happen after computeRegisterProperties rather
     // than the preferred option of combining it with the addRegisterClass call.
     if (Subtarget->useSVEForFixedLengthVectors()) {
@@ -1969,9 +1974,6 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
 
       // These operations are not supported on NEON but SVE can do them.
       setOperationAction(ISD::BITREVERSE, MVT::v1i64, Custom);
-      setOperationAction(ISD::CTLZ, MVT::v1i64, Custom);
-      setOperationAction(ISD::CTLZ, MVT::v2i64, Custom);
-      setOperationAction(ISD::CTTZ, MVT::v1i64, Custom);
       setOperationAction(ISD::SMAX, MVT::v1i64, Custom);
       setOperationAction(ISD::SMAX, MVT::v2i64, Custom);
       setOperationAction(ISD::SMIN, MVT::v1i64, Custom);
@@ -1989,10 +1991,13 @@ AArch64TargetLowering::AArch64TargetLowering(const TargetMachine &TM,
       for (auto VT : {MVT::v8i8, MVT::v16i8, MVT::v4i16, MVT::v8i16,
                       MVT::v2i32, MVT::v4i32, MVT::v2i64}) {
         setOperationAction(ISD::BITREVERSE, VT, Custom);
-        setOperationAction(ISD::CTTZ, VT, Custom);
         setOperationAction(ISD::VECREDUCE_AND, VT, Custom);
         setOperationAction(ISD::VECREDUCE_OR, VT, Custom);
         setOperationAction(ISD::VECREDUCE_XOR, VT, Custom);
+      }
+      for (auto VT : {MVT::v8i8, MVT::v16i8, MVT::v4i16, MVT::v8i16, MVT::v2i32,
+                      MVT::v4i32}) {
+        setOperationAction(ISD::CTTZ, VT, Custom);
       }
 
       // Use SVE for vectors with more than 2 elements.
@@ -11753,11 +11758,10 @@ SDValue AArch64TargetLowering::LowerCTPOP_PARITY(SDValue Op,
 
 SDValue AArch64TargetLowering::LowerCTTZ(SDValue Op, SelectionDAG &DAG) const {
   EVT VT = Op.getValueType();
-  assert(VT.isScalableVector() || VT == MVT::v8i8 || VT == MVT::v16i8 ||
-         VT == MVT::v8i16 || VT == MVT::v4i16 || VT == MVT::v2i32 ||
-         VT == MVT::v4i32 ||
+  assert(VT.isScalableVector() ||
          useSVEForFixedLengthVectorVT(
-             VT, /*OverrideNEON=*/Subtarget->useSVEForFixedLengthVectors()));
+             VT, /*OverrideNEON=*/Subtarget->isSVEorStreamingSVEAvailable()) ||
+         VT.getScalarSizeInBits() < 64);
 
   SDLoc DL(Op);
   SDValue RBIT = DAG.getNode(ISD::BITREVERSE, DL, VT, Op.getOperand(0));
