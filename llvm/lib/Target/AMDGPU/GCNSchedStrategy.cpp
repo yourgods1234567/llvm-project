@@ -2250,6 +2250,31 @@ void GCNSchedStage::modifyRegionSchedule(unsigned RegionIdx,
   DAG.Regions[RegionIdx].first = MIOrder.front();
 }
 
+void RewriteMFMAFormStage::resetRewriteCandsToVGPR(
+    const std::vector<std::pair<MachineInstr *, unsigned>> &RewriteCands) {
+  for (auto &[MI, OriginalOpcode] : RewriteCands) {
+    assert(TII->isMAI(*MI));
+    const TargetRegisterClass *ADefRC =
+        DAG.MRI.getRegClass(MI->getOperand(0).getReg());
+    const TargetRegisterClass *VDefRC = SRI->getEquivalentVGPRClass(ADefRC);
+    DAG.MRI.setRegClass(MI->getOperand(0).getReg(), VDefRC);
+    MI->setDesc(TII->get(OriginalOpcode));
+
+    MachineOperand *Src2 = TII->getNamedOperand(*MI, AMDGPU::OpName::src2);
+    if (!Src2->isReg())
+      continue;
+
+    // Have to get src types separately since subregs may cause C and D
+    // registers to be different types even though the actual operand is
+    // the same size.
+    const TargetRegisterClass *AUseRC =
+        DAG.MRI.getRegClass(Src2->getReg());
+    const TargetRegisterClass *VUseRC =
+        SRI->getEquivalentVGPRClass(AUseRC);
+    DAG.MRI.setRegClass(Src2->getReg(), VUseRC);
+  }
+}
+
 bool RewriteMFMAFormStage::isRewriteCandidate(MachineInstr *MI) const {
 
   if (!static_cast<const SIInstrInfo *>(DAG.TII)->isMAI(*MI))
@@ -2272,10 +2297,18 @@ bool RewriteMFMAFormStage::initHeuristics(
       int ReplacementOp = AMDGPU::getMFMASrcCVDstAGPROp(MI.getOpcode());
       assert(ReplacementOp != -1);
 
+      MachineOperand *Src2 = TII->getNamedOperand(MI, AMDGPU::OpName::src2);
+      MachineOperand &Dst = MI.getOperand(0);
+      assert(Src2);
+      // Pre-validate: both dst and src2 (if a register) must be virtual.
+      if (!Dst.getReg().isVirtual() ||
+          (Src2->isReg() && !Src2->getReg().isVirtual())) {
+        continue;
+      }
+
       RewriteCands.push_back({&MI, MI.getOpcode()});
       MI.setDesc(TII->get(ReplacementOp));
 
-      MachineOperand *Src2 = TII->getNamedOperand(MI, AMDGPU::OpName::src2);
       if (Src2->isReg()) {
         SmallVector<SlotIndex, 8> Src2ReachingDefs;
         findReachingDefs(*Src2, DAG.LIS, Src2ReachingDefs);
@@ -2289,7 +2322,6 @@ bool RewriteMFMAFormStage::initHeuristics(
         }
       }
 
-      MachineOperand &Dst = MI.getOperand(0);
       SmallVector<MachineOperand *, 8> DstReachingUses;
 
       findReachingUses(&MI, DAG.LIS, DstReachingUses);
@@ -2354,6 +2386,10 @@ int64_t RewriteMFMAFormStage::getRewriteCost(
   unsigned AGPRThreshold = MaxVectorRegs.second;
   unsigned CombinedThreshold = ST.getMaxNumVGPRs(MF);
 
+  // Reset the classes that were changed to AGPR for better RB analysis.
+  // We must do rewriting after copy-insertion, as some defs of the register
+  // may require VGPR.  Additionally, if we bail out and don't perform the
+  // rewrite then these need to be restored anyway.
   for (unsigned Region = 0; Region < DAG.Regions.size(); Region++) {
     if (!RegionsWithExcessArchVGPR[Region])
       continue;
@@ -2391,8 +2427,10 @@ int64_t RewriteMFMAFormStage::getRewriteCost(
       SpillCost *= (int64_t)RelativeFreq;
 
     // If we have increased spilling in any block, just bail.
-    if (SpillCost > 0)
+    if (SpillCost > 0) {
+      resetRewriteCandsToVGPR(RewriteCands);
       return SpillCost;
+    }
 
     if (SpillCost < BestSpillCost)
       BestSpillCost = SpillCost;
@@ -2429,30 +2467,7 @@ int64_t RewriteMFMAFormStage::getRewriteCost(
     }
   }
 
-  // Reset the classes that were changed to AGPR for better RB analysis.
-  // We must do rewriting after copy-insertion, as some defs of the register
-  // may require VGPR.  Additionally, if we bail out and don't perform the
-  // rewrite then these need to be restored anyway.
-  for (auto &[MI, OriginalOpcode] : RewriteCands) {
-    assert(TII->isMAI(*MI));
-    const TargetRegisterClass *ADefRC =
-        DAG.MRI.getRegClass(MI->getOperand(0).getReg());
-    const TargetRegisterClass *VDefRC = SRI->getEquivalentVGPRClass(ADefRC);
-    DAG.MRI.setRegClass(MI->getOperand(0).getReg(), VDefRC);
-    MI->setDesc(TII->get(OriginalOpcode));
-
-    MachineOperand *Src2 = TII->getNamedOperand(*MI, AMDGPU::OpName::src2);
-    assert(Src2);
-    if (!Src2->isReg())
-      continue;
-
-    // Have to get src types separately since subregs may cause C and D
-    // registers to be different types even though the actual operand is
-    // the same size.
-    const TargetRegisterClass *AUseRC = DAG.MRI.getRegClass(Src2->getReg());
-    const TargetRegisterClass *VUseRC = SRI->getEquivalentVGPRClass(AUseRC);
-    DAG.MRI.setRegClass(Src2->getReg(), VUseRC);
-  }
+  resetRewriteCandsToVGPR(RewriteCands);
 
   return Cost + CopyCost;
 }
@@ -2534,9 +2549,6 @@ bool RewriteMFMAFormStage::rewrite(
     MachineOperand *Src2 = TII->getNamedOperand(*MI, AMDGPU::OpName::src2);
     if (Src2->isReg()) {
       Register Src2Reg = Src2->getReg();
-      if (!Src2Reg.isVirtual())
-        return false;
-
       Register MappedReg = Src2->getReg();
       SmallVector<SlotIndex, 8> Src2ReachingDefs;
       findReachingDefs(*Src2, DAG.LIS, Src2ReachingDefs);
@@ -2602,9 +2614,6 @@ bool RewriteMFMAFormStage::rewrite(
 
     MachineOperand *Dst = &MI->getOperand(0);
     Register DstReg = Dst->getReg();
-    if (!DstReg.isVirtual())
-      return false;
-
     Register MappedReg = DstReg;
     SmallVector<MachineOperand *, 8> DstReachingUses;
 
@@ -2675,6 +2684,14 @@ bool RewriteMFMAFormStage::rewrite(
     }
 
     DenseSet<MachineOperand *> &DstRegSet = ReplaceMap[DstReg];
+
+    // For same-block sub-register uses: all RUs that share the same DstReg
+    // and are in the same MBB as the MFMA can reuse a single COPY instead of
+    // inserting one COPY per use.  The COPY is placed immediately after the
+    // MFMA so it dominates every same-block use regardless of their order in
+    // DstReachingUseCopies.
+    Register SameBlockNewUseReg;
+
     for (MachineOperand *RU : DstReachingUseCopies) {
       MachineBasicBlock *RUBlock = RU->getParent()->getParent();
       // Just keep track of the reaching use of this register by block. After we
@@ -2684,22 +2701,29 @@ bool RewriteMFMAFormStage::rewrite(
         continue;
       }
 
-      // Special case, the use is in the same block as the MFMA. Insert the copy
-      // just before the use.
+      // Special case: the use is in the same block as the MFMA. Insert a single
+      // COPY immediately after the MFMA and reuse it for all same-block uses.
+      if (SameBlockNewUseReg.isValid()) {
+        // Reuse the COPY already inserted for this DstReg; no new instruction.
+        RU->setReg(SameBlockNewUseReg);
+        continue;
+      }
+
+      // First same-block use: create one COPY placed right after the MFMA so
+      // it dominates all subsequent same-block uses of DstReg.
       const TargetRegisterClass *DstRC = DAG.MRI.getRegClass(DstReg);
       const TargetRegisterClass *VGPRRC = SRI->getEquivalentVGPRClass(DstRC);
-      Register NewUseReg = DAG.MRI.createVirtualRegister(VGPRRC);
-      MachineInstr *UseInst = RU->getParent();
+      SameBlockNewUseReg = DAG.MRI.createVirtualRegister(VGPRRC);
       MachineInstrBuilder VGPRCopy =
-          BuildMI(*UseInst->getParent(), UseInst->getIterator(),
-                  UseInst->getDebugLoc(), TII->get(TargetOpcode::COPY))
-              .addDef(NewUseReg, {}, 0)
+          BuildMI(*MI->getParent(), std::next(MI->getIterator()),
+                  MI->getDebugLoc(), TII->get(TargetOpcode::COPY))
+              .addDef(SameBlockNewUseReg, {}, 0)
               .addUse(DstReg, {}, 0);
       DAG.LIS->InsertMachineInstrInMaps(*VGPRCopy);
       // Since we know this use has only one reaching def, we can replace the
       // use reg.
-      RU->setReg(NewUseReg);
-      // Track the copy source operand for r eplacement.
+      RU->setReg(SameBlockNewUseReg);
+      // Track the copy source operand for replacement.
       DstRegSet.insert(&VGPRCopy->getOperand(1));
     }
 
@@ -2793,10 +2817,10 @@ bool RewriteMFMAFormStage::rewrite(
   RegionPressureMap LiveInUpdater(&DAG, false);
   LiveInUpdater.buildLiveRegMap();
 
-  for (unsigned Region = 0; Region < DAG.Regions.size(); Region++)
+  for (unsigned Region = 0; Region < DAG.Regions.size(); Region++) {
     DAG.LiveIns[Region] = LiveInUpdater.getLiveRegsForRegionIdx(Region);
-
-  DAG.Pressure[RegionIdx] = DAG.getRealRegPressure(RegionIdx);
+    DAG.Pressure[Region] = DAG.getRealRegPressure(Region);
+  }
 
   return true;
 }

@@ -467,6 +467,11 @@ private:
   bool
   rewrite(const std::vector<std::pair<MachineInstr *, unsigned>> &RewriteCands);
 
+  /// Resets all rewrite candidates in \p Cands back to their original VGPR
+  /// opcodes and register classes.
+  void resetRewriteCandsToVGPR(
+      const std::vector<std::pair<MachineInstr *, unsigned>> &RewriteCands);
+
   /// \returns true if this MI is a rewrite candidate.
   bool isRewriteCandidate(MachineInstr *MI) const;
 
