@@ -5925,7 +5925,10 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   Intrinsic::MatchIntrinsicTypesResult Res =
       Intrinsic::matchIntrinsicSignature(IFTy, TableRef, ArgTys);
   if (Res != Intrinsic::MatchIntrinsicTypes_Match) {
-    CheckFailed(Intrinsic::getIntrinsicSignatureMismatch(ID, IFTy), IF);
+    std::string Msg;
+    raw_string_ostream OS(Msg);
+    Intrinsic::printIntrinsicSignatureMismatch(OS, ID, IFTy);
+    CheckFailed(Msg, IF);
     return;
   }
 

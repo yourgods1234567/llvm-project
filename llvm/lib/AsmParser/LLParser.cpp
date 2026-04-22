@@ -354,17 +354,19 @@ bool LLParser::validateEndOfModule(bool UpgradeDebugInfo) {
           if (!UpgradeIntrinsicFunction(TmpF, NewF)) {
             if (IID == Intrinsic::not_intrinsic)
               return error(Info.second, "unknown intrinsic '" + Name + "'");
-            FunctionType *ExpFTy = nullptr;
-            if (!Intrinsic::isOverloaded(IID))
-              ExpFTy = Intrinsic::getType(M->getContext(), IID);
-            std::string Detail = "for '" + Name + "': got ";
-            raw_string_ostream SS(Detail);
-            CB->getFunctionType()->print(SS);
-            if (ExpFTy) {
+            // TODO: For overloaded intrinsics, derive the expected type from
+            // the overload slots resolved before the mismatch point.
+            if (!Intrinsic::isOverloaded(IID)) {
+              FunctionType *ExpFTy = Intrinsic::getType(M->getContext(), IID);
+              std::string Detail = "for '" + Name + "': got ";
+              raw_string_ostream SS(Detail);
+              CB->getFunctionType()->print(SS);
               SS << ", expected ";
               ExpFTy->print(SS);
+              return error(Info.second,
+                           "invalid intrinsic signature\n" + Detail);
             }
-            return error(Info.second, "invalid intrinsic signature\n" + Detail);
+            return error(Info.second, "invalid intrinsic signature");
           }
 
           U.set(TmpF);
