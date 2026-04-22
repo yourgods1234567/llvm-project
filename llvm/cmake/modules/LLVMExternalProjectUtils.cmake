@@ -59,6 +59,9 @@ endfunction()
 #     Targets for toolchain tools (defaults to clang;lld)
 #   DEPENDS targets...
 #     Targets that this project depends on
+#   NOCLOBBER_DEPENDS targets...
+#     Targets that this project depends on for build ordering only. Unlike
+#     DEPENDS, these will not force a reconfigure of the external project.
 #   EXTRA_TARGETS targets...
 #     Extra targets in the subproject to generate targets for
 #   PASSTHROUGH_PREFIXES prefix...
@@ -74,7 +77,7 @@ function(llvm_ExternalProject_Add name source_dir)
   cmake_parse_arguments(ARG
     "ENABLE_FORTRAN;USE_TOOLCHAIN;EXCLUDE_FROM_ALL;NO_INSTALL;ALWAYS_CLEAN"
     "SOURCE_DIR;FOLDER"
-    "CMAKE_ARGS;TOOLCHAIN_TOOLS;RUNTIME_LIBRARIES;DEPENDS;EXTRA_TARGETS;PASSTHROUGH_PREFIXES;STRIP_TOOL;TARGET_TRIPLE"
+    "CMAKE_ARGS;TOOLCHAIN_TOOLS;RUNTIME_LIBRARIES;DEPENDS;NOCLOBBER_DEPENDS;EXTRA_TARGETS;PASSTHROUGH_PREFIXES;STRIP_TOOL;TARGET_TRIPLE"
     ${ARGN})
   canonicalize_tool_name(${name} nameCanon)
 
@@ -394,7 +397,7 @@ function(llvm_ExternalProject_Add name source_dir)
   endif()
 
   ExternalProject_Add(${name}
-    DEPENDS ${ARG_DEPENDS} llvm-config
+    DEPENDS ${ARG_DEPENDS} ${ARG_NOCLOBBER_DEPENDS} llvm-config
     ${name}-clobber
     PREFIX ${CMAKE_BINARY_DIR}/projects/${name}
     SOURCE_DIR ${source_dir}
