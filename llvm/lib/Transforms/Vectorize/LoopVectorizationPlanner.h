@@ -364,6 +364,14 @@ public:
         new VPInstructionWithType(Opcode, Op, ResultTy, Flags, Metadata, DL));
   }
 
+  VPInstruction *createScalarGEP(Type *SourceElementTy, ArrayRef<VPValue *> Ops,
+                                 Type *ResultTy, DebugLoc DL,
+                                 const VPIRFlags &Flags,
+                                 const VPIRMetadata &Metadata = {}) {
+    return tryInsertInstruction(new VPInstructionWithType(
+        SourceElementTy, Ops, ResultTy, Flags, Metadata, DL));
+  }
+
   VPValue *createScalarZExtOrTrunc(VPValue *Op, Type *ResultTy, Type *SrcTy,
                                    DebugLoc DL) {
     if (ResultTy == SrcTy)

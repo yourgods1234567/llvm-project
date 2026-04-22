@@ -1227,6 +1227,27 @@ getOpcodeOrIntrinsicID(const VPSingleDefRecipe *R) {
       .Default([](auto *) { return std::nullopt; });
 }
 
+/// If recipe \p R will lower to a GEP with a non-i8 source element type,
+/// return that source element type.
+static Type *getGEPSourceElementType(const VPSingleDefRecipe *R) {
+  // All VPInstructions that lower to GEPs must have the i8 source element
+  // type (as they are PtrAdds), so we omit it.
+  return TypeSwitch<const VPSingleDefRecipe *, Type *>(R)
+      .Case([](const VPReplicateRecipe *I) -> Type * {
+        if (auto *GEP = dyn_cast<GetElementPtrInst>(I->getUnderlyingValue()))
+          return GEP->getSourceElementType();
+        return nullptr;
+      })
+      .Case<VPVectorPointerRecipe, VPWidenGEPRecipe>(
+          [](auto *I) { return I->getSourceElementType(); })
+      .Case<VPInstructionWithType>([](auto *I) {
+        return I->getOpcode() == Instruction::GetElementPtr
+                   ? I->getSourceElementType()
+                   : nullptr;
+      })
+      .Default([](auto *) { return nullptr; });
+}
+
 /// Try to fold \p R using InstSimplifyFolder. Will succeed and return a
 /// non-nullptr VPValue for a handled opcode or intrinsic ID if corresponding \p
 /// Operands are foldable live-ins.
@@ -1279,8 +1300,7 @@ static VPIRValue *tryToFoldLiveIns(VPSingleDefRecipe &R,
                             Ops[1]);
     case Instruction::GetElementPtr: {
       auto &RFlags = cast<VPRecipeWithIRFlags>(R);
-      auto *GEP = cast<GetElementPtrInst>(RFlags.getUnderlyingInstr());
-      return Folder.FoldGEP(GEP->getSourceElementType(), Ops[0],
+      return Folder.FoldGEP(getGEPSourceElementType(&RFlags), Ops[0],
                             drop_begin(Ops), RFlags.getGEPNoWrapFlags());
     }
     case VPInstruction::PtrAdd:
@@ -2575,22 +2595,6 @@ namespace {
 struct VPCSEDenseMapInfo : public DenseMapInfo<VPSingleDefRecipe *> {
   static bool isSentinel(const VPSingleDefRecipe *Def) {
     return Def == getEmptyKey() || Def == getTombstoneKey();
-  }
-
-  /// If recipe \p R will lower to a GEP with a non-i8 source element type,
-  /// return that source element type.
-  static Type *getGEPSourceElementType(const VPSingleDefRecipe *R) {
-    // All VPInstructions that lower to GEPs must have the i8 source element
-    // type (as they are PtrAdds), so we omit it.
-    return TypeSwitch<const VPSingleDefRecipe *, Type *>(R)
-        .Case([](const VPReplicateRecipe *I) -> Type * {
-          if (auto *GEP = dyn_cast<GetElementPtrInst>(I->getUnderlyingValue()))
-            return GEP->getSourceElementType();
-          return nullptr;
-        })
-        .Case<VPVectorPointerRecipe, VPWidenGEPRecipe>(
-            [](auto *I) { return I->getSourceElementType(); })
-        .Default([](auto *) { return nullptr; });
   }
 
   /// Returns true if recipe \p Def can be safely handed for CSE.
