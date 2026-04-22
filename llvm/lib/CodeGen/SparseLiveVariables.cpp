@@ -39,13 +39,23 @@ using namespace llvm;
 
 #define DEBUG_TYPE "sparse-live-variables"
 
-char SparseLiveVariables::ID = 0;
-INITIALIZE_PASS(SparseLiveVariables, DEBUG_TYPE,
+char SparseLiveVariablesWrapperPass::ID = 0;
+INITIALIZE_PASS(SparseLiveVariablesWrapperPass, DEBUG_TYPE,
                 "Sparse Live Variable Analysis", false, false)
 
-bool SparseLiveVariables::runOnMachineFunction(MachineFunction &MF) {
-  if (skipFunction(MF.getFunction()) || MF.empty())
-    return false;
+AnalysisKey SparseLiveVariablesAnalysis::Key;
+
+SparseLiveVariables
+SparseLiveVariablesAnalysis::run(MachineFunction &MF,
+                                 MachineFunctionAnalysisManager &) {
+  SparseLiveVariables LV;
+  LV.analyze(MF);
+  return LV;
+}
+
+void SparseLiveVariables::analyze(MachineFunction &MF) {
+  if (MF.empty())
+    return;
 
   MRI = &MF.getRegInfo();
   TRI = MF.getSubtarget().getRegisterInfo();
@@ -125,8 +135,6 @@ bool SparseLiveVariables::runOnMachineFunction(MachineFunction &MF) {
       }
     }
   });
-
-  return false;
 }
 
 bool SparseLiveVariables::isLiveAfter(Register Reg,
@@ -496,4 +504,4 @@ void SparseLiveVariables::handleMove(MachineInstr &MI,
   }
 }
 
-char &llvm::SparseLiveVariablesID = SparseLiveVariables::ID;
+char &llvm::SparseLiveVariablesID = SparseLiveVariablesWrapperPass::ID;
