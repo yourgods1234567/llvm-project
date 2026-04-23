@@ -2218,6 +2218,9 @@ static LogicalResult verifyMapClause(Operation *op, OperandRange mapVars) {
   return success();
 }
 
+template <typename OpType>
+static LogicalResult verifyPrivateVarList(OpType &op);
+
 static LogicalResult verifyPrivateVarsMapping(TargetOp targetOp) {
   std::optional<DenseI64ArrayAttr> privateMapIndices =
       targetOp.getPrivateMapsAttr();
@@ -2395,6 +2398,9 @@ LogicalResult TargetOp::verify() {
     return failure();
 
   if (failed(verifyMapClause(*this, getMapVars())))
+    return failure();
+
+  if (failed(verifyPrivateVarList(*this)))
     return failure();
 
   return verifyPrivateVarsMapping(*this);
@@ -2847,6 +2853,9 @@ LogicalResult TeamsOp::verify() {
     return emitError(
         "expected equal sizes for allocate and allocator variables");
 
+  if (failed(verifyPrivateVarList(*this)))
+    return failure();
+
   return verifyReductionVarList(*this, getReductionSyms(), getReductionVars(),
                                 getReductionByref());
 }
@@ -2995,6 +3004,9 @@ void LoopOp::build(OpBuilder &builder, OperationState &state,
 }
 
 LogicalResult LoopOp::verify() {
+  if (failed(verifyPrivateVarList(*this)))
+    return failure();
+
   return verifyReductionVarList(*this, getReductionSyms(), getReductionVars(),
                                 getReductionByref());
 }
@@ -3050,6 +3062,10 @@ LogicalResult WsloopOp::verify() {
   if (getLinearVars().size() &&
       getLinearVarTypes().value().size() != getLinearVars().size())
     return emitError() << "Ill-formed type attributes for linear variables";
+
+  if (failed(verifyPrivateVarList(*this)))
+    return failure();
+
   return verifyReductionVarList(*this, getReductionSyms(), getReductionVars(),
                                 getReductionByref());
 }
@@ -3144,6 +3160,9 @@ LogicalResult SimdOp::verify() {
     }
   }
 
+  if (failed(verifyPrivateVarList(*this)))
+    return failure();
+
   if (getLinearVars().size() &&
       getLinearVarTypes().value().size() != getLinearVars().size())
     return emitError() << "Ill-formed type attributes for linear variables";
@@ -3179,6 +3198,9 @@ LogicalResult DistributeOp::verify() {
   if (getAllocateVars().size() != getAllocatorVars().size())
     return emitError(
         "expected equal sizes for allocate and allocator variables");
+
+  if (failed(verifyPrivateVarList(*this)))
+    return failure();
 
   return success();
 }
@@ -3334,11 +3356,14 @@ LogicalResult TaskOp::verify() {
   LogicalResult verifyDependVars =
       verifyDependVarList(*this, getDependKinds(), getDependVars(),
                           getDependIteratedKinds(), getDependIterated());
-  return failed(verifyDependVars)
-             ? verifyDependVars
-             : verifyReductionVarList(*this, getInReductionSyms(),
-                                      getInReductionVars(),
-                                      getInReductionByref());
+  if (failed(verifyDependVars))
+    return verifyDependVars;
+
+  if (failed(verifyPrivateVarList(*this)))
+    return failure();
+
+  return verifyReductionVarList(*this, getInReductionSyms(),
+                                getInReductionVars(), getInReductionByref());
 }
 
 //===----------------------------------------------------------------------===//
@@ -3392,6 +3417,10 @@ LogicalResult TaskloopContextOp::verify() {
   if (getAllocateVars().size() != getAllocatorVars().size())
     return emitError(
         "expected equal sizes for allocate and allocator variables");
+
+  if (failed(verifyPrivateVarList(*this)))
+    return failure();
+
   if (failed(verifyReductionVarList(*this, getReductionSyms(),
                                     getReductionVars(), getReductionByref())) ||
       failed(verifyReductionVarList(*this, getInReductionSyms(),
