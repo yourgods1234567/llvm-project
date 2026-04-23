@@ -951,13 +951,12 @@ Instruction *InstCombinerImpl::foldAddWithConstant(BinaryOperator &Add) {
     if (C2->isSignMask())
       return BinaryOperator::CreateAdd(X, ConstantInt::get(Ty, *C2 ^ *C));
 
-    // If X has no high-bits set above an xor mask:
-    // add (xor X, LowMaskC), C --> sub (LowMaskC + C), X
-    if (C2->isMask()) {
-      KnownBits LHSKnown = computeKnownBits(X, &Add);
-      if ((*C2 | LHSKnown.Zero).isAllOnes())
-        return BinaryOperator::CreateSub(ConstantInt::get(Ty, *C2 + *C), X);
-    }
+    // If X has no bits set other than an xor mask,
+    // xor is equivalent to sub with no borrow between bits:
+    // add (xor X, C2), C --> sub (C2 + C), X
+    KnownBits LHSKnown = computeKnownBits(X, &Add);
+    if ((*C2 | LHSKnown.Zero).isAllOnes())
+      return BinaryOperator::CreateSub(ConstantInt::get(Ty, *C2 + *C), X);
 
     // Look for a math+logic pattern that corresponds to sext-in-register of a
     // value with cleared high bits. Convert that into a pair of shifts:
@@ -2577,15 +2576,13 @@ Instruction *InstCombinerImpl::visitSub(BinaryOperator &I) {
 
   const APInt *Op0C;
   if (match(Op0, m_APInt(Op0C))) {
-    if (Op0C->isMask()) {
-      // Turn this into a xor if LHS is 2^n-1 and the remaining bits are known
-      // zero. We don't use information from dominating conditions so this
-      // transform is easier to reverse if necessary.
-      KnownBits RHSKnown = llvm::computeKnownBits(
-          Op1, SQ.getWithInstruction(&I).getWithoutDomCondCache());
-      if ((*Op0C | RHSKnown.Zero).isAllOnes())
-        return BinaryOperator::CreateXor(Op1, Op0);
-    }
+    // Turn this into a xor if no borrow between bits.
+    // We don't use information from dominating conditions so this
+    // transform is easier to reverse if necessary.
+    KnownBits RHSKnown = llvm::computeKnownBits(
+        Op1, SQ.getWithInstruction(&I).getWithoutDomCondCache());
+    if ((*Op0C | RHSKnown.Zero).isAllOnes())
+      return BinaryOperator::CreateXor(Op1, Op0);
 
     // C - ((C3 -nuw X) & C2) --> (C - (C2 & C3)) + (X & C2) when:
     // (C3 - ((C2 & C3) - 1)) is pow2
