@@ -6,6 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/GSYM/GsymCreator.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/DebugInfo/GSYM/FileWriter.h"
 #include "llvm/DebugInfo/GSYM/Header.h"
 #include "llvm/DebugInfo/GSYM/LineTable.h"
@@ -20,6 +21,34 @@
 
 using namespace llvm;
 using namespace gsym;
+
+// Keep this matching cheap: look for the Itanium identifier token in the raw
+// mangled name instead of demangling during finalize().
+static bool shouldUseItaniumSymbolName(StringRef SymbolName,
+                                       StringRef StoredName) {
+  if (!SymbolName.starts_with("_Z") || StoredName.empty() ||
+      StoredName.starts_with("_Z"))
+    return false;
+
+  SmallString<32> LengthAndName;
+  raw_svector_ostream OS(LengthAndName);
+  OS << StoredName.size() << StoredName;
+  return SymbolName.contains(StringRef(LengthAndName));
+}
+
+static bool sameCallSites(const std::optional<CallSiteInfoCollection> &LHS,
+                          const std::optional<CallSiteInfoCollection> &RHS) {
+  return LHS.has_value() == RHS.has_value() &&
+         (!LHS || LHS->CallSites == RHS->CallSites);
+}
+
+// FunctionInfo::operator== doesn't include CallSites, but finalize() needs
+// them to participate in same-range duplicate detection.
+static bool sameFunctionInfo(const FunctionInfo &LHS, const FunctionInfo &RHS) {
+  return LHS.Range == RHS.Range && LHS.Name == RHS.Name &&
+         LHS.OptLineTable == RHS.OptLineTable && LHS.Inline == RHS.Inline &&
+         sameCallSites(LHS.CallSites, RHS.CallSites);
+}
 
 GsymCreator::GsymCreator(bool Quiet)
     : StrTab(StringTableBuilder::ELF), Quiet(Quiet) {
@@ -180,14 +209,21 @@ llvm::Error GsymCreator::finalize(OutputAggregator &Out) {
         if (ranges_equal || Prev.Range.intersects(Curr.Range)) {
           // Overlapping ranges or empty identical ranges.
           if (ranges_equal) {
-            // Same address range. Check if one is from debug
-            // info and the other is from a symbol table. If
-            // so, then keep the one with debug info. Our
-            // sorting guarantees that entries with matching
-            // address ranges that have debug info are last in
-            // the sort.
-            if (!(Prev == Curr)) {
-              if (Prev.hasRichInfo() && Curr.hasRichInfo())
+            // Same address range. If exactly one entry has rich info, keep it.
+            // If the non-rich entry has a matching Itanium linkage name, copy
+            // it onto the rich entry before discarding the non-rich one.
+            const bool PrevRich = Prev.hasRichInfo();
+            const bool CurrRich = Curr.hasRichInfo();
+            if (PrevRich != CurrRich) {
+              FunctionInfo &RichFI = PrevRich ? Prev : Curr;
+              FunctionInfo &NonRichFI = PrevRich ? Curr : Prev;
+              if (shouldUseItaniumSymbolName(getString(NonRichFI.Name),
+                                            getString(RichFI.Name)))
+                RichFI.Name = NonRichFI.Name;
+              if (!PrevRich)
+                std::swap(Prev, Curr);
+            } else if (!sameFunctionInfo(Prev, Curr)) {
+              if (PrevRich)
                 Out.Report(
                     "Duplicate address ranges with different debug info.",
                     [&](raw_ostream &OS) {
@@ -197,10 +233,6 @@ llvm::Error GsymCreator::finalize(OutputAggregator &Out) {
                          << Prev << "\nIn favor of this one:\n"
                          << Curr << "\n";
                     });
-
-              // We want to swap the current entry with the previous since
-              // later entries with the same range always have more debug info
-              // or different debug info.
               std::swap(Prev, Curr);
             }
           } else {
