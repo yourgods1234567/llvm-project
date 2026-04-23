@@ -10707,13 +10707,14 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     constexpr uint64_t FileFoundButNotDependedOn = 2;
     constexpr uint64_t FileFoundAndEmpty = 3;
 
-    const Expr *StatusOutArg = E->getArg(0);
-    const Expr *SizeOutArg = E->getArg(1);
-    const Expr *PtrOutArg = E->getArg(2);
-    const Expr *ResourceNameSizeArg = E->getArg(3);
-    const Expr *ResourceNamePtrArg = E->getArg(4);
-    const Expr *OffsetArg = E->getArg(5);
-    const Expr *LimitArg = E->getNumArgs() == 7 ? E->getArg(6) : nullptr;
+    const Expr *LocusArg = E->getArg(0);
+    const Expr *StatusOutArg = E->getArg(1);
+    const Expr *SizeOutArg = E->getArg(2);
+    const Expr *PtrOutArg = E->getArg(3);
+    const Expr *ResourceNameSizeArg = E->getArg(4);
+    const Expr *ResourceNamePtrArg = E->getArg(5);
+    const Expr *OffsetArg = E->getArg(6);
+    const Expr *LimitArg = E->getNumArgs() == 8 ? E->getArg(7) : nullptr;
 
     QualType PtrOutTy = PtrOutArg->getType();
     QualType ArrElementTy = PtrOutTy->getPointeeType();
@@ -10837,6 +10838,14 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
       return true;
     };
 
+    APSInt LocusVal;
+    if (!EvaluateInteger(LocusArg, LocusVal, Info)) {
+      return Error(LocusArg);
+    }
+    uint64_t Locus = LocusVal.getZExtValue();
+    const bool DoQuotedSearch = (Locus & 0x01u) == 0x01u;
+    uint64_t CallStackDistance = (Locus >> 1);
+
     APSInt OffsetVal;
     if (!EvaluateInteger(OffsetArg, OffsetVal, Info)) {
       return Error(OffsetArg);
@@ -10876,10 +10885,14 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
         Info.Ctx.getCurrentPreprocessorOptions();
     const std::vector<std::string> *MaybeSearchEntries = nullptr;
     const std::vector<std::string> EmptySearchEntries(0);
-    FileID ThisFileID = SM.getFileID(Info.CurrentCall->CallRange.getBegin());
     OptionalFileEntryRef ThisFile = std::nullopt;
-    if (ThisFileID.isValid()) {
-      ThisFile = SM.getFileEntryRefForID(ThisFileID);
+    if (DoQuotedSearch) {
+      unsigned int TargetFrameIndex = CallStackDistance > (Info.CallStackDepth + 1) ? 1 : Info.CallStackDepth - CallStackDistance;
+      auto TargeetFrameAndDepth = Info.getCallFrameAndDepth(TargetFrameIndex);
+      FileID ThisFileID = SM.getFileID(TargeetFrameAndDepth.first->CallRange.getBegin());
+      if (ThisFileID.isValid()) {
+        ThisFile = SM.getFileEntryRefForID(ThisFileID);
+      }
     }
     if (MaybePPOpts) {
       MaybeSearchEntries = &MaybePPOpts->EmbedEntries;

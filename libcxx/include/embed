@@ -76,6 +76,7 @@ enum __builtin_embed_status {
   __file_found_no_depends = 2,
   __file_found_empty      = 3,
 };
+inline constexpr unsigned int __quoted_search_distance = 0b101;
 
 template <typename _Byte, size_t _Extent, typename _StrView>
 consteval _LIBCPP_HIDE_FROM_ABI span<const _Byte, _Extent>
@@ -87,14 +88,34 @@ __embed(const _StrView& __resource_identifier, size_t __offset, [[maybe_unused]]
   int __status       = -1;
   if constexpr (_Extent != std::dynamic_extent) {
     __ptr = __builtin_std_embed(
-        __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, _Extent);
+        __quoted_search_distance,
+        __status,
+        __size,
+        __ptr,
+        __resource_identifier.size(),
+        __resource_identifier.data(),
+        __offset,
+        _Extent);
   } else {
     if (__limit) {
       __ptr = __builtin_std_embed(
-          __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset, *__limit);
+          __quoted_search_distance,
+          __status,
+          __size,
+          __ptr,
+          __resource_identifier.size(),
+          __resource_identifier.data(),
+          __offset,
+          *__limit);
     } else {
       __ptr = __builtin_std_embed(
-          __status, __size, __ptr, __resource_identifier.size(), __resource_identifier.data(), __offset);
+          __quoted_search_distance,
+          __status,
+          __size,
+          __ptr,
+          __resource_identifier.size(),
+          __resource_identifier.data(),
+          __offset);
     }
   }
   if (__status == __file_not_found) {

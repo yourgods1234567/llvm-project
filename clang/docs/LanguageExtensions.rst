@@ -5483,59 +5483,71 @@ is conceptually (but not exactly) represented by the following overloads:
 .. code-block:: c++
 
   template <class Byte, class Char>
-  Byte const* __builtin_std_embed(int& status,
+  Byte const* __builtin_std_embed(unsigned int locus, int& status,
                                size_t& size, T const* indicator_ptr,
                                size_t resource_name_size,
                                Char const* resource_name_ptr,
                                size_t offset);
 
   template <class Byte, class Char>
-  Byte const* __builtin_std_embed(int& status,
+  Byte const* __builtin_std_embed(unsigned int locus, int& status,
                                size_t& size, T const* indicator_ptr,
                                size_t resource_name_size,
                                Char const* resource_name_ptr,
                                size_t offset, size_t limit);
 
-The first argument is an output parameter status object. It will be
+The ``locus`` argument is always ``1`` and is significant for implementers
+only. If you are asking the question "am I an implementer?", you are not an
+implementer and you should be passing in a value equivalent to ``1``. If
+you can answer this in the affirmative, ``locus`` can be broken down as
+``do-local-search = (locus & 0x1)`` and ``call-local-distance = (locus >> 1)``.
+``do-local-search`` is whether or not a search from the local file is performed.
+``call-stack-distance`` is the distance that this builtin call is removed from
+where a normal user would be interfacing with this builtin, for the purpose of
+file search. For example, from within the depths of a ``std::embed`` call,
+``locus`` would likely be ``0b101`` or ``0b111``.
+
+The ``status`` argument is an output parameter status object. It will be
 filled with:
 
-- ``0`` is the file is not found,
+- ``0`` is the file is not found.
 - ``1`` if the file is found, properly ``#depend``ed on, and not empty.
 - ``2`` if the file is found, properly ``#depend``ed on, but it was empty,
-- or, ``3`` if the file is found but not suitably ``#depend``ed on,
+- or, ``3`` if the file is found but not suitably ``#depend``ed on.
 
-The second argument is an output parameter for the number of elements pointed
+The ``size`` argument is an output parameter for the number of elements pointed
 to by the return type. If ``limit`` is provided, this value will be less than
 or equal to ``limit``.
 
-The third argument is a type hint for the type to return. It must be a pointer
-to a ``const`` type, and ``Byte`` must an integral or enumeration type with an
-alignment and size of ``1`` (e.g. ``char``, ``unsigned char``, ``std::byte``,
-etc.). A future extension can possibly allow for additional types, possibly
-all types which are considered "trivial" types (but without pointers inside).
+The ``indicator_ptr`` argument is a type hint for the type to return. It must
+be a pointer to a ``const`` type, and ``Byte`` must an integral or enumeration
+type with an alignment and size of ``1`` (e.g. ``char``, ``unsigned char``,
+``std::byte``, etc.). A future extension can possibly allow for additional
+types, possibly all types which are considered "trivial" types (but without
+pointers inside).
 
-The fourth and fifth arguments describe a plain, wide, or ``char8_t`` range as
-as string. ``Char`` can be one of ``char``, ``wchar_t``, or ``char8_t`` to
-represent a string in the literal encoding, wide literal encoding, or UTF-8
-encoding respectively. While they have these stated encodings, the plain,
-wide (when ``sizeof(wchar_t) == 1``), and ``char8_t`` strings are
-passed as-is to internal file handling solutions. ``wchar_t`` string ranges
-where it is 16-bits wide or 32-bits wide assume it is encoded as UTF-16 or
-UTF-32, respectively, and attempt to transcode to UTF-8. This means some
-files may not be representable when using wide strings. This behavior is
+The ``resource_name_...`` arguments describe a plain, wide, or ``char8_t``
+range as as string. ``Char`` can be one of ``char``, ``wchar_t``, or
+``char8_t`` to represent a string in the literal encoding, wide literal
+encoding, or UTF-8 encoding respectively. While they have these stated
+encodings, the plain, wide (when ``sizeof(wchar_t) == 1``), and ``char8_t``
+strings are passed as-is to internal file handling solutions. ``wchar_t``
+string ranges where it is 16-bits wide or 32-bits wide assume it is encoded as
+UTF-16 or UTF-32, respectively, and attempt to transcode to UTF-8. This means
+some files may not be representable when using wide strings. This behavior is
 subject to change, for example if the ``-fexec-charset=Encoding-Name`` or
 ``-fwide-exec-charset=Encoding-Name`` options are implemented. It is also
 subject to change based on other factors, such as whether it is advantageous
 to produce a hard error on failed conversion or try the search anyway using
 canonical replacement characters (such as ``'\u{FFFD}'`` or ``'?'``).
 
-The sixth argument is the offset in bytes into the file. It can be set to
+The seventh argument is the offset in bytes into the file. It can be set to
 ``0`` to have no effect. This represents the number of ``Byte`` objects
 that will be discarded from the start of the file stream.
 
-The last argument is optional, and represents a fixed upper limit on the count
+The ``limit`` argument is optional, and represents a fixed upper limit on the count
 of ``Byte`` objects that the returned value will point to. Less values can be
-pointed to than what ``limit`` describes.
+pointed to by the return value than what ``limit`` describes.
 
 The ``offset`` value is applied before any ``limit`` is taken into
 consideration. Both values can make a file that has binary data be considered

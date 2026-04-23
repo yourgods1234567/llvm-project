@@ -6858,23 +6858,24 @@ bool Sema::BuiltinCountedByRef(CallExpr *TheCall) {
 }
 
 bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
-  const bool HasProperArgCount = !checkArgCountAtLeast(TheCall, 6);
+  const bool HasProperArgCount = !checkArgCountAtLeast(TheCall, 7);
   const bool HasExtraLimitArg =
-      !checkArgCountAtMost(TheCall, 7) && TheCall->getNumArgs() == 7;
+      !checkArgCountAtMost(TheCall, 8) && TheCall->getNumArgs() == 8;
   if (!HasProperArgCount && !HasExtraLimitArg)
     return true;
 
-  const Expr *StatusRef = TheCall->getArg(0);
-  const Expr *SizeRef = TheCall->getArg(1);
-  const unsigned int PtrRefIndex = 2;
+  const Expr *Locus = TheCall->getArg(0);
+  const Expr *StatusRef = TheCall->getArg(1);
+  const Expr *SizeRef = TheCall->getArg(2);
+  const unsigned int PtrRefIndex = 3;
   const Expr *PtrRef = TheCall->getArg(PtrRefIndex);
-  const unsigned int ResourceNameSizeIndex = 3;
+  const unsigned int ResourceNameSizeIndex = 4;
   const Expr *ResourceNameSize = TheCall->getArg(ResourceNameSizeIndex);
-  const unsigned int ResourceNamePtrIndex = 4;
+  const unsigned int ResourceNamePtrIndex = 5;
   const Expr *ResourceNamePtr = TheCall->getArg(ResourceNamePtrIndex);
-  const unsigned int OffsetIndex = 5;
+  const unsigned int OffsetIndex = 6;
   const Expr *Offset = TheCall->getArg(OffsetIndex);
-  const unsigned int LimitIndex = 6;
+  const unsigned int LimitIndex = 7;
   const Expr *Limit = HasExtraLimitArg ? TheCall->getArg(LimitIndex) : nullptr;
 
   const uint64_t CharSize = Context.getCharWidth();
