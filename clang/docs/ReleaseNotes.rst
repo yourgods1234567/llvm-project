@@ -451,6 +451,8 @@ Improvements to Clang's diagnostics
 
 - Removed the body of lambdas from some diagnostic messages.
 
+- Now more analysis-based warnings are emitted before template instantiation.
+
 Improvements to Clang's time-trace
 ----------------------------------
 
