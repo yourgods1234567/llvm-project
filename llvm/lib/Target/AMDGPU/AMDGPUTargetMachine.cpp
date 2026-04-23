@@ -1317,9 +1317,9 @@ GCNTargetMachine::createPostMachineScheduler(MachineSchedContext *C) const {
   if (useNoopPostScheduler(C->MF->getFunction()))
     return createGCNNoopPostMachineScheduler(C);
 
-  ScheduleDAGMI *DAG =
-      new GCNPostScheduleDAGMILive(C, std::make_unique<PostGenericScheduler>(C),
-                                   /*RemoveKillFlags=*/true);
+  ScheduleDAGMI *DAG = new GCNPostScheduleDAGMILive(
+      C, std::make_unique<GCNPostGenericScheduler>(C),
+      /*RemoveKillFlags=*/true);
   const GCNSubtarget &ST = C->MF->getSubtarget<GCNSubtarget>();
   DAG->addMutation(createLoadClusterDAGMutation(DAG->TII, DAG->TRI));
   if (ST.shouldClusterStores())

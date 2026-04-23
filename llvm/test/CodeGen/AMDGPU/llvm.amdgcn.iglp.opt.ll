@@ -86,7 +86,6 @@ define amdgpu_kernel void @test_iglp_opt_mfma_gemm(ptr addrspace(3) noalias %in,
 ; GCN-NEXT:    v_mfma_f32_32x32x1f32 a[64:95], v2, v3, a[64:95]
 ; GCN-NEXT:    ds_write_b128 v0, a[56:59] offset:24672
 ; GCN-NEXT:    ds_write_b128 v0, a[60:63] offset:24688
-; GCN-NEXT:    ds_write_b128 v0, a[48:51] offset:24640
 ; GCN-NEXT:    ds_write_b128 v0, a[120:123] offset:8288
 ; GCN-NEXT:    ds_write_b128 v0, a[124:127] offset:8304
 ; GCN-NEXT:    ds_write_b128 v0, a[112:115] offset:8256
@@ -95,6 +94,7 @@ define amdgpu_kernel void @test_iglp_opt_mfma_gemm(ptr addrspace(3) noalias %in,
 ; GCN-NEXT:    ds_write_b128 v0, a[108:111] offset:8240
 ; GCN-NEXT:    ds_write_b128 v0, a[96:99] offset:8192
 ; GCN-NEXT:    ds_write_b128 v0, a[100:103] offset:8208
+; GCN-NEXT:    ds_write_b128 v0, a[48:51] offset:24640
 ; GCN-NEXT:    ds_write_b128 v0, a[52:55] offset:24656
 ; GCN-NEXT:    ds_write_b128 v0, a[40:43] offset:24608
 ; GCN-NEXT:    ds_write_b128 v0, a[44:47] offset:24624
