@@ -46,8 +46,8 @@ void AbstractSparseLattice::onUpdate(DataFlowSolver *solver) const {
 //===----------------------------------------------------------------------===//
 
 AbstractSparseForwardDataFlowAnalysis::AbstractSparseForwardDataFlowAnalysis(
-    DataFlowSolver &solver)
-    : DataFlowAnalysis(solver) {
+    DataFlowSolver &solver, TypeID stateTypeID)
+    : DataFlowAnalysis(solver), stateTypeID(stateTypeID) {
   registerAnchorKind<CFGEdge>();
 }
 
@@ -358,7 +358,15 @@ void AbstractSparseForwardDataFlowAnalysis::setAllToEntryStates(
 
 void AbstractSparseForwardDataFlowAnalysis::join(
     AbstractSparseLattice *lhs, const AbstractSparseLattice &rhs) {
-  propagateIfChanged(lhs, lhs->join(rhs));
+  ChangeResult changed = lhs->join(rhs);
+  // Single fast-path branch when no analysis in this solver opted into
+  // widening.
+  DataFlowSolver &s = getSolver();
+  if (LLVM_UNLIKELY(s.hasWideningEnabled()))
+    // `tryWidenAtMerge` returns only the widening-induced delta so it
+    // cannot downgrade `changed`.
+    changed |= s.tryWidenAtMerge(lhs, stateTypeID, changed);
+  propagateIfChanged(lhs, changed);
 }
 
 //===----------------------------------------------------------------------===//
@@ -366,8 +374,10 @@ void AbstractSparseForwardDataFlowAnalysis::join(
 //===----------------------------------------------------------------------===//
 
 AbstractSparseBackwardDataFlowAnalysis::AbstractSparseBackwardDataFlowAnalysis(
-    DataFlowSolver &solver, SymbolTableCollection &symbolTable)
-    : DataFlowAnalysis(solver), symbolTable(symbolTable) {
+    DataFlowSolver &solver, SymbolTableCollection &symbolTable,
+    TypeID stateTypeID)
+    : DataFlowAnalysis(solver), symbolTable(symbolTable),
+      stateTypeID(stateTypeID) {
   registerAnchorKind<CFGEdge>();
 }
 
@@ -681,5 +691,9 @@ void AbstractSparseBackwardDataFlowAnalysis::setAllToExitStates(
 
 void AbstractSparseBackwardDataFlowAnalysis::meet(
     AbstractSparseLattice *lhs, const AbstractSparseLattice &rhs) {
-  propagateIfChanged(lhs, lhs->meet(rhs));
+  ChangeResult changed = lhs->meet(rhs);
+  DataFlowSolver &s = getSolver();
+  if (LLVM_UNLIKELY(s.hasWideningEnabled()))
+    changed |= s.tryWidenAtMerge(lhs, stateTypeID, changed);
+  propagateIfChanged(lhs, changed);
 }
