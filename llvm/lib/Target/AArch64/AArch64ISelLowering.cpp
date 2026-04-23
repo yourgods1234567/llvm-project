@@ -24483,7 +24483,7 @@ static SDValue performUzpCombine(SDNode *N, SelectionDAG &DAG,
       SDValue BC = DAG.getBitcast(BCVT, Op0);
       SDValue Trunc = DAG.getNode(ISD::TRUNCATE, DL, HalfVT, BC);
       return DAG.getNode(ISD::CONCAT_VECTORS, DL, ResVT, Trunc,
-                         DAG.getPOISON(HalfVT));
+                         DAG.getUNDEF(HalfVT));
     }
   }
 
