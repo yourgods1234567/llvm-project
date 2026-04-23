@@ -63,7 +63,8 @@ void LoopVersioning::versionLoop(
 
   SCEVExpander Exp2(*RtPtrChecking.getSE(), "induction");
   MemRuntimeCheck = addRuntimeChecks(RuntimeCheckBB->getTerminator(),
-                                     VersionedLoop, AliasChecks, Exp2);
+                                     VersionedLoop, AliasChecks, Exp2)
+                        .first;
 
   SCEVExpander Exp(*SE, "scev.check");
   SCEVRuntimeCheck =
