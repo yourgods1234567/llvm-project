@@ -21,6 +21,7 @@
 #define LLVM_CLANG_ANALYSIS_ANALYSES_LIFETIMESAFETY_H
 
 #include "clang/AST/Decl.h"
+#include "clang/Analysis/Analyses/LifetimeSafety/AssignmentQuery.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/Facts.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/LifetimeStats.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/LiveOrigins.h"
@@ -63,21 +64,25 @@ public:
 
   virtual void reportUseAfterFree(const Expr *IssueExpr, const Expr *UseExpr,
                                   const Expr *MovedExpr,
+                                  llvm::ArrayRef<AssignmentPair> AliasList,
                                   SourceLocation FreeLoc) {}
 
   virtual void reportUseAfterReturn(const Expr *IssueExpr,
                                     const Expr *ReturnExpr,
                                     const Expr *MovedExpr,
+                                    llvm::ArrayRef<AssignmentPair> AliasList,
                                     SourceLocation ExpiryLoc) {}
 
   virtual void reportDanglingField(const Expr *IssueExpr,
                                    const FieldDecl *Field,
                                    const Expr *MovedExpr,
+                                   llvm::ArrayRef<AssignmentPair> AliasList,
                                    SourceLocation ExpiryLoc) {}
 
   virtual void reportDanglingGlobal(const Expr *IssueExpr,
                                     const VarDecl *DanglingGlobal,
                                     const Expr *MovedExpr,
+                                    llvm::ArrayRef<AssignmentPair> AliasList,
                                     SourceLocation ExpiryLoc) {}
 
   // Reports when a reference/iterator is used after the container operation
@@ -92,10 +97,10 @@ public:
   using EscapingTarget =
       llvm::PointerUnion<const Expr *, const FieldDecl *, const VarDecl *>;
 
-  // Suggests lifetime bound annotations for function parameters.
-  virtual void suggestLifetimeboundToParmVar(SuggestionScope Scope,
-                                             const ParmVarDecl *ParmToAnnotate,
-                                             EscapingTarget Target) {}
+  // Suggests lifetime bound annotations for function paramters.
+  virtual void suggestLifetimeboundToParmVar(
+      SuggestionScope Scope, const ParmVarDecl *ParmToAnnotate,
+      llvm::ArrayRef<AssignmentPair> AliasList, EscapingTarget Target) {}
 
   // Reports misuse of [[clang::noescape]] when parameter escapes through return
   virtual void reportNoescapeViolation(const ParmVarDecl *ParmWithNoescape,
@@ -109,9 +114,9 @@ public:
                                        const VarDecl *EscapeGlobal) {}
 
   // Suggests lifetime bound annotations for implicit this.
-  virtual void suggestLifetimeboundToImplicitThis(SuggestionScope Scope,
-                                                  const CXXMethodDecl *MD,
-                                                  const Expr *EscapeExpr) {}
+  virtual void suggestLifetimeboundToImplicitThis(
+      SuggestionScope Scope, const CXXMethodDecl *MD,
+      llvm::ArrayRef<AssignmentPair> AliasList, const Expr *EscapeExpr) {}
 
   // Adds inferred lifetime bound attribute for implicit this to its
   // TypeSourceInfo.

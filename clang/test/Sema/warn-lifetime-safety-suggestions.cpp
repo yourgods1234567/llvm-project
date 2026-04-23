@@ -81,9 +81,9 @@ View return_view_directly(View a) {
 View conditional_return_view(View a, View b, bool c) {
   View res;
   if (c)  
-    res = a;                    
+    res = a;   // expected-note {{variable 'res' aliases the storage of 'a'}}
   else
-    res = b;          
+    res = b;   // expected-note {{variable 'res' aliases the storage of 'b'}}
   return res;  // expected-note 2 {{param returned here}} 
 }
 
@@ -173,7 +173,7 @@ View only_one_paramter_annotated(View a [[clang::lifetimebound]],
 View reassigned_to_another_parameter(
     View a,
     View b) {     // expected-warning {{parameter in intra-TU function should be marked [[clang::lifetimebound]]}}.
-  a = b;
+  a = b;          // expected-note {{variable 'a' aliases the storage of 'b'}}
   return a;       // expected-note {{param returned here}} 
 }
 
@@ -222,19 +222,25 @@ View return_view_field(const ViewProvider& v) {    // expected-warning {{paramet
 
 void test_get_on_temporary_pointer() {
   const ReturnsSelf* s_ref = &ReturnsSelf().get(); // expected-warning {{object whose reference is captured does not live long enough}}.
-                                                   // expected-note@-1 {{destroyed here}}
+                                                   // expected-note@-1 {{destroyed here}}.
+                                                   // expected-note@-2 {{function call result aliases the storage of the temporary}}
+                                                   // expected-note@-3 {{variable 's_ref' aliases the storage of the temporary}}
   (void)s_ref;                                     // expected-note {{later used here}}
 }
 
 void test_get_on_temporary_ref() {
   const ReturnsSelf& s_ref = ReturnsSelf().get();  // expected-warning {{object whose reference is captured does not live long enough}}.
-                                                   // expected-note@-1 {{destroyed here}}
+                                                   // expected-note@-1 {{destroyed here}}.
+                                                   // expected-note@-2 {{function call result aliases the storage of the temporary}}
+                                                   // expected-note@-3 {{variable 's_ref' aliases the storage of the temporary}}
   (void)s_ref;                                     // expected-note {{later used here}}
 }
 
 void test_getView_on_temporary() {
   View sv = ViewProvider{1}.getView();      // expected-warning {{object whose reference is captured does not live long enough}}.
-                                            // expected-note@-1 {{destroyed here}}
+                                            // expected-note@-1 {{destroyed here}}.
+                                            // expected-note@-2 {{function call result aliases the storage of the temporary}}
+                                            // expected-note@-3 {{variable 'sv' aliases the storage of the temporary}}
   (void)sv;                                 // expected-note {{later used here}}
 }
 
@@ -468,6 +474,7 @@ struct CaptureRefToView {
 CaptureRefToView test_ref_to_view() {
   MyObj obj;
   CaptureRefToView x(obj); // expected-warning {{address of stack memory is returned later}}
+                           // expected-note@-1 {{variable 'x' aliases the storage of 'obj'}}
   return x; // expected-note {{returned here}}
 }
 
@@ -479,6 +486,7 @@ struct CaptureRefToPtr {
 CaptureRefToPtr test_ref_to_ptr() {
   MyObj obj;
   CaptureRefToPtr x(obj); // expected-warning {{address of stack memory is returned later}}
+                          // expected-note@-1 {{variable 'x' aliases the storage of 'obj'}}
   return x; // expected-note {{returned here}}
 }
 
@@ -490,7 +498,8 @@ struct CaptureViewToView {
 CaptureViewToView test_view_to_view() {
   MyObj obj;
   View v(obj); // expected-warning {{address of stack memory is returned later}}
-  CaptureViewToView x(v);
+               // expected-note@-1 {{variable 'v' aliases the storage of 'obj'}}
+  CaptureViewToView x(v); // expected-note {{variable 'x' aliases the storage of 'obj'}}
   return x; // expected-note {{returned here}}
 }
 
@@ -502,6 +511,7 @@ struct CapturePtrToPtr {
 CapturePtrToPtr test_ptr_to_ptr() {
   MyObj obj;
   CapturePtrToPtr x(&obj); // expected-warning {{address of stack memory is returned later}}
+                           // expected-note@-1 {{variable 'x' aliases the storage of 'obj'}}
   return x; // expected-note {{returned here}}
 }
 
@@ -513,6 +523,7 @@ struct CaptureRefToRef {
 CaptureRefToRef test_ref_to_ref() {
   MyObj obj;
   CaptureRefToRef x(obj); // expected-warning {{address of stack memory is returned later}}
+                          // expected-note@-1 {{variable 'x' aliases the storage of 'obj'}}
   return x; // expected-note {{returned here}}
 }
 
@@ -528,6 +539,7 @@ struct CaptureRefToBaseView : BaseWithView {
 CaptureRefToBaseView test_ref_to_base_view() {
   MyObj obj;
   CaptureRefToBaseView x(obj); // expected-warning {{address of stack memory is returned later}}
+                               // expected-note@-1 {{variable 'x' aliases the storage of 'obj'}}
   return x; // expected-note {{returned here}}
 }
 } // namespace capturing_constructor
@@ -542,7 +554,9 @@ void uaf_via_inferred_lifetimebound() {
   std::function<void()> f = []() {};
   {
     int local;
-    f = return_lambda_capturing_param(local); // expected-warning {{object whose reference is captured does not live long enough}}
+    f = return_lambda_capturing_param(local); // expected-warning {{object whose reference is captured does not live long enough}} \
+                                              // expected-note {{function call result aliases the storage of 'local'}} \
+                                              // expected-note {{variable 'f' aliases the storage of 'local'}}
   } // expected-note {{destroyed here}}
   (void)f; // expected-note {{later used here}}
 }
@@ -565,7 +579,9 @@ void test_inference() {
   std::unique_ptr<LifetimeBoundCtor> ptr;
   {
     MyObj obj;
-    ptr = create_target(obj); // expected-warning {{object whose reference is captured does not live long enough}}
+    ptr = create_target(obj); // expected-warning {{object whose reference is captured does not live long enough}} \
+                              // expected-note {{function call result aliases the storage of 'obj'}} \
+                              // expected-note {{variable 'ptr' aliases the storage of 'obj'}}
   } // expected-note {{destroyed here}}
   (void)ptr; // expected-note {{later used here}}
 }
