@@ -127,7 +127,7 @@ define amdgpu_kernel void @merge_global_store_2_constants_i32_f32(ptr addrspace(
 
 define amdgpu_kernel void @merge_global_store_2_constants_f32_i32(ptr addrspace(1) %out) #0 {
 ; CHECK-LABEL: @merge_global_store_2_constants_f32_i32(
-; CHECK-NEXT:    store <2 x i32> <i32 1082130432, i32 123>, ptr addrspace(1) [[OUT:%.*]], align 4
+; CHECK-NEXT:    store <2 x float> <float 4.000000e+00, float 0x370EC00000000000>, ptr addrspace(1) %out, align 4
 ; CHECK-NEXT:    ret void
 ;
   %out.gep.1 = getelementptr float, ptr addrspace(1) %out, i32 1
@@ -187,7 +187,7 @@ define amdgpu_kernel void @merge_global_store_4_constants_f32(ptr addrspace(1) %
 
 define amdgpu_kernel void @merge_global_store_4_constants_mixed_i32_f32(ptr addrspace(1) %out) #0 {
 ; CHECK-LABEL: @merge_global_store_4_constants_mixed_i32_f32(
-; CHECK-NEXT:    store <4 x i32> <i32 1090519040, i32 11, i32 1073741824, i32 17>, ptr addrspace(1) [[OUT:%.*]], align 4
+; CHECK-NEXT:    store <4 x float> <float 8.000000e+00, float 0x36D6000000000000, float 2.000000e+00, float 0x36E1000000000000>, ptr addrspace(1) %out, align 4
 ; CHECK-NEXT:    ret void
 ;
   %out.gep.1 = getelementptr float, ptr addrspace(1) %out, i32 1

@@ -815,20 +815,20 @@ entry:
 define amdgpu_kernel void @half4_inselt(ptr addrspace(1) %out, <4 x half> %vec, i32 %sel) {
 ; GCN-LABEL: half4_inselt:
 ; GCN:       ; %bb.0: ; %entry
-; GCN-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x24
-; GCN-NEXT:    s_load_dword s6, s[4:5], 0x34
-; GCN-NEXT:    s_mov_b32 s4, 0x3c003c00
-; GCN-NEXT:    s_mov_b32 s5, s4
+; GCN-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x2c
+; GCN-NEXT:    s_load_dwordx2 s[4:5], s[4:5], 0x24
+; GCN-NEXT:    s_mov_b32 s6, 0x3c003c00
+; GCN-NEXT:    s_mov_b32 s7, s6
 ; GCN-NEXT:    s_waitcnt lgkmcnt(0)
-; GCN-NEXT:    s_xor_b64 s[4:5], s[2:3], s[4:5]
-; GCN-NEXT:    s_lshl_b32 s6, s6, 4
-; GCN-NEXT:    s_lshl_b64 s[6:7], 0xffff, s6
-; GCN-NEXT:    s_and_b64 s[4:5], s[4:5], s[6:7]
-; GCN-NEXT:    s_xor_b64 s[2:3], s[4:5], s[2:3]
-; GCN-NEXT:    v_mov_b32_e32 v0, s0
-; GCN-NEXT:    v_mov_b32_e32 v2, s2
-; GCN-NEXT:    v_mov_b32_e32 v1, s1
-; GCN-NEXT:    v_mov_b32_e32 v3, s3
+; GCN-NEXT:    s_lshl_b32 s8, s2, 4
+; GCN-NEXT:    s_xor_b64 s[2:3], s[0:1], s[6:7]
+; GCN-NEXT:    s_lshl_b64 s[6:7], 0xffff, s8
+; GCN-NEXT:    s_and_b64 s[2:3], s[2:3], s[6:7]
+; GCN-NEXT:    s_xor_b64 s[0:1], s[2:3], s[0:1]
+; GCN-NEXT:    v_mov_b32_e32 v0, s4
+; GCN-NEXT:    v_mov_b32_e32 v3, s1
+; GCN-NEXT:    v_mov_b32_e32 v1, s5
+; GCN-NEXT:    v_mov_b32_e32 v2, s0
 ; GCN-NEXT:    flat_store_dwordx2 v[0:1], v[2:3]
 ; GCN-NEXT:    s_endpgm
 ;
@@ -1083,20 +1083,20 @@ entry:
 define amdgpu_kernel void @short4_inselt(ptr addrspace(1) %out, <4 x i16> %vec, i32 %sel) {
 ; GCN-LABEL: short4_inselt:
 ; GCN:       ; %bb.0: ; %entry
-; GCN-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x24
-; GCN-NEXT:    s_load_dword s6, s[4:5], 0x34
-; GCN-NEXT:    s_mov_b32 s4, 0x10001
-; GCN-NEXT:    s_mov_b32 s5, s4
+; GCN-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x2c
+; GCN-NEXT:    s_load_dwordx2 s[4:5], s[4:5], 0x24
+; GCN-NEXT:    s_mov_b32 s6, 0x10001
+; GCN-NEXT:    s_mov_b32 s7, s6
 ; GCN-NEXT:    s_waitcnt lgkmcnt(0)
-; GCN-NEXT:    s_xor_b64 s[4:5], s[2:3], s[4:5]
-; GCN-NEXT:    s_lshl_b32 s6, s6, 4
-; GCN-NEXT:    s_lshl_b64 s[6:7], 0xffff, s6
-; GCN-NEXT:    s_and_b64 s[4:5], s[4:5], s[6:7]
-; GCN-NEXT:    s_xor_b64 s[2:3], s[4:5], s[2:3]
-; GCN-NEXT:    v_mov_b32_e32 v0, s0
-; GCN-NEXT:    v_mov_b32_e32 v2, s2
-; GCN-NEXT:    v_mov_b32_e32 v1, s1
-; GCN-NEXT:    v_mov_b32_e32 v3, s3
+; GCN-NEXT:    s_lshl_b32 s8, s2, 4
+; GCN-NEXT:    s_xor_b64 s[2:3], s[0:1], s[6:7]
+; GCN-NEXT:    s_lshl_b64 s[6:7], 0xffff, s8
+; GCN-NEXT:    s_and_b64 s[2:3], s[2:3], s[6:7]
+; GCN-NEXT:    s_xor_b64 s[0:1], s[2:3], s[0:1]
+; GCN-NEXT:    v_mov_b32_e32 v0, s4
+; GCN-NEXT:    v_mov_b32_e32 v3, s1
+; GCN-NEXT:    v_mov_b32_e32 v1, s5
+; GCN-NEXT:    v_mov_b32_e32 v2, s0
 ; GCN-NEXT:    flat_store_dwordx2 v[0:1], v[2:3]
 ; GCN-NEXT:    s_endpgm
 ;
@@ -1138,19 +1138,19 @@ entry:
 define amdgpu_kernel void @byte8_inselt(ptr addrspace(1) %out, <8 x i8> %vec, i32 %sel) {
 ; GCN-LABEL: byte8_inselt:
 ; GCN:       ; %bb.0: ; %entry
-; GCN-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x24
-; GCN-NEXT:    s_load_dword s6, s[4:5], 0x34
+; GCN-NEXT:    s_load_dwordx4 s[0:3], s[4:5], 0x2c
+; GCN-NEXT:    s_load_dwordx2 s[4:5], s[4:5], 0x24
 ; GCN-NEXT:    s_waitcnt lgkmcnt(0)
-; GCN-NEXT:    s_xor_b32 s5, s3, 0x1010101
-; GCN-NEXT:    s_lshl_b32 s6, s6, 3
-; GCN-NEXT:    s_xor_b32 s4, s2, 0x1010101
-; GCN-NEXT:    s_lshl_b64 s[6:7], 0xff, s6
-; GCN-NEXT:    s_and_b64 s[4:5], s[4:5], s[6:7]
-; GCN-NEXT:    s_xor_b64 s[2:3], s[4:5], s[2:3]
-; GCN-NEXT:    v_mov_b32_e32 v0, s0
-; GCN-NEXT:    v_mov_b32_e32 v2, s2
-; GCN-NEXT:    v_mov_b32_e32 v1, s1
-; GCN-NEXT:    v_mov_b32_e32 v3, s3
+; GCN-NEXT:    s_lshl_b32 s2, s2, 3
+; GCN-NEXT:    s_xor_b32 s7, s1, 0x1010101
+; GCN-NEXT:    s_xor_b32 s6, s0, 0x1010101
+; GCN-NEXT:    s_lshl_b64 s[2:3], 0xff, s2
+; GCN-NEXT:    s_and_b64 s[2:3], s[6:7], s[2:3]
+; GCN-NEXT:    s_xor_b64 s[0:1], s[2:3], s[0:1]
+; GCN-NEXT:    v_mov_b32_e32 v0, s4
+; GCN-NEXT:    v_mov_b32_e32 v3, s1
+; GCN-NEXT:    v_mov_b32_e32 v1, s5
+; GCN-NEXT:    v_mov_b32_e32 v2, s0
 ; GCN-NEXT:    flat_store_dwordx2 v[0:1], v[2:3]
 ; GCN-NEXT:    s_endpgm
 ;

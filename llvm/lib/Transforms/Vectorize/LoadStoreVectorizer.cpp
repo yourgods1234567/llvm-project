@@ -126,21 +126,16 @@ namespace {
 
 // Equivalence class key, the initial tuple by which we group loads/stores.
 // Loads/stores with different EqClassKeys are never merged.
-//
-// (We could in theory remove element-size from the this tuple.  We'd just need
-// to fix up the vector packing/unpacking code.)
 using EqClassKey =
     std::tuple<const Value * /* result of getUnderlyingObject() */,
                unsigned /* AddrSpace */,
-               unsigned /* Load/Store element size bits */,
                char /* IsLoad; char b/c bool can't be a DenseMap key */
                >;
 [[maybe_unused]] llvm::raw_ostream &operator<<(llvm::raw_ostream &OS,
                                                const EqClassKey &K) {
-  const auto &[UnderlyingObject, AddrSpace, ElementSize, IsLoad] = K;
+  const auto &[UnderlyingObject, AddrSpace, IsLoad] = K;
   return OS << (IsLoad ? "load" : "store") << " of " << *UnderlyingObject
-            << " of element size " << ElementSize << " bits in addrspace "
-            << AddrSpace;
+            << " in addrspace " << AddrSpace;
 }
 
 // A Chain is a set of instructions such that:
@@ -160,7 +155,67 @@ struct ChainElem {
   ChainElem(Instruction *Inst, APInt OffsetFromLeader)
       : Inst(std::move(Inst)), OffsetFromLeader(std::move(OffsetFromLeader)) {}
 };
-using Chain = SmallVector<ChainElem, 1>;
+struct Chain : SmallVector<ChainElem, 1> {
+private:
+  Type *ElemTy = nullptr;
+
+public:
+  using SmallVector::SmallVector;
+
+  /// Return the GCD of the element sizes.
+  unsigned int computeGCDSize(const DataLayout &DL) const {
+    unsigned int GCDSize = 0;
+    for (const ChainElem &E : *this) {
+      Type *Ty = getLoadStoreType(E.Inst)->getScalarType();
+      unsigned Sz = DL.getTypeSizeInBits(Ty);
+      GCDSize = GCDSize == 0 ? Sz : std::gcd(GCDSize, Sz);
+    }
+    return GCDSize;
+  }
+
+  /// Gets the element type of the vector that the chain will load or store.
+  ///
+  /// The element type is determined by taking the GCD of the bitwidths of all
+  /// elements in the chain. Among types with this matching bitwidth, we prefer:
+  /// - A type that appears most frequently in the chain, to minimize casts.
+  /// - An integer type if the chain contains pointers, to avoid direct
+  ///   pointer-to-floating-point conversions.
+  ///
+  /// \param C The chain of instructions to be vectorized.
+  /// \returns The chosen element type for the vectorized load or store.
+  Type *computeAndCacheElemTy(LLVMContext &Ctx, const DataLayout &DL) {
+    assert(!empty());
+    if (ElemTy)
+      return ElemTy;
+
+    unsigned GCDSize = computeGCDSize(DL);
+    bool HasPointers = llvm::any_of(*this, [&](ChainElem &E) {
+      return getLoadStoreType(E.Inst)->getScalarType()->isPointerTy();
+    });
+
+    // Among non-pointer types whose size matches the GCD, prefer the most
+    // common one to minimize bitcasts. If the chain contains pointers, only
+    // consider integer types (there's no direct FP-to-pointer cast).
+    DenseMap<Type *, unsigned> TypeCounts;
+    Type *BestTy = nullptr;
+    unsigned BestCount = 0;
+    for (const ChainElem &E : *this) {
+      Type *Ty = getLoadStoreType(E.Inst)->getScalarType();
+      if (Ty->isPointerTy() || DL.getTypeSizeInBits(Ty) != GCDSize ||
+          (HasPointers && !Ty->isIntegerTy()))
+        continue;
+      unsigned Count = ++TypeCounts[Ty];
+      if (Count > BestCount) {
+        BestCount = Count;
+        BestTy = Ty;
+      }
+    }
+
+    return ElemTy = BestTy ? BestTy : Type::getIntNTy(Ctx, GCDSize);
+  }
+
+  void setElemTy(Type *Ty) { ElemTy = Ty; }
+};
 
 void sortChainInBBOrder(Chain &C) {
   sort(C, [](auto &A, auto &B) { return A.Inst->comesBefore(B.Inst); });
@@ -298,6 +353,24 @@ private:
   /// Discards any length-1 subchains.
   std::vector<Chain> splitChainByAlignment(Chain &C);
 
+  /// Splits out pointer-typed elements whose scalar size exceeds the GCD
+  /// element size of the chain, so that pointers are never vectorized at a
+  /// width smaller than their native size. Non-pointer elements and pointers
+  /// whose size matches the GCD remain in the main chain.
+  std::vector<Chain> splitChainByPointerWidth(Chain &C);
+
+  /// Inserts a cast or a series of casts to convert \p V to \p NewTy.
+  ///
+  /// This function handles cases where the bit-widths of the source and
+  /// destination types differ by first converting the value to a scalar
+  /// integer of the original width, resizing it via zero-extension or
+  /// truncation, and then casting it to the final destination type.
+  ///
+  /// \param V The value to be cast.
+  /// \param NewTy The target type for the value.
+  /// \returns The resulting casted Value.
+  Value *resizeAndBitcast(Value *V, Type *NewTy);
+
   /// Converts the instrs in the chain into a single vectorized load or store.
   /// Adds the old scalar loads/stores to ToErase.
   bool vectorizeChain(Chain &C);
@@ -312,11 +385,6 @@ private:
   std::optional<APInt> getConstantOffsetSelects(Value *PtrA, Value *PtrB,
                                                 Instruction *ContextInst,
                                                 unsigned Depth);
-
-  /// Gets the element type of the vector that the chain will load or store.
-  /// This is nontrivial because the chain may contain elements of different
-  /// types; e.g. it's legal to have a chain that contains both i32 and float.
-  Type *getChainElemTy(const Chain &C);
 
   /// Determines whether ChainElem can be moved up (if IsLoad) or down (if
   /// !IsLoad) to ChainBegin -- i.e. there are no intervening may-alias
@@ -555,11 +623,65 @@ bool Vectorizer::runOnChain(Chain &C) {
   // all at worst O(n lg n) in the number of instructions, and splitting chains
   // doesn't change the number of instrs.  So the whole loop nest is O(n lg n).)
   bool Changed = false;
-  for (auto &C : splitChainByMayAliasInstrs(C))
-    for (auto &C : splitChainByContiguity(C))
-      for (auto &C : splitChainByAlignment(C))
-        Changed |= vectorizeChain(C);
+  for (auto &C : splitChainByPointerWidth(C))
+    for (auto &C : splitChainByMayAliasInstrs(C))
+      for (auto &C : splitChainByContiguity(C))
+        for (auto &C : splitChainByAlignment(C))
+          Changed |= vectorizeChain(C);
   return Changed;
+}
+
+std::vector<Chain> Vectorizer::splitChainByPointerWidth(Chain &C) {
+  if (C.empty())
+    return {};
+
+  sortChainInOffsetOrder(C);
+
+  LLVM_DEBUG({
+    dbgs() << "LSV: splitChainByPointerWidth considering chain:\n";
+    dumpChain(C);
+  });
+
+  // Compute the chain element size, which is the GCD of the element
+  // sizes. Loop over each element in the chain. If there is a pointer
+  // whose size is greater than the chain element size, create a new
+  // chain in PtrGroups.
+  unsigned GCDSize = C.computeGCDSize(DL);
+  Chain MainChain;
+  DenseMap<unsigned, Chain> PtrGroups;
+
+  for (ChainElem &E : C) {
+    Type *ScalarTy = getLoadStoreType(E.Inst)->getScalarType();
+    unsigned Sz = DL.getTypeSizeInBits(ScalarTy);
+    if (ScalarTy->isPointerTy() && Sz > GCDSize)
+      PtrGroups[Sz].push_back(E);
+    else
+      MainChain.push_back(E);
+  }
+
+  // PtrGroups creates ptr chains of the same size and addrspace.
+  // Therefore, the ElemTy for each ptr chain is the ptr corresponding
+  // ptr type itself.
+  std::vector<Chain> Ret;
+  if (MainChain.size() > 1)
+    Ret.push_back(std::move(MainChain));
+  for (auto &[Size, Group] : PtrGroups) {
+    if (Group.size() > 1) {
+      Group.setElemTy(getLoadStoreType(Group[0].Inst)->getScalarType());
+      Ret.push_back(std::move(Group));
+    }
+  }
+
+  LLVM_DEBUG({
+    dbgs() << "LSV: splitChainByPointerWidth produced " << Ret.size()
+           << " chains\n";
+    for (const auto &Chain : Ret) {
+      dbgs() << "  Chain:\n";
+      dumpChain(Chain);
+    }
+  });
+
+  return Ret;
 }
 
 std::vector<Chain> Vectorizer::splitChainByMayAliasInstrs(Chain &C) {
@@ -667,7 +789,7 @@ std::vector<Chain> Vectorizer::splitChainByContiguity(Chain &C) {
   // and max vector size, as splitChainByAlignment will ensure the final vector
   // shape passes the legalization check.
   unsigned AS = getLoadStoreAddressSpace(C[0].Inst);
-  Type *ElementType = getLoadStoreType(C[0].Inst)->getScalarType();
+  Type *ElementType = C.computeAndCacheElemTy(F.getContext(), DL);
   unsigned MaxVecRegBits = TTI.getLoadStoreVecRegBitWidth(AS);
   Align OptimisticAlign = Align(MaxVecRegBits / 8);
   unsigned int MaxVectorNumElems =
@@ -712,7 +834,6 @@ std::vector<Chain> Vectorizer::splitChainByContiguity(Chain &C) {
   std::vector<Chain> Ret;
   Ret.push_back({C.front()});
 
-  unsigned ChainElemTyBits = DL.getTypeSizeInBits(getChainElemTy(C));
   ChainElem &Prev = C[0];
   for (auto It = std::next(C.begin()), End = C.end(); It != End; ++It) {
     auto &CurChain = Ret.back();
@@ -721,19 +842,24 @@ std::vector<Chain> Vectorizer::splitChainByContiguity(Chain &C) {
         APInt(ASPtrBits, DL.getTypeStoreSize(getLoadStoreType(Prev.Inst)));
     APInt PrevReadEnd = Prev.OffsetFromLeader + PrevSzBytes;
     unsigned SzBytes = DL.getTypeStoreSize(getLoadStoreType(It->Inst));
-
-    // Add this instruction to the end of the current chain, or start a new one.
-    assert(
-        8 * SzBytes % ChainElemTyBits == 0 &&
-        "Every chain-element size must be a multiple of the element size after "
-        "vectorization.");
     APInt ReadEnd = It->OffsetFromLeader + SzBytes;
-    // Allow redundancy: partial or full overlap counts as contiguous.
+
+    // Allow redundancy: partial or full overlap counts as contiguous,
+    // provided the overlap aligns to the pairwise minimum scalar size of the
+    // two elements. This is sufficient because the chain's GCD element size
+    // always divides the pairwise minimum (all scalar sizes are powers of 2),
+    // and this property is preserved regardless of how later passes split the
+    // chain.
     bool AreContiguous = false;
     if (It->OffsetFromLeader.sle(PrevReadEnd)) {
-      // Check overlap is a multiple of the element size after vectorization.
+      unsigned PrevScalarBits =
+          DL.getTypeSizeInBits(getLoadStoreType(Prev.Inst)->getScalarType());
+      unsigned ItScalarBits =
+          DL.getTypeSizeInBits(getLoadStoreType(It->Inst)->getScalarType());
+      assert(isPowerOf2_32(PrevScalarBits) && isPowerOf2_32(ItScalarBits) &&
+             "Pairwise overlap check assumes power-of-2 scalar sizes.");
       uint64_t Overlap = (PrevReadEnd - It->OffsetFromLeader).getZExtValue();
-      if (8 * Overlap % ChainElemTyBits == 0)
+      if (8 * Overlap % std::min(PrevScalarBits, ItScalarBits) == 0)
         AreContiguous = true;
     }
 
@@ -789,33 +915,6 @@ std::vector<Chain> Vectorizer::splitChainByContiguity(Chain &C) {
   // Filter out length-1 chains, these are uninteresting.
   llvm::erase_if(Ret, [](const auto &Chain) { return Chain.size() <= 1; });
   return Ret;
-}
-
-Type *Vectorizer::getChainElemTy(const Chain &C) {
-  assert(!C.empty());
-  // The rules are:
-  //  - If there are any pointer types in the chain, use an integer type.
-  //  - Prefer an integer type if it appears in the chain.
-  //  - Otherwise, use the first type in the chain.
-  //
-  // The rule about pointer types is a simplification when we merge e.g.  a load
-  // of a ptr and a double.  There's no direct conversion from a ptr to a
-  // double; it requires a ptrtoint followed by a bitcast.
-  //
-  // It's unclear to me if the other rules have any practical effect, but we do
-  // it to match this pass's previous behavior.
-  if (any_of(C, [](const ChainElem &E) {
-        return getLoadStoreType(E.Inst)->getScalarType()->isPointerTy();
-      })) {
-    return Type::getIntNTy(
-        F.getContext(),
-        DL.getTypeSizeInBits(getLoadStoreType(C[0].Inst)->getScalarType()));
-  }
-
-  for (const ChainElem &E : C)
-    if (Type *T = getLoadStoreType(E.Inst)->getScalarType(); T->isIntegerTy())
-      return T;
-  return getLoadStoreType(C[0].Inst)->getScalarType();
 }
 
 std::vector<Chain> Vectorizer::splitChainByAlignment(Chain &C) {
@@ -895,7 +994,7 @@ std::vector<Chain> Vectorizer::splitChainByAlignment(Chain &C) {
           dbgs() << "LSV: splitChainByAlignment considering candidate chain ["
                  << *C[CBegin].Inst << " ... " << *C[CEnd].Inst << "]\n");
 
-      Type *VecElemTy = getChainElemTy(C);
+      Type *VecElemTy = C.computeAndCacheElemTy(F.getContext(), DL);
       // Note, VecElemTy is a power of 2, but might be less than one byte.  For
       // example, we can vectorize 2 x <2 x i4> to <4 x i4>, and in this case
       // VecElemTy would be i4.
@@ -1075,7 +1174,78 @@ std::vector<Chain> Vectorizer::splitChainByAlignment(Chain &C) {
   return Ret;
 }
 
+/// Insert a cast from V's type to NewTy, preserving the underlying bit pattern.
+///
+/// This is used during vectorization to convert between the original types of
+/// chain elements and the vectorized element type (VecElemTy). For example,
+/// when vectorizing a chain of [i32, ptr addrspace(3), float], the vectorized
+/// type might be <3 x i32>, so each element must be cast to/from i32.
+///
+/// The function handles two cases:
+///
+/// 1. Mismatched bitwidths (e.g., i16 value into an i32 vector slot):
+///    Convert the source to a scalar integer of its original width, then
+///    zero-extend or truncate to the target width. Finally, cast to the
+///    destination type via CreateBitOrPointerCast.
+///
+/// 2. Same bitwidth (the common case):
+///    Delegate directly to CreateBitOrPointerCast, which handles
+///    int<->int, int<->ptr, int<->float, and ptr<->ptr casts natively.
+///
+/// Note: FP<->Ptr casts cannot occur here because computeAndCacheElementTy
+/// returns an FP type only when ALL chain elements are FP (so no element has a
+/// pointer type), and it never returns a pointer type itself.
+Value *Vectorizer::resizeAndBitcast(Value *V, Type *NewTy) {
+  auto *VTy = V->getType();
+  assert(VTy != NewTy && "Types should mismatch in this function.");
+  assert(!(VTy->isFPOrFPVectorTy() && NewTy->isPtrOrPtrVectorTy()) &&
+         "FP->Ptr cast should be unreachable: chain element type is never an "
+         "FP when the chain contains pointers.");
+  assert(!(VTy->isPtrOrPtrVectorTy() && NewTy->isFPOrFPVectorTy()) &&
+         "Ptr->FP cast should be unreachable: chain element type is never "
+         "a pointer type.");
+
+  unsigned VTySize = DL.getTypeSizeInBits(VTy);
+  unsigned NewTySize = DL.getTypeSizeInBits(NewTy);
+
+  // Case 1: Mismatched bitwidths. The source value V is always integer-typed
+  // here because:
+  //   - In the load path, V comes from extractelement/shufflevector of the
+  //     vectorized load, which has element type VecElemTy (always int or FP).
+  //   - In the store path, splitChainByPointerWidth guarantees pointer values
+  //     have scalar size == GCD == VecElemTy size, so sizes always match.
+  //   - For FP values, the total bitwidth of V always equals the target's
+  //     bitwidth (NumElems is computed to exactly span the original type).
+  // Therefore, only integer-to-integer resizing (with possible vector
+  // flattening) is needed before the final cast.
+  if (VTySize != NewTySize) {
+    assert(!VTy->isPtrOrPtrVectorTy() &&
+           "Pointer values should never have mismatched bitwidths: "
+           "splitChainByPointerWidth guarantees ptr size == GCD == "
+           "VecElemTy size.");
+    assert(!VTy->isFPOrFPVectorTy() &&
+           "FP values should never have mismatched bitwidths: "
+           "V is always VecElemTy-typed from extract/shuffle.");
+    assert(VTy->isIntOrIntVectorTy() &&
+           "V should be integer-typed in mismatched-bitwidth path.");
+
+    // Flatten vector integers (e.g., <2 x i8> from a shufflevector) to a
+    // single scalar integer so we can perform ZExt/Trunc.
+    if (V->getType()->isVectorTy())
+      V = Builder.CreateBitCast(V, Type::getIntNTy(F.getContext(), VTySize));
+
+    // Resize to the target bitwidth.
+    V = Builder.CreateZExtOrTrunc(V,
+                                  Type::getIntNTy(F.getContext(), NewTySize));
+  }
+
+  // Case 2 (or final step of Case 1): same-width cast to the destination type.
+  // CreateBitPreservingCastChain handles int<->int, int<->ptr, and int<->float.
+  return Builder.CreateBitOrPointerCast(V, NewTy);
+}
+
 bool Vectorizer::vectorizeChain(Chain &C) {
+  // Need at least two instructions to form a vector.
   if (C.size() < 2)
     return false;
 
@@ -1087,6 +1257,8 @@ bool Vectorizer::vectorizeChain(Chain &C) {
   if (C.size() == 2 && ChainContainsExtraLoadsStores)
     return false;
 
+  // Sort so that C[0] has the lowest offset, making it the base pointer for
+  // the vectorized instruction.
   sortChainInOffsetOrder(C);
 
   LLVM_DEBUG({
@@ -1094,9 +1266,16 @@ bool Vectorizer::vectorizeChain(Chain &C) {
     dumpChain(C);
   });
 
-  Type *VecElemTy = getChainElemTy(C);
+  // VecElemTy is the GCD element type across all scalar types in the chain.
+  // For a uniform chain (e.g. all i32) this is just i32; for a mixed chain
+  // (e.g. i32 + i16) it is the narrowest common unit (e.g. i16).
+  Type *VecElemTy = C.computeAndCacheElemTy(F.getContext(), DL);
+  unsigned VecElemSize = DL.getTypeSizeInBits(VecElemTy);
   bool IsLoadChain = isa<LoadInst>(C[0].Inst);
   unsigned AS = getLoadStoreAddressSpace(C[0].Inst);
+
+  // Compute ChainBytes: the total byte span covered by the chain, accounting
+  // for possible overlaps between adjacent elements.
   unsigned BytesAdded = DL.getTypeStoreSize(getLoadStoreType(&*C[0].Inst));
   APInt PrevReadEnd = C[0].OffsetFromLeader + BytesAdded;
   unsigned ChainBytes = BytesAdded;
@@ -1110,12 +1289,13 @@ bool Vectorizer::vectorizeChain(Chain &C) {
     PrevReadEnd = APIntOps::smax(PrevReadEnd, ReadEnd);
   }
 
-  assert(8 * ChainBytes % DL.getTypeSizeInBits(VecElemTy) == 0);
-  // VecTy is a power of 2 and 1 byte at smallest, but VecElemTy may be smaller
-  // than 1 byte (e.g. VecTy == <32 x i1>).
-  unsigned NumElem = 8 * ChainBytes / DL.getTypeSizeInBits(VecElemTy);
+  assert(8 * ChainBytes % VecElemSize == 0 &&
+         "ChainBytes must be a multiple of VecElemTy size");
+
+  unsigned NumElem = 8 * ChainBytes / VecElemSize;
   Type *VecTy = FixedVectorType::get(VecElemTy, NumElem);
 
+  // Use the alignment of the first (lowest-offset) instruction as the base.
   Align Alignment = getLoadStoreAlignment(C[0].Inst);
   // If this is a load/store of an alloca, we might have upgraded the alloca's
   // alignment earlier.  Get the new alignment.
@@ -1126,11 +1306,16 @@ bool Vectorizer::vectorizeChain(Chain &C) {
                                    MaybeAlign(), DL, C[0].Inst, nullptr, &DT));
   }
 
-  // All elements of the chain must have the same scalar-type size.
 #ifndef NDEBUG
-  for (const ChainElem &E : C)
-    assert(DL.getTypeStoreSize(getLoadStoreType(E.Inst)->getScalarType()) ==
-           DL.getTypeStoreSize(VecElemTy));
+  // Each element's scalar size must be a whole multiple of VecElemSize so that
+  // it occupies an integer number of contiguous vector lanes.
+  for (const ChainElem &E : C) {
+    unsigned ElemTySize = DL.getTypeSizeInBits(getLoadStoreType(E.Inst));
+    assert(ElemTySize % VecElemSize == 0 &&
+           "Element size is not a multiple of"
+           " the vector element size, which would break the vectorization "
+           "layout.");
+  }
 #endif
 
   Instruction *VecInst;
@@ -1161,26 +1346,55 @@ bool Vectorizer::vectorizeChain(Chain &C) {
           VecTy, getLoadStorePointerOperand(C[0].Inst), Alignment);
     }
 
+    // Replace each original load with the appropriate slice of the vector
+    // result.  The extraction strategy depends on how many vector lanes the
+    // original type occupies:
+    //   - scalar result (VecTy is not a vector): use the vector directly.
+    //   - original type is a vector: shufflevector to extract the sub-range.
+    //   - original type maps to multiple lanes (e.g. i32 in a <4 x i16>
+    //     vector): shufflevector to collect those lanes.
+    //   - original type maps to a single lane: extractelement.
+    // After extraction, resizeAndBitcast handles any remaining type mismatch
+    // (e.g. converting a <2 x i16> shuffle result back to i32).
     for (const ChainElem &E : C) {
       Instruction *I = E.Inst;
-      Value *V;
+      Value *ExtractedVal;
       Type *T = getLoadStoreType(I);
+      unsigned NumElems = DL.getTypeSizeInBits(T) / VecElemSize;
+
+      // Byte offset of this element relative to the chain base (C[0]).
       unsigned EOffset =
           (E.OffsetFromLeader - C[0].OffsetFromLeader).getZExtValue();
-      unsigned VecIdx = 8 * EOffset / DL.getTypeSizeInBits(VecElemTy);
+
+      // Convert the byte offset to a lane index within VecTy.
+      unsigned VecIdx = 8 * EOffset / VecElemSize;
       if (!VecTy->isVectorTy()) {
-        V = VecInst;
-      } else if (auto *VT = dyn_cast<FixedVectorType>(T)) {
-        auto Mask = llvm::to_vector<8>(
-            llvm::seq<int>(VecIdx, VecIdx + VT->getNumElements()));
-        V = Builder.CreateShuffleVector(VecInst, Mask, I->getName());
+        // Degenerate case: the whole chain collapsed to a single scalar load.
+        ExtractedVal = VecInst;
+      } else if (NumElems > 1) {
+        // T spans multiple VecElemTy-sized lanes — either because T is a vector
+        // type or a scalar wider than VecElemTy (e.g. i32 in a <N x i16>
+        // vector). In both cases, collect the NumElems lanes starting at
+        // VecIdx; resizeAndBitcast below will fix up any remaining type
+        // mismatch.
+        auto Mask =
+            llvm::to_vector<8>(llvm::seq<int>(VecIdx, VecIdx + NumElems));
+        ExtractedVal = Builder.CreateShuffleVector(VecInst, Mask, I->getName());
       } else {
-        V = Builder.CreateExtractElement(VecInst, Builder.getInt32(VecIdx),
-                                         I->getName());
+        // Single-lane element; a simple extractelement suffices.
+        ExtractedVal = Builder.CreateExtractElement(
+            VecInst, Builder.getInt32(VecIdx), I->getName());
       }
-      if (V->getType() != I->getType())
-        V = Builder.CreateBitOrPointerCast(V, I->getType());
-      I->replaceAllUsesWith(V);
+
+      // If the extracted value's type doesn't exactly match the original load
+      // type (possible after mixed-type vectorization), cast it back.
+      Type *ExpectedTy = getLoadStoreType(I);
+      if (ExtractedVal->getType() != ExpectedTy) {
+        LLVM_DEBUG(dbgs() << "LSV: Casting " << *ExtractedVal << " to "
+                          << *ExpectedTy << '\n');
+        ExtractedVal = resizeAndBitcast(ExtractedVal, ExpectedTy);
+      }
+      I->replaceAllUsesWith(ExtractedVal);
     }
 
     // Finally, we need to reorder the instrs in the BB so that the (transitive)
@@ -1209,27 +1423,44 @@ bool Vectorizer::vectorizeChain(Chain &C) {
                              return A.Inst->comesBefore(B.Inst);
                            })->Inst);
 
-    // Build the vector to store.
+    // Build the vector value to store by inserting each scalar operand into
+    // its corresponding lane(s).  Start with a poison vector so that any
+    // lanes not covered by the chain have defined (if undefined) values.
     Value *Vec = PoisonValue::get(VecTy);
-    auto InsertElem = [&](Value *V, unsigned VecIdx) {
-      if (V->getType() != VecElemTy)
-        V = Builder.CreateBitOrPointerCast(V, VecElemTy);
-      Vec = Builder.CreateInsertElement(Vec, V, Builder.getInt32(VecIdx));
-    };
+
     for (const ChainElem &E : C) {
       auto *I = cast<StoreInst>(E.Inst);
+      Value *Val = I->getValueOperand();
+
+      // Number of VecElemTy-sized lanes that this store value occupies.
+      unsigned NumElems = DL.getTypeSizeInBits(Val->getType()) / VecElemSize;
+
+      // Derive VecIdx from the element's offset so that overlapping elements
+      // are inserted at the correct lane rather than one past the previous end.
       unsigned EOffset =
           (E.OffsetFromLeader - C[0].OffsetFromLeader).getZExtValue();
-      unsigned VecIdx = 8 * EOffset / DL.getTypeSizeInBits(VecElemTy);
-      if (FixedVectorType *VT =
-              dyn_cast<FixedVectorType>(getLoadStoreType(I))) {
-        for (int J = 0, JE = VT->getNumElements(); J < JE; ++J) {
-          InsertElem(Builder.CreateExtractElement(I->getValueOperand(),
-                                                  Builder.getInt32(J)),
-                     VecIdx++);
-        }
+      unsigned VecIdx = 8 * EOffset / VecElemSize;
+
+      Value *CastVal = Val;
+      if (NumElems == 1) {
+        // Single-lane value: cast to VecElemTy if needed, then insert.
+        if (CastVal->getType() != VecElemTy)
+          CastVal = resizeAndBitcast(CastVal, VecElemTy);
+        Vec =
+            Builder.CreateInsertElement(Vec, CastVal, Builder.getInt32(VecIdx));
       } else {
-        InsertElem(I->getValueOperand(), VecIdx);
+        // Multi-lane value (e.g. storing an i32 into a <N x i16> vector):
+        // reinterpret as a sub-vector of VecElemTy, then scatter each lane.
+        Type *SubVecTy = FixedVectorType::get(VecElemTy, NumElems);
+        if (CastVal->getType() != SubVecTy)
+          CastVal = resizeAndBitcast(CastVal, SubVecTy);
+
+        for (unsigned ElmIdx = 0; ElmIdx < NumElems; ++ElmIdx) {
+          Value *Elt =
+              Builder.CreateExtractElement(CastVal, Builder.getInt32(ElmIdx));
+          Vec = Builder.CreateInsertElement(Vec, Elt,
+                                            Builder.getInt32(VecIdx + ElmIdx));
+        }
       }
     }
 
@@ -1250,8 +1481,11 @@ bool Vectorizer::vectorizeChain(Chain &C) {
     }
   }
 
+  // Copy metadata (e.g. !tbaa, !alias.scope) from the original instructions
+  // to the new vectorized instruction.
   propagateMetadata(VecInst, C);
 
+  // Mark the original scalar instructions for removal.
   for (const ChainElem &E : C)
     ToErase.emplace_back(E.Inst);
 
@@ -1580,13 +1814,12 @@ void Vectorizer::mergeEquivalenceClasses(EquivalenceClassMap &EQClasses) const {
     return;
 
   // The reduced key has all elements of the ECClassKey except the underlying
-  // object. Check that EqClassKey has 4 elements and define the reduced key.
-  static_assert(std::tuple_size_v<EqClassKey> == 4,
+  // object. Check that EqClassKey has 3 elements and define the reduced key.
+  static_assert(std::tuple_size_v<EqClassKey> == 3,
                 "EqClassKey has changed - EqClassReducedKey needs changes too");
   using EqClassReducedKey =
       std::tuple<std::tuple_element_t<1, EqClassKey> /* AddrSpace */,
-                 std::tuple_element_t<2, EqClassKey> /* Element size */,
-                 std::tuple_element_t<3, EqClassKey> /* IsLoad; */>;
+                 std::tuple_element_t<2, EqClassKey> /* IsLoad; */>;
   using ECReducedKeyToUnderlyingObjectMap =
       MapVector<EqClassReducedKey,
                 SmallPtrSet<std::tuple_element_t<0, EqClassKey>, 4>>;
@@ -1598,8 +1831,7 @@ void Vectorizer::mergeEquivalenceClasses(EquivalenceClassMap &EQClasses) const {
   bool FoundPotentiallyOptimizableEC = false;
   for (const auto &EC : EQClasses) {
     const auto &Key = EC.first;
-    EqClassReducedKey RedKey{std::get<1>(Key), std::get<2>(Key),
-                             std::get<3>(Key)};
+    EqClassReducedKey RedKey{std::get<1>(Key), std::get<2>(Key)};
     auto &UOMap = RedKeyToUOMap[RedKey];
     UOMap.insert(std::get<0>(Key));
     if (UOMap.size() > 1)
@@ -1620,8 +1852,7 @@ void Vectorizer::mergeEquivalenceClasses(EquivalenceClassMap &EQClasses) const {
     dbgs() << "LSV: mergeEquivalenceClasses: RedKeyToUOMap:\n";
     for (const auto &RedKeyToUO : RedKeyToUOMap) {
       dbgs() << "  Reduced key: {" << std::get<0>(RedKeyToUO.first) << ", "
-             << std::get<1>(RedKeyToUO.first) << ", "
-             << static_cast<int>(std::get<2>(RedKeyToUO.first)) << "} --> "
+             << static_cast<int>(std::get<1>(RedKeyToUO.first)) << "} --> "
              << RedKeyToUO.second.size() << " underlying objects:\n";
       for (auto UObject : RedKeyToUO.second)
         dbgs() << "    " << *UObject << '\n';
@@ -1661,10 +1892,9 @@ void Vectorizer::mergeEquivalenceClasses(EquivalenceClassMap &EQClasses) const {
       if (UObject == UltimateTarget)
         continue;
 
-      EqClassKey KeyFrom{UObject, std::get<0>(RedKey), std::get<1>(RedKey),
-                         std::get<2>(RedKey)};
-      EqClassKey KeyTo{UltimateTarget, std::get<0>(RedKey), std::get<1>(RedKey),
-                       std::get<2>(RedKey)};
+      EqClassKey KeyFrom{UObject, std::get<0>(RedKey), std::get<1>(RedKey)};
+      EqClassKey KeyTo{UltimateTarget, std::get<0>(RedKey),
+                       std::get<1>(RedKey)};
       // The entry for KeyFrom is guarantted to exist, unlike KeyTo. Thus,
       // request the reference to the instructions vector for KeyTo first.
       const auto &VecTo = EQClasses[KeyTo];
@@ -1756,7 +1986,6 @@ Vectorizer::collectEquivalenceClasses(BasicBlock::iterator Begin,
       continue;
 
     Ret[{GetUnderlyingObject(Ptr), AS,
-         DL.getTypeSizeInBits(getLoadStoreType(&I)->getScalarType()),
          /*IsLoad=*/LI != nullptr}]
         .emplace_back(&I);
   }
@@ -1975,6 +2204,8 @@ Value *Vectorizer::createMaskForExtraElements(const ArrayRef<ChainElem> C,
   // Start each mask element as false
   SmallVector<Constant *, 64> MaskElts(VecTy->getNumElements(),
                                        Builder.getInt1(false));
+  unsigned ScalarTySize = DL.getTypeSizeInBits(VecTy->getScalarType());
+
   // Iterate over the chain and set the corresponding mask element to true for
   // each element that is not an extra element.
   for (const ChainElem &E : C) {
@@ -1982,14 +2213,10 @@ Value *Vectorizer::createMaskForExtraElements(const ArrayRef<ChainElem> C,
       continue;
     unsigned EOffset =
         (E.OffsetFromLeader - C[0].OffsetFromLeader).getZExtValue();
-    unsigned VecIdx =
-        8 * EOffset / DL.getTypeSizeInBits(VecTy->getScalarType());
-    if (FixedVectorType *VT =
-            dyn_cast<FixedVectorType>(getLoadStoreType(E.Inst)))
-      for (unsigned J = 0; J < VT->getNumElements(); ++J)
-        MaskElts[VecIdx + J] = Builder.getInt1(true);
-    else
-      MaskElts[VecIdx] = Builder.getInt1(true);
+    unsigned ElemSize = DL.getTypeSizeInBits(getLoadStoreType(E.Inst));
+    unsigned VecIdx = 8 * EOffset / ScalarTySize;
+    unsigned NumElems = ElemSize / ScalarTySize;
+    std::fill_n(MaskElts.begin() + VecIdx, NumElems, Builder.getInt1(true));
   }
   return ConstantVector::get(MaskElts);
 }

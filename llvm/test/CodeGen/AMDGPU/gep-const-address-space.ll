@@ -25,7 +25,7 @@ define protected amdgpu_kernel void @IllegalGEPConst(i32 %a, ptr addrspace(1) %b
 ; CHECK-NEXT:    s_andn2_b64 vcc, exec, s[4:5]
 ; CHECK-NEXT:    s_mov_b64 s[4:5], -1
 ; CHECK-NEXT:    s_cbranch_vccnz .LBB0_3
-; CHECK-NEXT:  ; %bb.1: ; %Flow6
+; CHECK-NEXT:  ; %bb.1: ; %Flow4
 ; CHECK-NEXT:    s_andn2_b64 vcc, exec, s[4:5]
 ; CHECK-NEXT:    s_cbranch_vccz .LBB0_8
 ; CHECK-NEXT:  .LBB0_2: ; %atomicrmw.phi
@@ -57,7 +57,7 @@ define protected amdgpu_kernel void @IllegalGEPConst(i32 %a, ptr addrspace(1) %b
 ; CHECK-NEXT:    v_add_f64 v[0:1], v[0:1], s[2:3]
 ; CHECK-NEXT:    buffer_store_dword v0, v2, s[12:15], 0 offen
 ; CHECK-NEXT:    buffer_store_dword v1, v2, s[12:15], 0 offen offset:4
-; CHECK-NEXT:  .LBB0_7: ; %Flow5
+; CHECK-NEXT:  .LBB0_7: ; %Flow3
 ; CHECK-NEXT:    s_cbranch_execnz .LBB0_2
 ; CHECK-NEXT:  .LBB0_8: ; %atomicrmw.shared
 ; CHECK-NEXT:    s_cmp_lg_u64 s[0:1], 0
