@@ -232,7 +232,7 @@ namespace constant {
   constexpr int g() {
     int *p = nullptr;
     {
-      auto [a, b, c] = q; // expected-note {{temporary created here}}
+      auto [a, b, c] = q; // expected-note {{declared here}}
       p = &c;
     }
     return *p; // expected-note {{read of object outside its lifetime}}
