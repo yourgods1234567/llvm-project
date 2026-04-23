@@ -664,10 +664,49 @@ static Value *foldSelectICmpMinMax(const ICmpInst *Cmp, Value *TVal,
                                    Value *FVal,
                                    InstCombiner::BuilderTy &Builder,
                                    const SimplifyQuery &SQ) {
-  const Value *CmpLHS = Cmp->getOperand(0);
-  const Value *CmpRHS = Cmp->getOperand(1);
+  Value *CmpLHS = Cmp->getOperand(0);
+  Value *CmpRHS = Cmp->getOperand(1);
   ICmpInst::Predicate Pred = Cmp->getPredicate();
 
+  if (match(TVal, m_Zero())) {
+    // (X < Y) ? 0 : (X - Y)
+    if (Pred == CmpInst::ICMP_SLT &&
+        isGuaranteedNotToBeUndef(CmpLHS, SQ.AC, Cmp, nullptr) &&
+        match(FVal, m_NSWSub(m_Specific(CmpLHS), m_Specific(CmpRHS)))) {
+      Value *SMin =
+          Builder.CreateBinaryIntrinsic(Intrinsic::smin, CmpRHS, CmpLHS);
+      return Builder.CreateNSWSub(CmpLHS, SMin);
+    }
+
+    // (X > Y) ? 0 : (Y - X)
+    if (Pred == CmpInst::ICMP_SGT &&
+        isGuaranteedNotToBeUndef(CmpRHS, SQ.AC, Cmp, nullptr) &&
+        match(FVal, m_NSWSub(m_Specific(CmpRHS), m_Specific(CmpLHS)))) {
+      Value *SMin =
+          Builder.CreateBinaryIntrinsic(Intrinsic::smin, CmpRHS, CmpLHS);
+      return Builder.CreateNSWSub(CmpRHS, SMin);
+    }
+  }
+
+  if (match(FVal, m_Zero())) {
+    // (X < Y) ? (Y - X) : 0
+    if (Pred == CmpInst::ICMP_SLT &&
+        isGuaranteedNotToBeUndef(CmpRHS, SQ.AC, Cmp, nullptr) &&
+        match(TVal, m_NSWSub(m_Specific(CmpRHS), m_Specific(CmpLHS)))) {
+      Value *SMin =
+          Builder.CreateBinaryIntrinsic(Intrinsic::smin, CmpRHS, CmpLHS);
+      return Builder.CreateNSWSub(CmpRHS, SMin); // y - smin(x,y) => y-x
+    }
+
+    // (X > Y) ? (X - Y) : 0
+    if (Pred == CmpInst::ICMP_SGT &&
+        isGuaranteedNotToBeUndef(CmpLHS, SQ.AC, Cmp, nullptr) &&
+        match(TVal, m_NSWSub(m_Specific(CmpLHS), m_Specific(CmpRHS)))) {
+      Value *SMin =
+          Builder.CreateBinaryIntrinsic(Intrinsic::smin, CmpLHS, CmpRHS);
+      return Builder.CreateNSWSub(CmpLHS, SMin);
+    }
+  }
   // (X > Y) ? X : (Y - 1) ==> MIN(X, Y - 1)
   // (X < Y) ? X : (Y + 1) ==> MAX(X, Y + 1)
   // This transformation is valid when overflow corresponding to the sign of
