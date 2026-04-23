@@ -328,6 +328,10 @@ Attribute Changes in Clang
   are used. Use ``amdgpu_waves_per_eu`` instead to control SGPR and VGPR
   usage.
 
+- The malloc attribute can now be applied to functions returning span-like structures (structs
+  containing a pointer field and a size integer field). Currently, this is primarily used for
+  Allocation Token instrumentation.
+
 Improvements to Clang's diagnostics
 -----------------------------------
 - Fixed bug in ``-Wdocumentation`` so that it correctly handles explicit
