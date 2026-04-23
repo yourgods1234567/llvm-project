@@ -49,6 +49,9 @@ C++ Specific Potentially Breaking Changes
 - Clang now correctly rejects ``export`` declarations in module implementation
   partitions. (#GH107602)
 
+- Clang now emits errors for coroutine `await_suspend` functions whose return type is not
+  one of `void`, `bool`, or `std::coroutine_handle`.
+
 ABI Changes in This Version
 ---------------------------
 
