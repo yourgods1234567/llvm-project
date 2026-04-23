@@ -451,6 +451,8 @@ Improvements to Clang's diagnostics
 
 - Removed the body of lambdas from some diagnostic messages.
 
+- The `-Wnrvo` compiler flag is now ignored in C mode.
+
 Improvements to Clang's time-trace
 ----------------------------------
 
