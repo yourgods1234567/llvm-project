@@ -117,37 +117,6 @@ static void test_valid_values() {
         std::chrono::month_day_last{std::chrono::December});
 
   // Use the global locale (fr_FR)
-#if defined(__APPLE__)
-  check(SV("%b='jan'\t%B='janvier'\t%h='jan'\t%m='01'\t%Om='01'\n"),
-        lfmt,
-        std::chrono::month_day_last{std::chrono::January});
-  check(SV("%b='fév'\t%B='février'\t%h='fév'\t%m='02'\t%Om='02'\n"),
-        lfmt,
-        std::chrono::month_day_last{std::chrono::February});
-  check(
-      SV("%b='mar'\t%B='mars'\t%h='mar'\t%m='03'\t%Om='03'\n"), lfmt, std::chrono::month_day_last{std::chrono::March});
-  check(
-      SV("%b='avr'\t%B='avril'\t%h='avr'\t%m='04'\t%Om='04'\n"), lfmt, std::chrono::month_day_last{std::chrono::April});
-  check(SV("%b='mai'\t%B='mai'\t%h='mai'\t%m='05'\t%Om='05'\n"), lfmt, std::chrono::month_day_last{std::chrono::May});
-  check(SV("%b='jui'\t%B='juin'\t%h='jui'\t%m='06'\t%Om='06'\n"), lfmt, std::chrono::month_day_last{std::chrono::June});
-  check(SV("%b='jul'\t%B='juillet'\t%h='jul'\t%m='07'\t%Om='07'\n"),
-        lfmt,
-        std::chrono::month_day_last{std::chrono::July});
-  check(
-      SV("%b='aoû'\t%B='août'\t%h='aoû'\t%m='08'\t%Om='08'\n"), lfmt, std::chrono::month_day_last{std::chrono::August});
-  check(SV("%b='sep'\t%B='septembre'\t%h='sep'\t%m='09'\t%Om='09'\n"),
-        lfmt,
-        std::chrono::month_day_last{std::chrono::September});
-  check(SV("%b='oct'\t%B='octobre'\t%h='oct'\t%m='10'\t%Om='10'\n"),
-        lfmt,
-        std::chrono::month_day_last{std::chrono::October});
-  check(SV("%b='nov'\t%B='novembre'\t%h='nov'\t%m='11'\t%Om='11'\n"),
-        lfmt,
-        std::chrono::month_day_last{std::chrono::November});
-  check(SV("%b='déc'\t%B='décembre'\t%h='déc'\t%m='12'\t%Om='12'\n"),
-        lfmt,
-        std::chrono::month_day_last{std::chrono::December});
-#else    // defined(__APPLE__)
   check(SV("%b='janv.'\t%B='janvier'\t%h='janv.'\t%m='01'\t%Om='01'\n"),
         lfmt,
         std::chrono::month_day_last{std::chrono::January});
@@ -158,11 +127,11 @@ static void test_valid_values() {
         lfmt,
         std::chrono::month_day_last{std::chrono::March});
   check(
-#  if defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
+#if defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__) || defined(__APPLE__)
       SV("%b='avr.'\t%B='avril'\t%h='avr.'\t%m='04'\t%Om='04'\n"),
-#  else  // defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
+#else
       SV("%b='avril'\t%B='avril'\t%h='avril'\t%m='04'\t%Om='04'\n"),
-#  endif // defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
+#endif
       lfmt,
       std::chrono::month_day_last{std::chrono::April});
   check(SV("%b='mai'\t%B='mai'\t%h='mai'\t%m='05'\t%Om='05'\n"), lfmt, std::chrono::month_day_last{std::chrono::May});
@@ -186,7 +155,6 @@ static void test_valid_values() {
   check(SV("%b='déc.'\t%B='décembre'\t%h='déc.'\t%m='12'\t%Om='12'\n"),
         lfmt,
         std::chrono::month_day_last{std::chrono::December});
-#endif   // defined(__APPLE__)
 
   // Use supplied locale (ja_JP)
 #ifdef _WIN32

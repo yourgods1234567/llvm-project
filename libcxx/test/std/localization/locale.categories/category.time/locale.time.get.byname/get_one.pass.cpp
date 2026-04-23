@@ -94,6 +94,9 @@ int main(int, char**)
         assert(t.tm_hour == 23);
         assert(err == std::ios_base::eofbit);
     }
+    // FIXME: Apple platforms probably changed their localization, which causes this test to fail.
+    // clang-format off
+#ifndef __APPLE__
     {
         const my_facet f(LOCALE_fr_FR_UTF_8, 1);
 #ifdef _WIN32
@@ -120,6 +123,8 @@ int main(int, char**)
 #endif
         assert(err == std::ios_base::eofbit);
     }
+#endif // __APPLE__
+    // clang-format on
     {
         const my_facet f(LOCALE_fr_FR_UTF_8, 1);
         const char in[] = "23:55:59";
@@ -177,6 +182,9 @@ int main(int, char**)
         assert(t.tm_hour == 23);
         assert(err == std::ios_base::eofbit);
     }
+    // FIXME: Apple platforms probably changed their localization, which causes this test to fail.
+    // clang-format off
+#ifndef __APPLE__
     {
         const my_facet f(LOCALE_zh_CN_UTF_8, 1);
 #ifdef TEST_HAS_GLIBC
@@ -217,6 +225,8 @@ int main(int, char**)
         assert(err == std::ios_base::eofbit);
 #endif
     }
+#endif
+    // clang-format on
     {
         const my_facet f(LOCALE_zh_CN_UTF_8, 1);
 #if defined(_WIN32)
