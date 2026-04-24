@@ -2902,6 +2902,10 @@ static bool isTriviallyCopyableTypeImpl(const QualType &type,
     return isTriviallyCopyableTypeImpl(Context.getBaseElementType(type),
                                        Context, IsCopyConstructible);
 
+  if (type->isMatrixType())
+    return isTriviallyCopyableTypeImpl(Context.getMatrixBaseElementType(type),
+                                       Context, IsCopyConstructible);
+
   if (type.hasNonTrivialObjCLifetime())
     return false;
 

@@ -3016,6 +3016,8 @@ public:
   /// qualifiers from the outermost type.
   const ArrayType *getAsArrayTypeUnsafe() const;
 
+  const MatrixType *getAsMatrixTypeUnsafe() const;
+
   /// Member-template castAs<specific type>.  Look through sugar for
   /// the underlying instance of \<specific type>.
   ///
@@ -9328,6 +9330,16 @@ inline const ArrayType *Type::getAsArrayTypeUnsafe() const {
   // If this is a typedef for the type, strip the typedef off without
   // losing all typedef information.
   return cast<ArrayType>(getUnqualifiedDesugaredType());
+}
+
+inline const MatrixType *Type::getAsMatrixTypeUnsafe() const {
+  if (const auto *matrix = dyn_cast<MatrixType>(this))
+    return matrix;
+
+  if (!isa<MatrixType>(CanonicalType))
+    return nullptr;
+
+  return cast<MatrixType>(getUnqualifiedDesugaredType());
 }
 
 template <typename T> const T *Type::castAs() const {
