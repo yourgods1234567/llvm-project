@@ -14,6 +14,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringTable.h"
 #include "llvm/IR/ConstantRange.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
@@ -34,6 +35,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/NVVMIntrinsicUtils.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -1154,6 +1156,44 @@ bool Intrinsic::getIntrinsicSignature(Function *F,
                                       SmallVectorImpl<Type *> &OverloadTys) {
   return getIntrinsicSignature(F->getIntrinsicID(), F->getFunctionType(),
                                OverloadTys);
+}
+
+void Intrinsic::printIntrinsicSignatureMismatch(raw_ostream &OS,
+                                                Intrinsic::ID ID,
+                                                FunctionType *FT) {
+  SmallVector<Intrinsic::IITDescriptor, 8> Table;
+  getIntrinsicInfoTableEntries(ID, Table);
+  ArrayRef<Intrinsic::IITDescriptor> TableRef = Table;
+
+  SmallVector<Type *, 4> OverloadTys;
+  FunctionType *CanonFT =
+      isOverloaded(ID) ? nullptr : getType(FT->getContext(), ID);
+  auto FormatMismatch = [&](StringRef Prefix, auto PrintType) {
+    OS << Prefix;
+    PrintType();
+    OS << "'";
+    if (CanonFT) {
+      OS << ", canonical signature is '";
+      CanonFT->print(OS);
+      OS << "'";
+    }
+  };
+  MatchIntrinsicTypesResult Res =
+      Intrinsic::matchIntrinsicSignature(FT, TableRef, OverloadTys);
+  switch (Res) {
+  case MatchIntrinsicTypes_NoMatchRet:
+    FormatMismatch(
+        "Intrinsic has incorrect return type! declared return type is '",
+        [&] { FT->getReturnType()->print(OS); });
+    break;
+  case MatchIntrinsicTypes_NoMatchArg:
+    FormatMismatch(
+        "Intrinsic has incorrect argument type! declared signature is '",
+        [&] { FT->print(OS); });
+    break;
+  case MatchIntrinsicTypes_Match:
+    llvm_unreachable("unexpected MatchIntrinsicTypes_Match");
+  }
 }
 
 std::optional<Function *> Intrinsic::remangleIntrinsicFunction(Function *F) {

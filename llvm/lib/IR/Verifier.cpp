@@ -3898,9 +3898,19 @@ void Verifier::visitCallBase(CallBase &Call) {
   Function *Callee =
       dyn_cast<Function>(Call.getCalledOperand()->stripPointerCasts());
   bool IsIntrinsic = Callee && Callee->isIntrinsic();
-  if (IsIntrinsic)
-    Check(Callee->getFunctionType() == FTy,
-          "Intrinsic called with incompatible signature", Call);
+  if (IsIntrinsic) {
+    FunctionType *DeclFTy = cast<FunctionType>(Callee->getValueType());
+    if (DeclFTy != FTy) {
+      std::string Msg = "Intrinsic called with incompatible signature: "
+                        "expected signature: ";
+      raw_string_ostream SS(Msg);
+      DeclFTy->print(SS);
+      SS << ", got: ";
+      FTy->print(SS);
+      CheckFailed(Msg, Call);
+      return;
+    }
+  }
 
   // Verify if the calling convention of the callee is callable.
   Check(isCallableCC(Call.getCallingConv()),
@@ -5914,10 +5924,13 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   SmallVector<Type *, 4> ArgTys;
   Intrinsic::MatchIntrinsicTypesResult Res =
       Intrinsic::matchIntrinsicSignature(IFTy, TableRef, ArgTys);
-  Check(Res != Intrinsic::MatchIntrinsicTypes_NoMatchRet,
-        "Intrinsic has incorrect return type!", IF);
-  Check(Res != Intrinsic::MatchIntrinsicTypes_NoMatchArg,
-        "Intrinsic has incorrect argument type!", IF);
+  if (Res != Intrinsic::MatchIntrinsicTypes_Match) {
+    std::string Msg;
+    raw_string_ostream OS(Msg);
+    Intrinsic::printIntrinsicSignatureMismatch(OS, ID, IFTy);
+    CheckFailed(Msg, IF);
+    return;
+  }
 
   // Verify if the intrinsic call matches the vararg property.
   if (IsVarArg)
