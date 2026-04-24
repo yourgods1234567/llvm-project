@@ -19,6 +19,7 @@
 
 #include "GCNSubtarget.h"
 #include "llvm/CodeGen/LiveIntervals.h"
+#include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/RegisterPressure.h"
 #include <algorithm>
 #include <array>
@@ -129,6 +130,10 @@ struct GCNRegPressure {
            LaneBitmask PrevMask,
            LaneBitmask NewMask,
            const MachineRegisterInfo &MRI);
+
+  /// Update pressure for a physical register (add or remove). Used when
+  /// tracking physical registers.
+  void inc(MCRegister Reg, bool IsAdd, const MachineRegisterInfo &MRI);
 
   bool higherOccupancy(const GCNSubtarget &ST, const GCNRegPressure &O,
                        unsigned DynamicVGPRBlockSize) const {
@@ -320,12 +325,72 @@ public:
 
 protected:
   const LiveIntervals &LIS;
+
   LiveRegSet VirtLiveRegs;
+
+  // Physical register liveness: Units provides O(1) unit-level alias checks,
+  // Regs tracks which register names contributed to pressure for cheap
+  // reconstruction. Both must be kept in sync.
+  struct PhysicalRegLiveness {
+    LiveRegUnits Units;
+    SmallDenseSet<MCRegister, 16> Regs;
+
+    void init(const TargetRegisterInfo &TRI) {
+      Units.init(TRI);
+      Regs.clear();
+    }
+    void clear() {
+      Units.clear();
+      Regs.clear();
+    }
+    const BitVector &getBitVector() const { return Units.getBitVector(); }
+
+    void add(Register Reg) {
+      Units.addReg(Reg);
+      Regs.insert(Reg.asMCReg());
+    }
+    void remove(Register Reg) {
+      Units.removeReg(Reg);
+      Regs.erase(Reg.asMCReg());
+    }
+    void remove(const BitVector &KilledUnits, MCRegister Reg) {
+      Units.removeUnits(KilledUnits);
+      Regs.erase(Reg);
+    }
+  };
+  PhysicalRegLiveness PhysLiveRegs;
+
   GCNRegPressure CurPressure, MaxPressure;
+
+  // Flag to control whether physical register tracking is active.
+  // Set to true when GCNTrackers are enabled, false otherwise.
+  bool TrackPhysRegs = false;
+
   const MachineInstr *LastTrackedMI = nullptr;
   mutable const MachineRegisterInfo *MRI = nullptr;
+  const SIRegisterInfo *SRI = nullptr;
 
-  GCNRPTracker(const LiveIntervals &LIS_) : LIS(LIS_) {}
+  GCNRPTracker(const LiveIntervals &LIS, const MachineRegisterInfo &MRI)
+      : LIS(LIS), MRI(&MRI),
+        SRI(static_cast<const SIRegisterInfo *>(MRI.getTargetRegisterInfo())) {
+    setPhysRegTracking();
+    if (TrackPhysRegs)
+      PhysLiveRegs.init(*SRI);
+  }
+
+  // Copy constructor - PhysLiveRegs.Units must be initialized then copied.
+  GCNRPTracker(const GCNRPTracker &Other)
+      : LIS(Other.LIS), VirtLiveRegs(Other.VirtLiveRegs),
+        CurPressure(Other.CurPressure), MaxPressure(Other.MaxPressure),
+        TrackPhysRegs(Other.TrackPhysRegs), LastTrackedMI(Other.LastTrackedMI),
+        MRI(Other.MRI), SRI(Other.SRI) {
+    if (TrackPhysRegs) {
+      assert(SRI && "SRI not initialized");
+      PhysLiveRegs.init(*SRI);
+      PhysLiveRegs.Units.addUnits(Other.PhysLiveRegs.getBitVector());
+      PhysLiveRegs.Regs = Other.PhysLiveRegs.Regs;
+    }
+  }
 
   void reset(const MachineInstr &MI, const LiveRegSet *VirtLiveRegsCopy,
              bool After);
@@ -335,12 +400,41 @@ protected:
 
   LaneBitmask getLastUsedLanes(Register Reg, SlotIndex Pos) const;
 
+  // Check if a register unit is live at a given slot index per LIS.
+  bool isUnitLiveAt(MCRegUnit Unit, SlotIndex SI) const;
+
+  // Check if any register unit of Reg is not currently live in PhysLiveRegs.
+  bool isAnyRegUnitNotLive(MCRegister Reg) const;
+
+  // Reconstruct physical register pressure from PhysLiveRegs.Regs.
+  GCNRegPressure constructPhysRegPressure() const;
+
+  // Check if Reg has any killed units at the given slot index.
+  bool checkRegKilled(MCRegister Reg, SlotIndex SI) const;
+
+  // Check if Reg has any killed units and erase them from PhysLiveRegs.
+  bool eraseKilledUnits(MCRegister Reg, SlotIndex SI);
+
+  // Erase all live units of Reg from PhysLiveRegs.
+  // Returns true if any unit was live (and thus erased).
+  bool eraseAllLiveUnits(MCRegister Reg);
+
+  // Insert units of Reg into PhysLiveRegs if not already live.
+  // Returns true if any unit was newly inserted.
+  bool insertIfNotLive(MCRegister Reg);
+
 public:
+  // Enable physical register tracking only if both GCNTrackers and
+  // TrackPhysRegInTrackers are true.
+  void setPhysRegTracking();
+
   // reset tracker and set live register set to the specified value.
   void reset(const MachineRegisterInfo &MRInfo,
              const LiveRegSet &VirtLiveRegsSet);
+
   // live regs for the current state
   const decltype(VirtLiveRegs) &getLiveRegs() const { return VirtLiveRegs; }
+  const decltype(VirtLiveRegs) &getVirtLiveRegs() const { return VirtLiveRegs; }
   const MachineInstr *getLastTrackedMI() const { return LastTrackedMI; }
 
   void clearMaxPressure() { MaxPressure.clear(); }
@@ -360,7 +454,8 @@ getLiveRegs(SlotIndex SI, const LiveIntervals &LIS,
 
 class GCNUpwardRPTracker : public GCNRPTracker {
 public:
-  GCNUpwardRPTracker(const LiveIntervals &LIS) : GCNRPTracker(LIS) {}
+  GCNUpwardRPTracker(const LiveIntervals &LIS, const MachineRegisterInfo &MRI)
+      : GCNRPTracker(LIS, MRI) {}
 
   using GCNRPTracker::reset;
 
@@ -410,7 +505,8 @@ class GCNDownwardRPTracker : public GCNRPTracker {
   MachineBasicBlock::const_iterator MBBEnd;
 
 public:
-  GCNDownwardRPTracker(const LiveIntervals &LIS_) : GCNRPTracker(LIS_) {}
+  GCNDownwardRPTracker(const LiveIntervals &LIS, const MachineRegisterInfo &MRI)
+      : GCNRPTracker(LIS, MRI) {}
 
   using GCNRPTracker::reset;
 
