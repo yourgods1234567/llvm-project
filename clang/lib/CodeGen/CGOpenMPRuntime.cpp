@@ -4789,6 +4789,7 @@ void CGOpenMPRuntime::emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
                                    llvm::Function *TaskFunction,
                                    QualType SharedsTy, Address Shareds,
                                    const Expr *IfCond,
+                                   const Expr *ReplayableCond,
                                    const OMPTaskDataTy &Data) {
   if (!CGF.HaveInsertPoint())
     return;
@@ -4953,8 +4954,16 @@ void CGOpenMPRuntime::emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
     RegionCodeGenTy TaskgraphRCG(TaskgraphTaskCodeGen);
     TaskgraphRCG(CGF);
   } else {
-    RegionCodeGenTy NonTaskgraphRCG(NonTaskgraphTaskCodeGen);
-    NonTaskgraphRCG(CGF);
+    if (ReplayableCond) {
+      // We have a replayable clause.  Task is replayable if its argument is
+      // omitted or evaluates to TRUE.
+      emitIfClause(CGF, ReplayableCond, TaskgraphTaskCodeGen,
+                   NonTaskgraphTaskCodeGen);
+    } else {
+      // Not taskgraph, not replayable.
+      RegionCodeGenTy NonTaskgraphRCG(NonTaskgraphTaskCodeGen);
+      NonTaskgraphRCG(CGF);
+    }
   }
 }
 
@@ -4963,6 +4972,7 @@ void CGOpenMPRuntime::emitTaskLoopCall(CodeGenFunction &CGF, SourceLocation Loc,
                                        llvm::Function *TaskFunction,
                                        QualType SharedsTy, Address Shareds,
                                        const Expr *IfCond,
+                                       const Expr *ReplayableCond,
                                        const OMPTaskDataTy &Data) {
   if (!CGF.HaveInsertPoint())
     return;
@@ -5136,8 +5146,16 @@ void CGOpenMPRuntime::emitTaskLoopCall(CodeGenFunction &CGF, SourceLocation Loc,
     RegionCodeGenTy TaskgraphRCG(TaskgraphTaskloopCodeGen);
     TaskgraphRCG(CGF);
   } else {
-    RegionCodeGenTy NonTaskgraphRCG(NonTaskgraphTaskloopCodeGen);
-    NonTaskgraphRCG(CGF);
+    if (ReplayableCond) {
+      // We have a replayable clause.  Taskloop is replayable if its argument
+      // is omitted or evaluates to TRUE.
+      emitIfClause(CGF, ReplayableCond, TaskgraphTaskloopCodeGen,
+                   NonTaskgraphTaskloopCodeGen);
+    } else {
+      // Not taskgraph, not replayable.
+      RegionCodeGenTy NonTaskgraphRCG(NonTaskgraphTaskloopCodeGen);
+      NonTaskgraphRCG(CGF);
+    }
   }
 }
 
@@ -6335,6 +6353,7 @@ Address CGOpenMPRuntime::getTaskReductionItem(CodeGenFunction &CGF,
 }
 
 void CGOpenMPRuntime::emitTaskwaitCall(CodeGenFunction &CGF, SourceLocation Loc,
+                                       const Expr *ReplayableCond,
                                        const OMPTaskDataTy &Data) {
   if (!CGF.HaveInsertPoint())
     return;
@@ -6409,8 +6428,16 @@ void CGOpenMPRuntime::emitTaskwaitCall(CodeGenFunction &CGF, SourceLocation Loc,
       RegionCodeGenTy TaskgraphRCG(TaskgraphTaskwaitCodeGen);
       TaskgraphRCG(CGF);
     } else {
-      RegionCodeGenTy NonTaskgraphRCG(NonTaskgraphTaskwaitCodeGen);
-      NonTaskgraphRCG(CGF);
+      if (ReplayableCond) {
+        // We have a replayable clause.  Taskwait is replayable if its argument
+        // is omitted or evaluates to TRUE.
+        emitIfClause(CGF, ReplayableCond, TaskgraphTaskwaitCodeGen,
+                     NonTaskgraphTaskwaitCodeGen);
+      } else {
+        // Not taskgraph, not replayable.
+        RegionCodeGenTy NonTaskgraphRCG(NonTaskgraphTaskwaitCodeGen);
+        NonTaskgraphRCG(CGF);
+      }
     }
   }
 
@@ -13568,6 +13595,7 @@ void CGOpenMPSIMDRuntime::emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
                                        llvm::Function *TaskFunction,
                                        QualType SharedsTy, Address Shareds,
                                        const Expr *IfCond,
+                                       const Expr *ReplayableCond,
                                        const OMPTaskDataTy &Data) {
   llvm_unreachable("Not supported in SIMD-only mode");
 }
@@ -13575,7 +13603,7 @@ void CGOpenMPSIMDRuntime::emitTaskCall(CodeGenFunction &CGF, SourceLocation Loc,
 void CGOpenMPSIMDRuntime::emitTaskLoopCall(
     CodeGenFunction &CGF, SourceLocation Loc, const OMPLoopDirective &D,
     llvm::Function *TaskFunction, QualType SharedsTy, Address Shareds,
-    const Expr *IfCond, const OMPTaskDataTy &Data) {
+    const Expr *IfCond, const Expr *ReplayableCond, const OMPTaskDataTy &Data) {
   llvm_unreachable("Not supported in SIMD-only mode");
 }
 
@@ -13616,6 +13644,7 @@ Address CGOpenMPSIMDRuntime::getTaskReductionItem(CodeGenFunction &CGF,
 
 void CGOpenMPSIMDRuntime::emitTaskwaitCall(CodeGenFunction &CGF,
                                            SourceLocation Loc,
+                                           const Expr *ReplayableCond,
                                            const OMPTaskDataTy &Data) {
   llvm_unreachable("Not supported in SIMD-only mode");
 }

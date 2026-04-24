@@ -3386,13 +3386,15 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       ErrorFound = true;
     }
 
-    if (CKind == OMPC_nowait && PP.LookAhead(/*N=*/0).is(tok::l_paren) &&
+    if (CKind == OMPC_nowait &&
+        PP.LookAhead(/*N=*/0).is(tok::l_paren) &&
         getLangOpts().OpenMP >= 60)
       Clause = ParseOpenMPSingleExprClause(CKind, WrongDirective);
     else
       Clause = ParseOpenMPClause(CKind, WrongDirective);
     break;
   case OMPC_graph_reset:
+  case OMPC_replayable:
     if (!FirstClause) {
       Diag(Tok, diag::err_omp_more_one_clause)
           << getOpenMPDirectiveName(DKind, OMPVersion)
