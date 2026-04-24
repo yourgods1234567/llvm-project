@@ -55,8 +55,7 @@ void registerOpenACCExtensions(mlir::DialectRegistry &registry) {
         *ctx);
     fir::BoxAddrOp::attachInterface<PartialEntityAccessModel<fir::BoxAddrOp>>(
         *ctx);
-    fir::EmboxOp::attachInterface<PartialEntityAccessModel<fir::EmboxOp>>(
-        *ctx);
+    fir::EmboxOp::attachInterface<PartialEntityAccessModel<fir::EmboxOp>>(*ctx);
 
     fir::AddrOfOp::attachInterface<AddressOfGlobalModel>(*ctx);
     fir::GlobalOp::attachInterface<GlobalVariableModel>(*ctx);
