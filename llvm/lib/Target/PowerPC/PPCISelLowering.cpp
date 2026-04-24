@@ -486,7 +486,8 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
   } else {
     setOperationAction(ISD::BSWAP, MVT::i32, Expand);
     setOperationAction(ISD::BSWAP, MVT::i64,
-                       (Subtarget.hasP9Vector() && isPPC64) ? Custom : Expand);
+                       ((Subtarget.hasP8Vector()) && isPPC64) ? Custom
+                                                              : Expand);
   }
 
   // CTPOP or CTTZ were introduced in P8/P9 respectively
@@ -11582,6 +11583,46 @@ SDValue PPCTargetLowering::LowerBSWAP(SDValue Op, SelectionDAG &DAG) const {
   SDLoc dl(Op);
   if (!Subtarget.isPPC64())
     return Op;
+
+  // Apply the optimization to Power8 and 64-bits which allows parallelism for
+  // rotate instructions which should make the bswap64 builtin faster.
+  if (!Subtarget.hasP9Vector()) {
+    SDValue Input = Op.getOperand(0);
+
+    auto Swap32 = [&](SDValue Val32) -> SDValue {
+      SDValue Rot = DAG.getNode(ISD::ROTL, dl, MVT::i32, Val32,
+                                DAG.getConstant(8, dl, MVT::i32));
+      SDValue Swap =
+          SDValue(DAG.getMachineNode(PPC::RLWIMI, dl, MVT::i32,
+                                     {Rot, Val32,
+                                      DAG.getTargetConstant(24, dl, MVT::i32),
+                                      DAG.getTargetConstant(0, dl, MVT::i32),
+                                      DAG.getTargetConstant(7, dl, MVT::i32)}),
+                  0);
+      return SDValue(DAG.getMachineNode(
+                         PPC::RLWIMI, dl, MVT::i32,
+                         {Swap, Val32, DAG.getTargetConstant(24, dl, MVT::i32),
+                          DAG.getTargetConstant(16, dl, MVT::i32),
+                          DAG.getTargetConstant(23, dl, MVT::i32)}),
+                     0);
+    };
+
+    SDValue Hi32 = DAG.getNode(ISD::TRUNCATE, dl, MVT::i32,
+                               DAG.getNode(ISD::SRL, dl, MVT::i64, Input,
+                                           DAG.getConstant(32, dl, MVT::i64)));
+    SDValue Lo32 = DAG.getNode(ISD::TRUNCATE, dl, MVT::i32, Input);
+
+    SDValue HiSwap = Swap32(Hi32);
+    SDValue LoSwap = Swap32(Lo32);
+
+    HiSwap = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::i64, HiSwap);
+    LoSwap = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::i64, LoSwap);
+    return SDValue(DAG.getMachineNode(PPC::RLDIMI, dl, MVT::i64,
+                                      {HiSwap, LoSwap,
+                                       DAG.getTargetConstant(32, dl, MVT::i32),
+                                       DAG.getTargetConstant(0, dl, MVT::i32)}),
+                   0);
+  }
   // MTVSRDD
   Op = DAG.getNode(ISD::BUILD_VECTOR, dl, MVT::v2i64, Op.getOperand(0),
                    Op.getOperand(0));
