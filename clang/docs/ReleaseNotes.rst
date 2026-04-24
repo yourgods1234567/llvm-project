@@ -508,6 +508,7 @@ Bug Fixes to Compiler Builtins
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 - Fix a crash when passing an unresolved overload set to ``__builtin_classify_type``. (#GH175589)
 - Fixed a crash when calling `__builtin_allow_sanitize_check` with no arguments. (#GH183927)
+- Fixed a `__builtin_setjmp` miscompilation on Windows x64. (#GH186843)
 
 Bug Fixes to Attribute Support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
