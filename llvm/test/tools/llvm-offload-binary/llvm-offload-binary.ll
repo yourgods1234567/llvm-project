@@ -15,3 +15,75 @@
 ; RUN: llvm-offload-binary -o %t3 --image=file=%s
 ; RUN: llvm-offload-binary %t3 --image=file=%t4
 ; RUN: diff %s %t4
+
+; Test extracting all images without specifying --image filters.
+; RUN: llvm-offload-binary %t | FileCheck --check-prefix=EXTRACT %s
+
+; EXTRACT: Extracted: llvm-offload-binary.{{.*}}-x-y-z-abc.0.
+
+; Test nested OffloadBinary construction with multiple inner images.
+; RUN: llvm-offload-binary -o %t5 --image=file=%s,arch=abc,triple=x-y-z --image=file=%s,arch=def,triple=x-y-z
+; RUN: llvm-offload-binary -o %t6 --image=file=%t5,arch=nested,triple=x-y-z
+; RUN: llvm-objdump --offloading %t6 | FileCheck %s --check-prefix=NESTED
+
+; NESTED: OFFLOADING IMAGE [0]:
+; NESTED-DAG: arch            nested
+; NESTED-DAG: nested images   2
+; NESTED-DAG:   OFFLOADING IMAGE [0.0]:
+; NESTED-DAG:   arch            abc
+; NESTED-DAG:   OFFLOADING IMAGE [0.1]:
+; NESTED-DAG:   arch            def
+
+; Test complex nested OffloadBinary construction with multiple levels.
+; RUN: llvm-offload-binary -o %t7 --image=file=%s,arch=abc,triple=x-y-z --image=file=%t5,arch=nested,triple=x-y-z
+; RUN: llvm-offload-binary -o %t8 --image=file=%t7,arch=nested,triple=x-y-z --image=file=%t5,arch=nested2,triple=x-y-z
+; RUN: llvm-objdump --offloading %t8 | FileCheck %s --check-prefix=NESTED2
+
+; NESTED2: OFFLOADING IMAGE [0]:
+; NESTED2-DAG: arch            nested
+; NESTED2-DAG: nested images   2
+; NESTED2-DAG:   OFFLOADING IMAGE [0.0]:
+; NESTED2-DAG:   arch            abc
+; NESTED2-DAG:   OFFLOADING IMAGE [0.1]:
+; NESTED2-DAG:   arch            nested
+; NESTED2-DAG:   nested images   2
+; NESTED2-DAG:     OFFLOADING IMAGE [0.1.0]:
+; NESTED2-DAG:     arch            abc
+; NESTED2-DAG:     OFFLOADING IMAGE [0.1.1]:
+; NESTED2-DAG:     arch            def
+; NESTED2-DAG: OFFLOADING IMAGE [1]:
+; NESTED2-DAG: arch            nested2
+; NESTED2-DAG: nested images   2
+; NESTED2-DAG:   OFFLOADING IMAGE [1.0]:
+; NESTED2-DAG:   arch            abc
+; NESTED2-DAG:   OFFLOADING IMAGE [1.1]:
+; NESTED2-DAG:   arch            def
+
+; Test extracting nested images.
+; RUN: llvm-offload-binary %t6 | FileCheck --check-prefix=EXTRACT-NESTED %s
+
+; EXTRACT-NESTED: Extracted: llvm-offload-binary.{{.*}}-x-y-z-abc.0.
+; EXTRACT-NESTED-NEXT: Extracted: llvm-offload-binary.{{.*}}-x-y-z-def.1.
+
+; Test mixed nested and non-nested images.
+; RUN: llvm-offload-binary -o %t7 --image=file=%t5,arch=nested,triple=x-y-z --image=file=%s,arch=ghi,triple=x-y-z
+; RUN: llvm-offload-binary %t7 | FileCheck --check-prefix=EXTRACT-MIXED %s
+
+; EXTRACT-MIXED: Extracted: llvm-offload-binary.{{.*}}-x-y-z-abc.0.
+; EXTRACT-MIXED-NEXT: Extracted: llvm-offload-binary.{{.*}}-x-y-z-def.1.
+; EXTRACT-MIXED-NEXT: Extracted: llvm-offload-binary.{{.*}}-x-y-z-ghi.2.
+
+; Test extracting inner OffloadBinary with --image filter.
+; RUN: llvm-offload-binary %t7 --image=file=%t8,arch=nested,triple=x-y-z
+; RUN: diff %t5 %t8
+
+; Test malformed outer OffloadBinary is handled gracefully.
+; RUN: not llvm-offload-binary %S/bad-offload.input 2>&1 | FileCheck --check-prefix=MALFORMED-OUTER %s
+
+; MALFORMED-OUTER: llvm-offload-binary: error: Invalid data was encountered while parsing the file
+
+; Test malformed inner OffloadBinary is handled gracefully.
+; RUN: llvm-offload-binary -o %t9 --image=file=%S/bad-offload.input,arch=nested,triple=x-y-z
+; RUN: not llvm-offload-binary %t9 2>&1 | FileCheck --check-prefix=MALFORMED-INNER %s
+
+; MALFORMED-INNER: llvm-offload-binary: error: Invalid data was encountered while parsing the file
