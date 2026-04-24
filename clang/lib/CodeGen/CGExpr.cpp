@@ -3771,6 +3771,28 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
   // an enclosing scope.
   if (const auto *BD = dyn_cast<BindingDecl>(ND)) {
     if (E->refersToEnclosingVariableOrCapture()) {
+      // OpenMP case: binding was captured via its decomposed decl.
+      if (auto *DD = dyn_cast<VarDecl>(BD->getDecomposedDecl())) {
+        assert(CapturedStmtInfo && "Expected to be in a captured statement");
+        assert(CapturedStmtInfo->getKind() == CapturedRegionKind::CR_OpenMP &&
+               "Expected OpenMP captured region");
+        assert(CGM.getLangOpts().OpenMP && "OpenMP not enabled");
+        auto I = LocalDeclMap.find(DD);
+        if (I != LocalDeclMap.end()) {
+          Address DDAddr = I->second;
+          llvm::Type *StructTy = CGM.getTypes().ConvertTypeForMem(
+              DD->getType().getCanonicalType());
+          if (DDAddr.getElementType() != StructTy)
+            DDAddr = DDAddr.withElementType(StructTy);
+          LValue BaseLV =
+              MakeAddrLValue(DDAddr, DD->getType().getCanonicalType());
+          return EmitLValueForField(
+              BaseLV, cast<FieldDecl>(
+                          cast<MemberExpr>(BD->getBinding()->IgnoreImplicit())
+                              ->getMemberDecl()));
+        }
+      }
+      // Non-OpenMP case: binding was captured as a lambda field directly.
       auto *FD = LambdaCaptureFields.lookup(BD);
       return EmitCapturedFieldLValue(*this, FD, CXXABIThisValue);
     }
