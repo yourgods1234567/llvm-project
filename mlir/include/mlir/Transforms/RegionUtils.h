@@ -109,6 +109,16 @@ LogicalResult moveValueDefinitions(RewriterBase &rewriter, ValueRange values,
 LogicalResult moveValueDefinitions(RewriterBase &rewriter, ValueRange values,
                                    Operation *insertionPoint);
 
+/// Remove trivially dead operations from \p region. An operation is trivially
+/// dead when it has no users and is side-effect-free. Operand-defining ops are
+/// re-evaluated after each erasure, so chains of dead ops are eliminated in a
+/// single pass. When \p includeNestedRegions is true (the default), the pass
+/// descends into nested regions bottom-up before simplifying \p region itself;
+/// when false, only ops directly in \p region are considered. Returns true if
+/// any op was removed.
+bool eliminateTriviallyDeadOps(RewriterBase &rewriter, Region &region,
+                               bool includeNestedRegions = true);
+
 /// Run a set of structural simplifications over the given regions. This
 /// includes transformations like unreachable block elimination, dead argument
 /// elimination, as well as some other DCE. This function returns success if any
