@@ -8344,11 +8344,13 @@ void CodeGenFunction::EmitOMPTaskLoopBasedDirective(const OMPLoopDirective &S) {
                                (*LIP)->getType(), S.getBeginLoc()));
     });
   };
-  auto &&TaskGen = [&S, SharedsTy, CapturedStruct,
-                    IfCond](CodeGenFunction &CGF, llvm::Function *OutlinedFn,
-                            const OMPTaskDataTy &Data) {
-    auto &&CodeGen = [&S, OutlinedFn, SharedsTy, CapturedStruct, IfCond,
-                      &Data](CodeGenFunction &CGF, PrePostActionTy &) {
+  auto &&TaskGen =
+      [&S, SharedsTy, CapturedStruct, IfCond]
+        (CodeGenFunction &CGF, llvm::Function *OutlinedFn,
+         const OMPTaskDataTy &Data) {
+    auto &&CodeGen =
+        [&S, OutlinedFn, SharedsTy, CapturedStruct, IfCond, &Data]
+          (CodeGenFunction &CGF, PrePostActionTy &) {
       OMPLoopScope PreInitScope(CGF, S);
       CGF.CGM.getOpenMPRuntime().emitTaskLoopCall(CGF, S.getBeginLoc(), S,
                                                   OutlinedFn, SharedsTy,
