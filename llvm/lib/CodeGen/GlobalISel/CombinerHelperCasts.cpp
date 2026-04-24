@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements CombinerHelper for G_ANYEXT, G_SEXT, G_TRUNC, and
-// G_ZEXT
+// This file implements CombinerHelper for G_ANYEXT, G_SEXT, G_TRUNC,
+// G_ZEXT, and G_BITCAST
 //
 //===----------------------------------------------------------------------===//
 #include "llvm/CodeGen/GlobalISel/CombinerHelper.h"
@@ -411,5 +411,24 @@ bool CombinerHelper::matchRedundantSextInReg(MachineInstr &Root,
     };
   }
 
+  return true;
+}
+
+bool CombinerHelper::matchConstantFoldBitcast(MachineOperand &DstOp,
+                                              const APInt &Bits,
+                                              BuildFnTy &MatchInfo) const {
+  Register DstReg = DstOp.getReg();
+  LLT DstTy = MRI.getType(DstReg);
+
+  if (!DstTy.isScalar())
+    return false;
+
+  if (DstTy.isFloat()) {
+    const fltSemantics &Sem = APFloat::EnumToSemantics(DstTy.getFpSemantics());
+    APFloat FPVal(Sem, Bits);
+    MatchInfo = [=](MachineIRBuilder &B) { B.buildFConstant(DstReg, FPVal); };
+  } else {
+    MatchInfo = [=](MachineIRBuilder &B) { B.buildConstant(DstReg, Bits); };
+  }
   return true;
 }
