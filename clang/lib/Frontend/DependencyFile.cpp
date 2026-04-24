@@ -191,8 +191,8 @@ struct DepCollectorPPCallbacks : public PPCallbacks {
                                         /*IsMissing*/ false);
       }
     } else {
-      if (VFS.exists(Filter.PatternRoot)) {
-        DoSearch(FM, Filter, DepCollector, Filter.PatternRoot,
+      if (VFS.exists(Filter.SearchRoot)) {
+        DoSearch(FM, Filter, DepCollector, Filter.SearchRoot,
                  Filter.RootHandling == RootPatternScanType::Directory
                      ? Flat
                      : Recursive);

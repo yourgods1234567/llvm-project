@@ -10887,11 +10887,23 @@ bool PointerExprEvaluator::VisitBuiltinCallExpr(const CallExpr *E,
     const std::vector<std::string> EmptySearchEntries(0);
     OptionalFileEntryRef ThisFile = std::nullopt;
     if (DoQuotedSearch) {
-      unsigned int TargetFrameIndex = CallStackDistance > (Info.CallStackDepth + 1) ? 1 : Info.CallStackDepth - CallStackDistance;
-      auto TargeetFrameAndDepth = Info.getCallFrameAndDepth(TargetFrameIndex);
-      FileID ThisFileID = SM.getFileID(TargeetFrameAndDepth.first->CallRange.getBegin());
-      if (ThisFileID.isValid()) {
-        ThisFile = SM.getFileEntryRefForID(ThisFileID);
+      // Subtract 1 from the callstack distance, since where we are already at 1
+      if (CallStackDistance < 1) {
+        // 0 means "current", so just... take the current.
+        FileID ThisFileID = SM.getFileID(Info.CurrentCall->CallRange.getBegin());
+        if (ThisFileID.isValid()) {
+          ThisFile = SM.getFileEntryRefForID(ThisFileID);
+        }
+      } else {
+        const unsigned int CallStackIndexDistance = CallStackDistance - 1;
+        const unsigned int TargetFrameIndex = CallStackIndexDistance > Info.CurrentCall->Index
+          ? 1
+          : Info.CurrentCall->Index - CallStackIndexDistance;
+        auto TargetFrameAndDepth = Info.getCallFrameAndDepth(TargetFrameIndex);
+        FileID ThisFileID = SM.getFileID(TargetFrameAndDepth.first->CallRange.getBegin());
+        if (ThisFileID.isValid()) {
+          ThisFile = SM.getFileEntryRefForID(ThisFileID);
+        }
       }
     }
     if (MaybePPOpts) {

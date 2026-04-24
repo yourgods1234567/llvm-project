@@ -6877,8 +6877,16 @@ bool Sema::BuiltinStdEmbed(CallExpr *TheCall) {
   const Expr *Offset = TheCall->getArg(OffsetIndex);
   const unsigned int LimitIndex = 7;
   const Expr *Limit = HasExtraLimitArg ? TheCall->getArg(LimitIndex) : nullptr;
-
   const uint64_t CharSize = Context.getCharWidth();
+
+  // Locus argument type
+  QualType LocusTy = Locus->getType();
+  if (!LocusTy->isIntegralOrUnscopedEnumerationType()) {
+    Diag(TheCall->getBeginLoc(), diag::err_invalid_builtin_argument)
+        << Locus << "__builtin_std_embed" << Locus->getSourceRange();
+    return true;
+  }
+
   // Status argument type
   QualType StatusRefTy = StatusRef->getType();
   if ((!StatusRefTy->isIntegralOrUnscopedEnumerationType()) ||

@@ -37,6 +37,7 @@ bool PatternFilter::Check(StringRef Filename) const {
     // it matches, we can find it
     return true;
   }
+  
   return false;
 }
 
@@ -141,11 +142,20 @@ InputDependencyCollection::Add(std::string Pattern, bool IsAngled,
   }
   // Find a plausible search root among the entries, if possible, to anchor this
   // to a given entry
+  SmallString<256> Buffer;
   auto TryDetermineSearchRoot = [&](StringRef SearchEntry) -> bool {
     if (SearchEntry.contains(Filter.PatternRoot)) {
       // the entry is contained within: approve the search entry as the search
       // root
       Filter.SearchRoot.assign(SearchEntry.begin(), SearchEntry.end());
+      return true;
+    }
+    Buffer.assign(SearchEntry.begin(), SearchEntry.end());
+    llvm::sys::path::append(Buffer, Filter.PatternRoot);
+    if (FM.getVirtualFileSystem().exists(Buffer)) {
+      // if the entry can prefix the pattern root and is a proper location,
+      // it is the pattern root
+      Filter.SearchRoot.assign(Buffer.begin(), Buffer.end());
       return true;
     }
     return false;
