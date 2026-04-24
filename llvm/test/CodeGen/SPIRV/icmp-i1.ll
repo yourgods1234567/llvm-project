@@ -1,5 +1,5 @@
-; RUN: llc -O0 -mtriple=spirv64-unknown-unknown < %s | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown -filetype=obj < %s  | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown < %s | FileCheck %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown -filetype=obj < %s  | spirv-val %}
 
 define spir_func i1 @ugt(i1 %p, i1 %q) addrspace(4) {
   ; CHECK: Begin function ugt

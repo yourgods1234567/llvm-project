@@ -1,5 +1,5 @@
-; RUN: llc -O0 -mtriple=spirv-vulkan-compute %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv-vulkan-compute %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-vulkan-compute %s -o - | FileCheck %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv-vulkan-compute %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK-DAG: OpCapability Shader
 ; CHECK-DAG: OpCapability Sampled1D

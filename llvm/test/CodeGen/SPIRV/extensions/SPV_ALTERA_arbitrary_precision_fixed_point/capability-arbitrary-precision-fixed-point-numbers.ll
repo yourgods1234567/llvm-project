@@ -1,5 +1,5 @@
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown --spirv-ext=+SPV_ALTERA_arbitrary_precision_fixed_point,+SPV_ALTERA_arbitrary_precision_integers %s -o - | FileCheck %s 
-; TODO: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown --spirv-ext=+SPV_ALTERA_arbitrary_precision_fixed_point,+SPV_ALTERA_arbitrary_precision_integers %s -o - -filetype=obj | spirv-val %}
+; TODO: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown --spirv-ext=+SPV_ALTERA_arbitrary_precision_fixed_point,+SPV_ALTERA_arbitrary_precision_integers %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK-DAG: OpCapability Kernel
 ; CHECK-DAG: OpCapability ArbitraryPrecisionIntegersALTERA

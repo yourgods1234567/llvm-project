@@ -1,5 +1,5 @@
-; RUN: llc -O0 -mtriple=spirv-vulkan1.3-compute %s -o - | FileCheck --match-full-lines %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv-vulkan1.3-compute %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-vulkan1.3-compute %s -o - | FileCheck --match-full-lines %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv-vulkan1.3-compute %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK: OpCapability ImageGatherExtended
 

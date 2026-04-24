@@ -1,5 +1,5 @@
-; RUN: llc -O0 -mtriple=spirv64-amd-amdhsa %s -print-after-all -o - 2>&1 | FileCheck %s
-; RUN: llc -O3 -mtriple=spirv64-amd-amdhsa %s -print-after-all -o - 2>&1 | FileCheck %s
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-amd-amdhsa %s -print-after-all -o - 2>&1 | FileCheck %s
+; RUN: llc -verify-machineinstrs -O3 -mtriple=spirv64-amd-amdhsa %s -print-after-all -o - 2>&1 | FileCheck %s
 
 ; CHECK: *** IR Dump After SPIRV prepare global variables (prepare-globals) ***
 

@@ -1,8 +1,8 @@
 ; The goal of the test case is to ensure that correct types are applied to PHI's as arguments of other PHI's.
 ; Pass criterion is that spirv-val considers output valid.
 
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
-; RUN: llc -O0 -mtriple=spirv64-unknown-unknown %s -o - | FileCheck %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown %s -o - | FileCheck %s
 
 ; CHECK-DAG: OpName %[[#Foo:]] "foo"
 ; CHECK-DAG: OpName %[[#Bar:]] "bar"

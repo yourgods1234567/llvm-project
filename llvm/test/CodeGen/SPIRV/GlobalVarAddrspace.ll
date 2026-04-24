@@ -10,7 +10,7 @@
 ; "Variables can not have a function[7] storage class outside of a function".
 ;
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK: %[[#Ptr:]] = OpTypePointer CrossWorkgroup %[[#]]
 ; CHECK: %[[#]] = OpVariable %[[#Ptr]] CrossWorkgroup %[[#]]

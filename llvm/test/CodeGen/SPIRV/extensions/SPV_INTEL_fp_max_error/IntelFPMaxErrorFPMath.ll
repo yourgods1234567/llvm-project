@@ -3,7 +3,7 @@
 
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown --spirv-ext=+SPV_INTEL_fp_max_error %s -o %t.spt
 ; RUN: FileCheck %s --input-file=%t.spt
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv32-unknown-unknown --spirv-ext=+SPV_INTEL_fp_max_error %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown --spirv-ext=+SPV_INTEL_fp_max_error %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK: OpCapability FPMaxErrorINTEL
 ; CHECK: OpExtension "SPV_INTEL_fp_max_error"

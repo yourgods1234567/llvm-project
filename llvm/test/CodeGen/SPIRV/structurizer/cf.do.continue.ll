@@ -1,4 +1,4 @@
-; RUN: %if spirv-tools %{ llc -mtriple=spirv-unknown-vulkan-compute -O0 %s -o - | spirv-as --preserve-numeric-ids - -o - | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -mtriple=spirv-unknown-vulkan-compute -O0 %s -o - | spirv-as --preserve-numeric-ids - -o - | spirv-val %}
 ;
 ; Source HLSL:
 ;

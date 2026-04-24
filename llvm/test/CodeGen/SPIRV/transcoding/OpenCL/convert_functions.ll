@@ -2,8 +2,8 @@
 ; OpenCL builtins only in case they match the specification. Otherwise, we
 ; expect such functions to be translated to SPIR-V FunctionCall.
 
-; RUN: llc -O0 -mtriple=spirv32-unknown-unknown %s -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv32-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %s -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK-SPIRV: OpName %[[#Func:]] "_Z18convert_float_func"
 ; CHECK-SPIRV: OpName %[[#Func1:]] "_Z20convert_uint_satfunc"

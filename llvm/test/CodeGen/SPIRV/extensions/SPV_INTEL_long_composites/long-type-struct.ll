@@ -1,6 +1,6 @@
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown --spirv-ext=+SPV_INTEL_long_composites %s -o - | FileCheck %s
 ; TODO: enable back once spirv-val knows about OpTypeStructContinuedINTEL type
-; RUNx: %if spirv-tools %{ llc -O0 -mtriple=spirv32-unknown-unknown --spirv-ext=+SPV_INTEL_long_composites %s -o - -filetype=obj | spirv-val --max-struct-members 65535 %}
+; RUNx: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown --spirv-ext=+SPV_INTEL_long_composites %s -o - -filetype=obj | spirv-val --max-struct-members 65535 %}
 ; RUN: not llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %s -o - 2>&1 | FileCheck %s --check-prefix=ERR
 
 ; ERR: LLVM ERROR: Continued instructions require the following SPIR-V extension: SPV_INTEL_long_composites

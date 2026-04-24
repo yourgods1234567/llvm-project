@@ -1,7 +1,7 @@
 ; RUN: llc -verify-machineinstrs -mtriple=spirv-unknown-unknown %s -o - | FileCheck --check-prefixes=CHECK,SPIRV %s
 ; RUN: llc -verify-machineinstrs -mtriple=spirv64-amd-amdhsa %s -o - | FileCheck --check-prefixes=CHECK,AMDGCNSPIRV %s
-; RUN: %if spirv-tools %{ llc -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
-; RUN: %if spirv-tools %{ llc -mtriple=spirv64-amd-amdhsa %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -mtriple=spirv64-amd-amdhsa %s -o - -filetype=obj | spirv-val %}
 ;
 ; Verify that we lower the embedded bitcode
 

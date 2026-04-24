@@ -32,7 +32,7 @@
 ;; bash$ clang -cc1 -cl-std=CL2.0 -triple spirv64-unknown-unknown -emit-llvm -finclude-default-header -cl-single-precision-constant BuildNDRange.cl -o BuildNDRange.ll
 
 ; RUN: llc -O0 -verify-machineinstrs -mtriple=spirv64-unknown-unknown %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 %struct.ndrange_t = type { i32, [3 x i64], [3 x i64], [3 x i64] }
 

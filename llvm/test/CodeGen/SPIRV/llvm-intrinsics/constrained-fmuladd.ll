@@ -1,6 +1,6 @@
-; RUN: llc -mtriple=spirv64-unknown-unknown %s -o - | FileCheck %s
+; RUN: llc -verify-machineinstrs -mtriple=spirv64-unknown-unknown %s -o - | FileCheck %s
 ; TODO: re-enable validator FPRoundingMode is placed correctly
-; RUNx: %if spirv-tools %{ llc -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUNx: %if spirv-tools %{ llc -verify-machineinstrs -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK-DAG: OpDecorate %[[#]] FPRoundingMode RTE
 ; CHECK-DAG: OpDecorate %[[#]] FPRoundingMode RTZ

@@ -1,5 +1,5 @@
-; RUN: llc -O0 -mtriple=spirv-unknown-vulkan-compute %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv-unknown-vulkan-compute %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan-compute %s -o - | FileCheck %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan-compute %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK-DAG: OpDecorate %[[ARRAY:[0-9]+]] ArrayStride 16
 ; CHECK-DAG: OpMemberDecorate %[[CBLAYOUT:[0-9]+]] 0 Offset 0

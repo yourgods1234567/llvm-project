@@ -1,13 +1,13 @@
 ; REQUIRES: spirv-tools
-; RUN: llc -O0 -mtriple=spirv64v1.0-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV10
-; RUN: llc -O0 -mtriple=spirv64v1.1-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV11
-; RUN: llc -O0 -mtriple=spirv64v1.2-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV12
-; RUN: llc -O0 -mtriple=spirv64v1.3-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV13
-; RUN: llc -O0 -mtriple=spirv64v1.4-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV14
-; RUN: llc -O0 -mtriple=spirv64v1.5-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV15
-; RUN: llc -O0 -mtriple=spirv64v1.6-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV16
-; RUN: llc -O0 -mtriple=spirv64-amd-amdhsa %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=AMDGCNSPIRV
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64v1.0-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64v1.0-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV10
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64v1.1-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV11
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64v1.2-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV12
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64v1.3-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV13
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64v1.4-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV14
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64v1.5-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV15
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64v1.6-unknown-unknown %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=CHECK-SPIRV16
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-amd-amdhsa %s -o - --filetype=obj | spirv-dis | FileCheck %s --check-prefix=AMDGCNSPIRV
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64v1.0-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK-SPIRV10: Version: 1.0
 ; CHECK-SPIRV11: Version: 1.1

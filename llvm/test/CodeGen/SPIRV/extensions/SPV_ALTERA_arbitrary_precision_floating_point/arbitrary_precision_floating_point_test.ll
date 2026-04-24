@@ -1,5 +1,5 @@
-; RUN: llc -mtriple=spirv32-unknown-unknown --spirv-ext=+SPV_ALTERA_arbitrary_precision_floating_point,+SPV_ALTERA_arbitrary_precision_integers %s -o - | FileCheck %s 
-; RUN: %if spirv-tools %{ llc -mtriple=spirv64-unknown-unknown --spirv-ext=+SPV_ALTERA_arbitrary_precision_floating_point,+SPV_ALTERA_arbitrary_precision_integers %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -mtriple=spirv32-unknown-unknown --spirv-ext=+SPV_ALTERA_arbitrary_precision_floating_point,+SPV_ALTERA_arbitrary_precision_integers %s -o - | FileCheck %s 
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -mtriple=spirv64-unknown-unknown --spirv-ext=+SPV_ALTERA_arbitrary_precision_floating_point,+SPV_ALTERA_arbitrary_precision_integers %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK: OpCapability Kernel
 ; CHECK: OpCapability ArbitraryPrecisionIntegersALTERA

@@ -1,5 +1,5 @@
-; RUN: llc -O0 -mtriple=spirv64-unknown-unknown < %s | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown -filetype=obj < %s  | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown < %s | FileCheck %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown -filetype=obj < %s  | spirv-val %}
 
 @bar_alias = alias void (), ptr addrspace(4) @bar
 

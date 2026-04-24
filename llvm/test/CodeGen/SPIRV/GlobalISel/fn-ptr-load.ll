@@ -1,4 +1,4 @@
-; RUN: not llc --global-isel %s -filetype=null 2>&1 | FileCheck %s
+; RUN: not llc -verify-machineinstrs --global-isel %s -filetype=null 2>&1 | FileCheck %s
 target triple = "spirv64"
 
 define void @do_load(ptr addrspace(9) %a, ptr addrspace(1) %out) {

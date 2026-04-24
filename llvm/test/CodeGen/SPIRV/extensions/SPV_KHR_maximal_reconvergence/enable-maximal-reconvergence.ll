@@ -1,5 +1,5 @@
 ; RUN: llc -O0 -verify-machineinstrs -mtriple=spirv1.6-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_maximal_reconvergence %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv1.6-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_maximal_reconvergence %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv1.6-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_maximal_reconvergence %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK: OpCapability Shader
 ; CHECK: OpExtension "SPV_KHR_maximal_reconvergence"

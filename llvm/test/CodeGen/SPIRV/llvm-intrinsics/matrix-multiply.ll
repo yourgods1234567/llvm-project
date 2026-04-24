@@ -1,8 +1,8 @@
-; RUN: llc -O0 -mtriple=spirv1.5-unknown-vulkan1.2 %s -o - | FileCheck %s --check-prefixes=CHECK,VK1_1
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv1.5-unknown-vulkan1.2 %s -o - -filetype=obj | spirv-val --target-env vulkan1.2 %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv1.5-unknown-vulkan1.2 %s -o - | FileCheck %s --check-prefixes=CHECK,VK1_1
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv1.5-unknown-vulkan1.2 %s -o - -filetype=obj | spirv-val --target-env vulkan1.2 %}
 
-; RUN: llc -O0 -mtriple=spirv1.6-unknown-vulkan1.3 %s -o - | FileCheck %s --check-prefixes=CHECK,VK1_3
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv1.6-unknown-vulkan1.3 %s -o - -filetype=obj | spirv-val --target-env vulkan1.3 %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv1.6-unknown-vulkan1.3 %s -o - | FileCheck %s --check-prefixes=CHECK,VK1_3
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv1.6-unknown-vulkan1.3 %s -o - -filetype=obj | spirv-val --target-env vulkan1.3 %}
 
 @private_v4f32 = internal addrspace(10) global [4 x float] poison
 @private_v4i32 = internal addrspace(10) global [4 x i32] poison

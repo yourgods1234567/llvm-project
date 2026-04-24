@@ -1,8 +1,8 @@
 ; Test that !spirv.ParameterDecorations metadata is correctly translated
 ; into OpDecorate instructions on function parameters.
 
-; RUN: llc -O0 -mtriple=spirv32-unknown-unknown %s -o - | FileCheck %s --check-prefix=CHECK-SPIRV
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv32-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %s -o - | FileCheck %s --check-prefix=CHECK-SPIRV
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 define spir_kernel void @k(ptr addrspace(1) %a, float %b, ptr addrspace(1) %c) !spirv.ParameterDecorations !14 {
 entry:

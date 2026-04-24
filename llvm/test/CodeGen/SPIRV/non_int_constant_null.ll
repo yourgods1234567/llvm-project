@@ -1,5 +1,5 @@
-; RUN: llc -mtriple spirv64-unknown-unknown %s --spirv-ext=+SPV_KHR_float_controls2 -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -mtriple spirv64-unknown-unknown %s --spirv-ext=+SPV_KHR_float_controls2 -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -mtriple spirv64-unknown-unknown %s --spirv-ext=+SPV_KHR_float_controls2 -o - | FileCheck %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -mtriple spirv64-unknown-unknown %s --spirv-ext=+SPV_KHR_float_controls2 -o - -filetype=obj | spirv-val %}
 
 @A = addrspace(1) constant [1 x i8] zeroinitializer
 

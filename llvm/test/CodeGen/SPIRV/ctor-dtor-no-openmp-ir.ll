@@ -1,7 +1,7 @@
 ; Test to ensure the SPIR-V constructor/destructor lowering pass is not run
 ; when OpenMP offload metadata is absent.
 
-; RUN: llc -mtriple=spirv64-intel-unknown --spirv-ext=+SPV_INTEL_function_pointers %s -o /dev/null -print-after=spirv-lower-ctor-dtor 2>&1 | FileCheck %s
+; RUN: llc -verify-machineinstrs -mtriple=spirv64-intel-unknown --spirv-ext=+SPV_INTEL_function_pointers %s -o /dev/null -print-after=spirv-lower-ctor-dtor 2>&1 | FileCheck %s
 
 define void @my_ctor() addrspace(9) {
 entry:

@@ -1,5 +1,5 @@
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64v1.5-unknown-unknown %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64v1.5-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64v1.5-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 ; Check that nofpclass attributes on non-OpExtInst instructions (regular
 ; function calls) do NOT produce FPFastMathMode decorations in Kernel

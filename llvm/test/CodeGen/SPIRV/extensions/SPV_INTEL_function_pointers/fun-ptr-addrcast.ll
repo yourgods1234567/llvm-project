@@ -6,7 +6,7 @@
 ; Fails with:
 ;   Invalid use of function type result id '7[%7]'.
 ;   %_ptr_Generic_7 = OpTypePointer Generic %7
-; TODO: %if spirv-tools %{ llc -O0 -mtriple=spirv32-unknown-unknown %s -o - -filetype=obj --spirv-ext=+SPV_INTEL_function_pointers | spirv-val %}
+; TODO: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %s -o - -filetype=obj --spirv-ext=+SPV_INTEL_function_pointers | spirv-val %}
 
 ; CHECK-DAG: %[[#GENPTR:]] = OpTypePointer Generic %[[#]]
 ; CHECK-DAG: %[[#]] = OpConstantNull %[[#GENPTR]]

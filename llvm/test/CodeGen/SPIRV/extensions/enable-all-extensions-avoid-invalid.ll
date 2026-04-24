@@ -1,5 +1,5 @@
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv1.6-vulkan1.3-compute --spirv-ext=all %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv1.6-vulkan1.3-compute --spirv-ext=all %s -o - -filetype=obj | spirv-val --target-env vulkan1.3 %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv1.6-vulkan1.3-compute --spirv-ext=all %s -o - -filetype=obj | spirv-val --target-env vulkan1.3 %}
 
 ; CHECK-NOT: OpExtension "SPV_KHR_no_integer_wrap_decoration"
 

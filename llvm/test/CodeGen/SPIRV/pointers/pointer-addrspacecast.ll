@@ -1,5 +1,5 @@
 ; RUN: llc -verify-machineinstrs -O3 -mtriple=spirv-unknown-vulkan1.3-compute %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O3 -mtriple=spirv-unknown-vulkan1.3-compute %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O3 -mtriple=spirv-unknown-vulkan1.3-compute %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK-DAG:                     %[[#uint:]] = OpTypeInt 32 0
 ; CHECK-DAG:                   %[[#uint_0:]] = OpConstant %[[#uint]] 0

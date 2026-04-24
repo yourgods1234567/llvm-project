@@ -1,9 +1,9 @@
-; RUN: llc -O0 -mtriple=spirv-unknown-vulkan-compute %s -o - | FileCheck %s
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan-compute %s -o - | FileCheck %s
 
 ; The function in the test has external linkage because we want it to be 
 ; output. Since this test uses Linkage we cannot validate for Vulkan. That
 ; should not be a problem as it is only testing general shader behavior.
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv-unknown-vulkan-compute %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan-compute %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK-DAG: %[[#i32:]] = OpTypeInt 32 0
 ; CHECK-DAG: %[[#struct:]] = OpTypeStruct %[[#]] %[[#]] %[[#i32]]

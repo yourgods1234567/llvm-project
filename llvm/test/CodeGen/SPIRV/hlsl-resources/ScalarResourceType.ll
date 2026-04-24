@@ -1,5 +1,5 @@
 ; RUN: llc -O0 -verify-machineinstrs -mtriple=spirv-vulkan-library %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv-vulkan-library %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv-vulkan-library %s -o - -filetype=obj | spirv-val %}
 
 @.str.int_buf = private unnamed_addr constant [7 x i8] c"IntBuf\00", align 1
 @.str.float_buf = private unnamed_addr constant [9 x i8] c"FloatBuf\00", align 1

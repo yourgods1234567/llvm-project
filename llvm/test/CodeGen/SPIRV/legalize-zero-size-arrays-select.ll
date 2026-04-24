@@ -3,7 +3,7 @@
 ; Test that select of zero-size array is replaced with poison.
 
 ; Can't run spirv-val as function signatures are not handled.
-; RUNx: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUNx: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 define [0 x i32] @test_select_zero_array(i1 %cond, [0 x i32] %a) {
 ; CHECK-LABEL: @test_select_zero_array(

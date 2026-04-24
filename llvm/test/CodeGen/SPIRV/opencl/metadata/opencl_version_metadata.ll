@@ -1,10 +1,10 @@
 ; RUN: split-file %s %t
-; RUN: llc -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl12.ll -o - | FileCheck %t/metadata-opencl12.ll
-; RUN: llc -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl20.ll -o - | FileCheck %t/metadata-opencl20.ll
-; RUN: llc -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl22.ll -o - | FileCheck %t/metadata-opencl22.ll
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl12.ll -o - -filetype=obj | spirv-val %}
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl20.ll -o - -filetype=obj | spirv-val %}
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl22.ll -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl12.ll -o - | FileCheck %t/metadata-opencl12.ll
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl20.ll -o - | FileCheck %t/metadata-opencl20.ll
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl22.ll -o - | FileCheck %t/metadata-opencl22.ll
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl12.ll -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl20.ll -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv32-unknown-unknown %t/metadata-opencl22.ll -o - -filetype=obj | spirv-val %}
 
 ;--- metadata-opencl12.ll
 !opencl.ocl.version = !{!0}

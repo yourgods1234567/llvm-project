@@ -1,8 +1,8 @@
-; RUN: llc -O0 -mtriple=spirv64-unknown-unknown < %s -o - -filetype=asm | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown < %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown < %s -o - -filetype=asm | FileCheck %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown < %s -o - -filetype=obj | spirv-val %}
 
-; RUN: llc -O0 -mtriple=spirv64-vulkan-unknown < %s -o - -filetype=asm | FileCheck %s
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64-vulkan-unknown < %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-vulkan-unknown < %s -o - -filetype=asm | FileCheck %s
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-vulkan-unknown < %s -o - -filetype=obj | spirv-val %}
 
 ; CHECK: OpName %[[#Global:]] "global_var"
 ; CHECK: OpDecorate %[[#Global]] LinkageAttributes "global_var" Export

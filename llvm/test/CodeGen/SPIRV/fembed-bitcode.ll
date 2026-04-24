@@ -1,7 +1,7 @@
 ; RUN: llc -verify-machineinstrs -mtriple=spirv-unknown-unknown %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -mtriple=spirv-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -mtriple=spirv-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 ; RUN: llc -verify-machineinstrs -mtriple=spirv64-amd-amdhsa %s -o - | FileCheck %s
-; RUN: %if spirv-tools %{ llc -mtriple=spirv64-amd-amdhsa %s -o - -filetype=obj | spirv-val %}
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -mtriple=spirv64-amd-amdhsa %s -o - -filetype=obj | spirv-val %}
 ;
 ; Verify that we can lower the embedded module and cmdline.
 

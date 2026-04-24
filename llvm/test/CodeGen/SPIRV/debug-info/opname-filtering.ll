@@ -1,6 +1,6 @@
-; RUN: llc -O0 -mtriple=spirv64-unknown-unknown %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT
-; RUN: llc -O0 -mtriple=spirv64-unknown-unknown --spirv-emit-op-names %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-ALL-NAMES
-; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-DEFAULT
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown --spirv-emit-op-names %s -o - | FileCheck %s --check-prefixes=CHECK,CHECK-ALL-NAMES
+; RUN: %if spirv-tools %{ llc -verify-machineinstrs -O0 -mtriple=spirv64-unknown-unknown %s -o - -filetype=obj | spirv-val %}
 
 ; Verify that OpName is generated for Global Variables, Functions, Parameters,
 ; Local Variables (Alloca), and Basic Blocks (Labels).

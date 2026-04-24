@@ -1,4 +1,4 @@
-; RUN: not llc -O0 -mtriple=spirv-vulkan-compute %s -o - 2>&1 | FileCheck %s
+; RUN: not llc -verify-machineinstrs -O0 -mtriple=spirv-vulkan-compute %s -o - 2>&1 | FileCheck %s
 
 ; CHECK: Gather operations with offset are not supported for Cube images.
 
