@@ -236,10 +236,18 @@ static cl::opt<TailFoldingStyle> ForceTailFoldingStyle(
                    "Use predicated EVL instructions for tail folding. If EVL "
                    "is unsupported, fallback to data-without-lane-mask.")));
 
-cl::opt<bool> llvm::EnableWideActiveLaneMask(
-    "enable-wide-lane-mask", cl::init(false), cl::Hidden,
+cl::opt<WideActiveLaneMask> llvm::EnableWideActiveLaneMask(
+    "enable-wide-lane-mask",
     cl::desc("Enable use of wide lane masks when used for control flow in "
-             "tail-folded loops"));
+             "tail-folded loops"),
+    cl::init(WideActiveLaneMask::Default),
+    cl::values(clEnumValN(WideActiveLaneMask::Default, "default",
+                          "Decision to use wide active lane masks based on "
+                          "target preference."),
+               clEnumValN(WideActiveLaneMask::Disable, "disable",
+                          "Use of wide active lane masks disabled."),
+               clEnumValN(WideActiveLaneMask::Force, "force",
+                          "Always use wide active lane masks where possible")));
 
 static cl::opt<bool> EnableInterleavedMemAccesses(
     "enable-interleaved-mem-accesses", cl::init(false), cl::Hidden,
@@ -1235,10 +1243,16 @@ public:
   /// Returns true if the use of wide lane masks is requested and the loop is
   /// using tail-folding with a lane mask for control flow.
   bool useWideActiveLaneMask() const {
-    if (!EnableWideActiveLaneMask)
+    switch (EnableWideActiveLaneMask.getValue()) {
+    case (WideActiveLaneMask::Disable):
       return false;
-
-    return getTailFoldingStyle() == TailFoldingStyle::DataAndControlFlow;
+    case (WideActiveLaneMask::Force):
+      return true;
+    case (WideActiveLaneMask::Default):
+      return TTI.preferWideActiveLaneMasks() &&
+             getTailFoldingStyle() == TailFoldingStyle::DataAndControlFlow;
+    }
+    llvm_unreachable("invalid enum");
   }
 
   /// Returns true if the instructions in this block requires predication
@@ -6285,7 +6299,7 @@ DenseMap<const SCEV *, Value *> LoopVectorizationPlanner::executePlan(
 
   VPlanTransforms::materializeConstantVectorTripCount(BestVPlan, BestVF, BestUF,
                                                       PSE);
-  VPlanTransforms::optimizeForVFAndUF(BestVPlan, BestVF, BestUF, PSE);
+  VPlanTransforms::optimizeForVFAndUF(BestVPlan, BestVF, BestUF, PSE, TTI);
   VPlanTransforms::simplifyRecipes(BestVPlan);
   if (EpilogueVecKind == EpilogueVectorizationKind::None)
     VPlanTransforms::removeBranchOnConst(BestVPlan);
