@@ -63,7 +63,7 @@ define amdgpu_kernel void @test_revert_schedule(i32 %arg0, i32 %arg1, ptr addrsp
   ; CHECK-NEXT:   [[BUFFER_LOAD_DWORDX4_OFFEN:%[0-9]+]]:vreg_128_align2 = BUFFER_LOAD_DWORDX4_OFFEN [[V_MOV_B32_e32_2]], [[S_MOV_B32_]], 0, 2048, 0, 0, implicit $exec :: (dereferenceable load (s128) from `ptr addrspace(8) null`, align 1, addrspace 8)
   ; CHECK-NEXT:   [[BUFFER_LOAD_DWORDX4_OFFEN1:%[0-9]+]]:vreg_128_align2 = BUFFER_LOAD_DWORDX4_OFFEN [[V_MOV_B32_e32_2]], [[S_MOV_B32_]], 0, 3072, 0, 0, implicit $exec :: (dereferenceable load (s128) from `ptr addrspace(8) null`, align 1, addrspace 8)
   ; CHECK-NEXT:   DS_WRITE_B128_gfx9 [[V_ADD_U32_e32_2]], [[COPY2]], 0, 0, implicit $exec :: (store (s128) into %ir.p19, addrspace 3)
-  ; CHECK-NEXT:   S_WAITCNT 0
+  ; CHECK-NEXT:   S_WAITCNT .Vmcnt_0_Expcnt_0_Lgkmcnt_0
   ; CHECK-NEXT:   [[BUFFER_LOAD_DWORDX4_OFFSET2:%[0-9]+]]:vreg_128_align2 = BUFFER_LOAD_DWORDX4_OFFSET [[S_MOV_B32_]], 0, 0, 0, 0, implicit $exec :: (dereferenceable load (s128) from `ptr addrspace(8) null`, align 1, addrspace 8)
   ; CHECK-NEXT:   [[BUFFER_LOAD_DWORDX4_OFFSET3:%[0-9]+]]:vreg_128_align2 = BUFFER_LOAD_DWORDX4_OFFSET [[S_MOV_B32_]], 0, 1, 0, 0, implicit $exec :: (dereferenceable load (s128) from `ptr addrspace(8) null`, align 1, addrspace 8)
   ; CHECK-NEXT:   [[BUFFER_LOAD_DWORDX4_OFFEN2:%[0-9]+]]:vreg_128_align2 = BUFFER_LOAD_DWORDX4_OFFEN [[COPY3]], [[S_MOV_B32_]], 0, 0, 0, 0, implicit $exec :: (dereferenceable load (s128) from `ptr addrspace(8) null`, align 1, addrspace 8)
