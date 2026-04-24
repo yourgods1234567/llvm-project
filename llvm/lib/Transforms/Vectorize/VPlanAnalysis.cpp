@@ -392,9 +392,10 @@ bool VPDominatorTree::properlyDominates(const VPRecipeBase *A,
   return Base::properlyDominates(ParentA, ParentB);
 }
 
-InstructionCost VPRegisterUsage::spillCost(const TargetTransformInfo &TTI,
-                                           TargetTransformInfo::TargetCostKind CostKind,
-                                           unsigned OverrideMaxNumRegs) const {
+InstructionCost
+VPRegisterUsage::spillCost(const TargetTransformInfo &TTI,
+                           TargetTransformInfo::TargetCostKind CostKind,
+                           unsigned OverrideMaxNumRegs) const {
   InstructionCost Cost;
   for (const auto &[RegClass, MaxUsers] : MaxLocalUsers) {
     unsigned AvailableRegs = OverrideMaxNumRegs > 0
