@@ -205,6 +205,15 @@ def DistinctAttr : DialectAttribute<(attr
   Attribute:$referencedAttr
 )>;
 
+// Enable writer only first.
+class EnableAffineMapPrintingJune2026<dag d> : DialectTypeNoPrint<d>;
+
+def AffineMapAttr : EnableAffineMapPrintingJune2026<(attr
+  WithParser<"succeeded(readAffineMap($_reader, context, $_var))",
+    WithPrinter<"writeAffineMap($_writer, $_name)",
+    WithType<"AffineMap">>>:$value
+)>;
+
 // Types
 // -----
 
@@ -231,6 +240,12 @@ def BFloat16Type : DialectType<(type)>;
 
 def Float16Type : DialectType<(type)>;
 
+// Stage the addition of new floating point types so that readers can be updated
+// first.
+class EnableFloatPrintingJune2026<dag d> : DialectTypeNoPrint<d>;
+
+def FloatTF32Type : EnableFloatPrintingJune2026<(type)>;
+
 def Float32Type : DialectType<(type)>;
 
 def Float64Type : DialectType<(type)>;
@@ -238,6 +253,28 @@ def Float64Type : DialectType<(type)>;
 def Float80Type : DialectType<(type)>;
 
 def Float128Type : DialectType<(type)>;
+
+def Float8E5M2Type : EnableFloatPrintingJune2026<(type)>;
+
+def Float8E4M3Type : EnableFloatPrintingJune2026<(type)>;
+
+def Float8E4M3FNType : EnableFloatPrintingJune2026<(type)>;
+
+def Float8E5M2FNUZType : EnableFloatPrintingJune2026<(type)>;
+
+def Float8E4M3FNUZType : EnableFloatPrintingJune2026<(type)>;
+
+def Float8E4M3B11FNUZType : EnableFloatPrintingJune2026<(type)>;
+
+def Float8E3M4Type : EnableFloatPrintingJune2026<(type)>;
+
+def Float4E2M1FNType : EnableFloatPrintingJune2026<(type)>;
+
+def Float6E2M3FNType : EnableFloatPrintingJune2026<(type)>;
+
+def Float6E3M2FNType : EnableFloatPrintingJune2026<(type)>;
+
+def Float8E8M0FNUType : EnableFloatPrintingJune2026<(type)>;
 
 def ComplexType : DialectType<(type
   Type:$elementType
@@ -346,6 +383,7 @@ def BuiltinDialectAttributes : DialectAttributes<"Builtin"> {
     SparseElementsAttr,
     DistinctAttr,
     FileLineColRange,
+    AffineMapAttr,
   ];
 }
 
@@ -371,7 +409,19 @@ def BuiltinDialectTypes : DialectTypes<"Builtin"> {
     UnrankedMemRefTypeWithMemSpace,
     UnrankedTensorType,
     VectorType,
-    VectorTypeWithScalableDims
+    VectorTypeWithScalableDims,
+    FloatTF32Type,
+    Float8E5M2Type,
+    Float8E4M3Type,
+    Float8E4M3FNType,
+    Float8E5M2FNUZType,
+    Float8E4M3FNUZType,
+    Float8E4M3B11FNUZType,
+    Float8E3M4Type,
+    Float4E2M1FNType,
+    Float6E2M3FNType,
+    Float6E3M2FNType,
+    Float8E8M0FNUType
   ];
 }
 
