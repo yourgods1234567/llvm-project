@@ -232,6 +232,10 @@ void *t23(char c) {
 
   __asm__ ("foobar" : "=a" (addr) : "0" (c));
   return addr;
+
+  // CHECK-LABEL: @t24
+  // CHECK: zext i8 {{.*}} to i32
+  // CHECK-NEXT: call ptr asm "foobar"
 }
 
 // PR10299 - fpsr, fpcr
@@ -290,6 +294,10 @@ loop:
 
 label_true:
   return 1;
+
+  // CHECK-LABEL: @t34
+  // CHECK: callbr void asm sideeffect "testl $0, $0; jne ${1:l};", "r,!i,!i,~{dirflag},~{fpsr},~{flags}"(i32 %0) #1
+  // CHECK-NEXT: to label %asm.fallthrough [label %label_true, label %loop]
 }
 
 void *t30(void *ptr) {

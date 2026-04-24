@@ -6019,6 +6019,19 @@ TargetLowering::ParseConstraints(const DataLayout &DL,
 
     OpInfo.ConstraintVT = MVT::Other;
 
+    // Special treatment for all platforms that can fold a register into a
+    // spill. This is used for the "rm" constraint, where we would vastly
+    // prefer to use 'r' over 'm'. The non-fast register allocators are able to
+    // handle the 'r' default by folding. The fast register allocator needs
+    // special handling to convert the instruction to use 'm' instead.
+    //
+    // This also applies to read-write "+rm" constraints (which generate a
+    // direct "=rm" output with a matching tied input). The register allocator
+    // can fold both the output and its tied input to the same memory slot when
+    // under pressure.
+    if (is_contained(OpInfo.Codes, "r") && is_contained(OpInfo.Codes, "m"))
+      OpInfo.MayFoldRegister = true;
+
     // Compute the value type for each operand.
     switch (OpInfo.Type) {
     case InlineAsm::isOutput: {
@@ -6180,31 +6193,6 @@ TargetLowering::ParseConstraints(const DataLayout &DL,
   return ConstraintOperands;
 }
 
-/// Return a number indicating our preference for chosing a type of constraint
-/// over another, for the purpose of sorting them. Immediates are almost always
-/// preferrable (when they can be emitted). A higher return value means a
-/// stronger preference for one constraint type relative to another.
-/// FIXME: We should prefer registers over memory but doing so may lead to
-/// unrecoverable register exhaustion later.
-/// https://github.com/llvm/llvm-project/issues/20571
-static unsigned getConstraintPiority(TargetLowering::ConstraintType CT) {
-  switch (CT) {
-  case TargetLowering::C_Immediate:
-  case TargetLowering::C_Other:
-    return 4;
-  case TargetLowering::C_Memory:
-  case TargetLowering::C_Address:
-    return 3;
-  case TargetLowering::C_RegisterClass:
-    return 2;
-  case TargetLowering::C_Register:
-    return 1;
-  case TargetLowering::C_Unknown:
-    return 0;
-  }
-  llvm_unreachable("Invalid constraint type");
-}
-
 /// Examine constraint type and operand type and determine a weight value.
 /// This object must already have been set up with the operand type
 /// and the current alternative constraint selected.
@@ -6280,8 +6268,10 @@ TargetLowering::ConstraintWeight
 
 /// If there are multiple different constraints that we could pick for this
 /// operand (e.g. "imr") try to pick the 'best' one.
+///
 /// This is somewhat tricky: constraints (TargetLowering::ConstraintType) fall
 /// into seven classes:
+///
 ///    Register      -> one specific register
 ///    RegisterClass -> a group of regs
 ///    Memory        -> memory
@@ -6289,19 +6279,24 @@ TargetLowering::ConstraintWeight
 ///    Immediate     -> immediate values
 ///    Other         -> magic values (such as "Flag Output Operands")
 ///    Unknown       -> something we don't recognize yet and can't handle
+///
 /// Ideally, we would pick the most specific constraint possible: if we have
-/// something that fits into a register, we would pick it.  The problem here
-/// is that if we have something that could either be in a register or in
-/// memory that use of the register could cause selection of *other*
-/// operands to fail: they might only succeed if we pick memory.  Because of
-/// this the heuristic we use is:
+/// something that fits into a register, we would pick it.  The problem here is
+/// that if we have something that could either be in a register or in memory
+/// that use of the register could cause selection of *other* operands to fail:
+/// they might only succeed if we pick memory.  Because of this the heuristic
+/// we use is:
 ///
-///  1) If there is an 'other' constraint, and if the operand is valid for
-///     that constraint, use it.  This makes us take advantage of 'i'
-///     constraints when available.
-///  2) Otherwise, pick the most general constraint present.  This prefers
-///     'm' over 'r', for example.
-///
+///  1) If there is an 'other' constraint, and if the operand is valid for that
+///     constraint, use it.  This makes us take advantage of 'i' constraints
+///     when available.
+///  2) Special processing is done for the "rm" constraint. If specified, we
+///     opt for the 'r' constraint, but mark the operand as being "foldable."
+///     In the face of register exhaustion, the register allocator is free to
+///     choose to use a stack slot. The fast register allocator is handled
+///     separately via the InlineAsmPrepare pass.
+///  3) Otherwise, pick the most general constraint present.  This prefers 'm'
+///     over 'r', for example.
 TargetLowering::ConstraintGroup TargetLowering::getConstraintPreferences(
     TargetLowering::AsmOperandInfo &OpInfo) const {
   ConstraintGroup Ret;
@@ -6311,9 +6306,10 @@ TargetLowering::ConstraintGroup TargetLowering::getConstraintPreferences(
     TargetLowering::ConstraintType CType = getConstraintType(Code);
 
     // Indirect 'other' or 'immediate' constraints are not allowed.
-    if (OpInfo.isIndirect && !(CType == TargetLowering::C_Memory ||
-                               CType == TargetLowering::C_Register ||
-                               CType == TargetLowering::C_RegisterClass))
+    bool isRegOrMem = (CType == TargetLowering::C_Memory ||
+                       CType == TargetLowering::C_Register ||
+                       CType == TargetLowering::C_RegisterClass);
+    if (OpInfo.isIndirect && !isRegOrMem)
       continue;
 
     // Things with matching constraints can only be registers, per gcc
@@ -6324,8 +6320,33 @@ TargetLowering::ConstraintGroup TargetLowering::getConstraintPreferences(
     Ret.emplace_back(Code, CType);
   }
 
-  llvm::stable_sort(Ret, [](ConstraintPair a, ConstraintPair b) {
-    return getConstraintPiority(a.second) > getConstraintPiority(b.second);
+  // Return a number indicating our preference for choosing a type of
+  // constraint over another, for the purpose of sorting them. Immediates are
+  // almost always preferrable (when they can be emitted). A higher return
+  // value means a stronger preference for one constraint type relative to
+  // another.
+  const TargetMachine &TM = getTargetMachine();
+  bool PreferRegs =
+      TM.getOptLevel() != CodeGenOptLevel::None && OpInfo.MayFoldRegister;
+  auto getConstraintPriority = [&](TargetLowering::ConstraintType CT) {
+    switch (CT) {
+    case TargetLowering::C_Immediate:
+    case TargetLowering::C_Other:
+      return 4;
+    case TargetLowering::C_Memory:
+    case TargetLowering::C_Address:
+      return PreferRegs ? 1 : 3;
+    case TargetLowering::C_RegisterClass:
+      return PreferRegs ? 3 : 2;
+    case TargetLowering::C_Register:
+      return PreferRegs ? 2 : 1;
+    case TargetLowering::C_Unknown:
+      return 0;
+    }
+    llvm_unreachable("Invalid constraint type");
+  };
+  llvm::stable_sort(Ret, [&](ConstraintPair a, ConstraintPair b) {
+    return getConstraintPriority(a.second) > getConstraintPriority(b.second);
   });
 
   return Ret;
