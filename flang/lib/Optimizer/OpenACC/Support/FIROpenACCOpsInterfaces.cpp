@@ -71,6 +71,12 @@ mlir::Value PartialEntityAccessModel<fir::BoxAddrOp>::getBaseEntity(
 }
 
 template <>
+mlir::Value PartialEntityAccessModel<fir::EmboxOp>::getBaseEntity(
+    mlir::Operation *op) const {
+  return mlir::cast<fir::EmboxOp>(op).getMemref();
+}
+
+template <>
 mlir::Value PartialEntityAccessModel<hlfir::DesignateOp>::getBaseEntity(
     mlir::Operation *op) const {
   return mlir::cast<hlfir::DesignateOp>(op).getMemref();

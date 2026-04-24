@@ -315,12 +315,18 @@ Operation *ACCImplicitData::getOriginalDataClauseOpForAlias(
         Value clauseVar = acc::getVar(dataClauseOp);
         if (aliasAnalysis.alias(clauseVar, var).isMust())
           return dataClauseOp;
-        // For deviceptr clauses, also check if the clause variable is
-        // directly derived from 'var' (e.g., through a wrapping
-        // operation that produces the clause variable from 'var').
+        // For deviceptr clauses, walk the def-chain of the clause
+        // variable backward through PartialEntityAccessOpInterface to
+        // check if 'var' is its base entity.
         if (isa<acc::DevicePtrOp>(dataClauseOp)) {
-          for (Operation *user : var.getUsers()) {
-            if (llvm::is_contained(user->getResults(), clauseVar))
+          Value v = clauseVar;
+          while (auto *defOp = v.getDefiningOp()) {
+            if (auto partialOp =
+                    dyn_cast<acc::PartialEntityAccessOpInterface>(defOp))
+              v = partialOp.getBaseEntity();
+            else
+              break;
+            if (v == var)
               return dataClauseOp;
           }
         }
