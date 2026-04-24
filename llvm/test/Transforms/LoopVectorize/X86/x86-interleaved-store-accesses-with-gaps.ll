@@ -137,7 +137,7 @@ define void @test2(ptr noalias nocapture %points, i32 %numPoints, ptr noalias no
 ; DISABLED_MASKED_STRIDED-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[PRED_STORE_CONTINUE15:%.*]] ]
 ; DISABLED_MASKED_STRIDED-NEXT:    [[VEC_IND:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT:%.*]], [[PRED_STORE_CONTINUE15]] ]
 ; DISABLED_MASKED_STRIDED-NEXT:    [[TMP0:%.*]] = icmp ule <4 x i64> [[VEC_IND]], [[BROADCAST_SPLAT]]
-; DISABLED_MASKED_STRIDED-NEXT:    [[TMP1:%.*]] = getelementptr [2 x i8], ptr [[X:%.*]], i64 [[INDEX]]
+; DISABLED_MASKED_STRIDED-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [2 x i8], ptr [[X:%.*]], i64 [[INDEX]]
 ; DISABLED_MASKED_STRIDED-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr align 2 [[TMP1]], <4 x i1> [[TMP0]], <4 x i16> poison)
 ; DISABLED_MASKED_STRIDED-NEXT:    [[TMP2:%.*]] = shl nsw <4 x i64> [[VEC_IND]], splat (i64 2)
 ; DISABLED_MASKED_STRIDED-NEXT:    [[TMP3:%.*]] = extractelement <4 x i1> [[TMP0]], i64 0
@@ -176,7 +176,7 @@ define void @test2(ptr noalias nocapture %points, i32 %numPoints, ptr noalias no
 ; DISABLED_MASKED_STRIDED-NEXT:    store i16 [[TMP18]], ptr [[TMP17]], align 2
 ; DISABLED_MASKED_STRIDED-NEXT:    br label [[PRED_STORE_CONTINUE6]]
 ; DISABLED_MASKED_STRIDED:       pred.store.continue6:
-; DISABLED_MASKED_STRIDED-NEXT:    [[TMP19:%.*]] = getelementptr [2 x i8], ptr [[Y:%.*]], i64 [[INDEX]]
+; DISABLED_MASKED_STRIDED-NEXT:    [[TMP19:%.*]] = getelementptr inbounds [2 x i8], ptr [[Y:%.*]], i64 [[INDEX]]
 ; DISABLED_MASKED_STRIDED-NEXT:    [[WIDE_MASKED_LOAD7:%.*]] = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr align 2 [[TMP19]], <4 x i1> [[TMP0]], <4 x i16> poison)
 ; DISABLED_MASKED_STRIDED-NEXT:    [[TMP20:%.*]] = or disjoint <4 x i64> [[TMP2]], splat (i64 1)
 ; DISABLED_MASKED_STRIDED-NEXT:    br i1 [[TMP3]], label [[PRED_STORE_IF8:%.*]], label [[PRED_STORE_CONTINUE9:%.*]]
@@ -238,11 +238,11 @@ define void @test2(ptr noalias nocapture %points, i32 %numPoints, ptr noalias no
 ; ENABLED_MASKED_STRIDED-NEXT:    [[BROADCAST_SPLAT2:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT1]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; ENABLED_MASKED_STRIDED-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT2]], <i64 0, i64 1, i64 2, i64 3>
 ; ENABLED_MASKED_STRIDED-NEXT:    [[TMP0:%.*]] = icmp ule <4 x i64> [[VEC_IV]], [[BROADCAST_SPLAT]]
-; ENABLED_MASKED_STRIDED-NEXT:    [[TMP1:%.*]] = getelementptr [2 x i8], ptr [[X:%.*]], i64 [[INDEX]]
+; ENABLED_MASKED_STRIDED-NEXT:    [[TMP1:%.*]] = getelementptr inbounds [2 x i8], ptr [[X:%.*]], i64 [[INDEX]]
 ; ENABLED_MASKED_STRIDED-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr align 2 [[TMP1]], <4 x i1> [[TMP0]], <4 x i16> poison)
-; ENABLED_MASKED_STRIDED-NEXT:    [[DOTIDX:%.*]] = shl i64 [[INDEX]], 3
-; ENABLED_MASKED_STRIDED-NEXT:    [[GEP:%.*]] = getelementptr i8, ptr [[POINTS:%.*]], i64 [[DOTIDX]]
-; ENABLED_MASKED_STRIDED-NEXT:    [[TMP3:%.*]] = getelementptr [2 x i8], ptr [[Y:%.*]], i64 [[INDEX]]
+; ENABLED_MASKED_STRIDED-NEXT:    [[TMP2:%.*]] = shl nsw i64 [[INDEX]], 3
+; ENABLED_MASKED_STRIDED-NEXT:    [[GEP:%.*]] = getelementptr inbounds i8, ptr [[POINTS:%.*]], i64 [[TMP2]]
+; ENABLED_MASKED_STRIDED-NEXT:    [[TMP3:%.*]] = getelementptr inbounds [2 x i8], ptr [[Y:%.*]], i64 [[INDEX]]
 ; ENABLED_MASKED_STRIDED-NEXT:    [[WIDE_MASKED_LOAD3:%.*]] = call <4 x i16> @llvm.masked.load.v4i16.p0(ptr align 2 [[TMP3]], <4 x i1> [[TMP0]], <4 x i16> poison)
 ; ENABLED_MASKED_STRIDED-NEXT:    [[INTERLEAVED_VEC:%.*]] = shufflevector <4 x i16> [[WIDE_MASKED_LOAD]], <4 x i16> [[WIDE_MASKED_LOAD3]], <16 x i32> <i32 0, i32 4, i32 poison, i32 poison, i32 1, i32 5, i32 poison, i32 poison, i32 2, i32 6, i32 poison, i32 poison, i32 3, i32 7, i32 poison, i32 poison>
 ; ENABLED_MASKED_STRIDED-NEXT:    [[INTERLEAVED_MASK:%.*]] = shufflevector <4 x i1> [[TMP0]], <4 x i1> poison, <16 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 3>

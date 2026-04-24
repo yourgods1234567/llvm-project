@@ -22,7 +22,7 @@ define i32 @find_last_trunc_iv(ptr %src, i64 %n) {
 ; CHECK-NEXT:    [[TMP1:%.*]] = phi <4 x i1> [ zeroinitializer, %[[VECTOR_BODY]] ], [ [[TMP31:%.*]], %[[VECTOR_BODY1]] ]
 ; CHECK-NEXT:    [[VEC_IND1:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, %[[VECTOR_BODY]] ], [ [[VEC_IND_NEXT8:%.*]], %[[VECTOR_BODY1]] ]
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ule <4 x i64> [[VEC_IND]], [[BROADCAST_SPLAT]]
-; CHECK-NEXT:    [[TMP23:%.*]] = getelementptr i32, ptr [[SRC]], i64 [[TMP22]]
+; CHECK-NEXT:    [[TMP23:%.*]] = getelementptr inbounds i32, ptr [[SRC]], i64 [[TMP22]]
 ; CHECK-NEXT:    [[TMP26:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP23]], <4 x i1> [[TMP2]], <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP27:%.*]] = icmp eq <4 x i32> [[TMP26]], zeroinitializer
 ; CHECK-NEXT:    [[TMP28:%.*]] = select <4 x i1> [[TMP2]], <4 x i1> [[TMP27]], <4 x i1> zeroinitializer

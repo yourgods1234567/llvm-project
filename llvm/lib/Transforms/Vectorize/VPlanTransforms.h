@@ -299,7 +299,7 @@ struct VPlanTransforms {
   ///  * Contribute to the address computation of a recipe generating a widen
   ///    memory load/store (VPWidenMemoryInstructionRecipe or
   ///    VPInterleaveRecipe).
-  ///  * Such a widen memory load/store is masked.
+  ///  * Such a widen memory load/store is masked, but not with the header mask.
   static void dropPoisonGeneratingRecipes(VPlan &Plan);
 
   /// Add a VPCurrentIterationPHIRecipe and related recipes to \p Plan and

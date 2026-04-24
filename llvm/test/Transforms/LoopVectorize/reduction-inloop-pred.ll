@@ -16,7 +16,7 @@ define i32 @reduction_sum_single(ptr noalias nocapture %A) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP2]], <4 x i1> [[TMP0]], <4 x i32> zeroinitializer)
 ; CHECK-NEXT:    [[TMP25:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[TMP24]])
 ; CHECK-NEXT:    [[TMP26]] = add i32 [[VEC_PHI]], [[TMP25]]
@@ -59,9 +59,9 @@ define i32 @reduction_sum(ptr noalias nocapture %A, ptr noalias nocapture %B) {
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP48:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_IND1:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i16> [[VEC_IND]], splat (i16 257)
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP43:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP32]], <4 x i1> [[TMP0]], <4 x i32> zeroinitializer)
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP46:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP35]], <4 x i1> [[TMP0]], <4 x i32> zeroinitializer)
 ; CHECK-NEXT:    [[TMP40:%.*]] = select <4 x i1> [[TMP0]], <4 x i32> [[VEC_IND1]], <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP41:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[TMP40]])
@@ -117,7 +117,7 @@ define i32 @reduction_sum_const(ptr noalias nocapture %A) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP2]], <4 x i1> [[TMP0]], <4 x i32> zeroinitializer)
 ; CHECK-NEXT:    [[TMP25:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[TMP24]])
 ; CHECK-NEXT:    [[TMP26:%.*]] = add i32 [[VEC_PHI]], [[TMP25]]
@@ -164,8 +164,8 @@ define i32 @reduction_prod(ptr noalias nocapture %A, ptr noalias nocapture %B) {
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi i32 [ 1, [[VECTOR_PH]] ], [ [[TMP48:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_IND1:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i16> [[VEC_IND]], splat (i16 257)
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP40:%.*]] = select <4 x i1> [[TMP0]], <4 x i32> [[VEC_IND1]], <4 x i32> splat (i32 1)
 ; CHECK-NEXT:    [[TMP41:%.*]] = call i32 @llvm.vector.reduce.mul.v4i32(<4 x i32> [[TMP40]])
 ; CHECK-NEXT:    [[TMP42:%.*]] = mul i32 [[VEC_PHI]], [[TMP41]]
@@ -221,9 +221,9 @@ define i32 @reduction_mix(ptr noalias nocapture %A, ptr noalias nocapture %B) {
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP46:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_IND1:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ], [ [[VEC_IND_NEXT2:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i16> [[VEC_IND]], splat (i16 257)
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP39:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP35]], <4 x i1> [[TMP0]], <4 x i32> poison)
-; CHECK-NEXT:    [[TMP38:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP38:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP50:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP38]], <4 x i1> [[TMP0]], <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP41:%.*]] = select <4 x i1> [[TMP0]], <4 x i32> [[VEC_IND1]], <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[TMP42:%.*]] = call i32 @llvm.vector.reduce.add.v4i32(<4 x i32> [[TMP41]])
@@ -279,8 +279,8 @@ define i32 @reduction_mul(ptr noalias nocapture %A, ptr noalias nocapture %B) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP40:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP32]], <4 x i1> [[TMP0]], <4 x i32> splat (i32 1))
 ; CHECK-NEXT:    [[TMP41:%.*]] = call i32 @llvm.vector.reduce.mul.v4i32(<4 x i32> [[TMP40]])
 ; CHECK-NEXT:    [[TMP42:%.*]] = mul i32 [[VEC_PHI]], [[TMP41]]
@@ -330,8 +330,8 @@ define i32 @reduction_and(ptr nocapture %A, ptr nocapture %B) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP40:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP32]], <4 x i1> [[TMP0]], <4 x i32> splat (i32 -1))
 ; CHECK-NEXT:    [[TMP41:%.*]] = call i32 @llvm.vector.reduce.and.v4i32(<4 x i32> [[TMP40]])
 ; CHECK-NEXT:    [[TMP42:%.*]] = and i32 [[VEC_PHI]], [[TMP41]]
@@ -381,9 +381,9 @@ define i32 @reduction_or(ptr nocapture %A, ptr nocapture %B) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP38:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP32]], <4 x i1> [[TMP0]], <4 x i32> poison)
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP39:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP35]], <4 x i1> [[TMP0]], <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP40:%.*]] = add nsw <4 x i32> [[TMP39]], [[TMP38]]
 ; CHECK-NEXT:    [[TMP41:%.*]] = select <4 x i1> [[TMP0]], <4 x i32> [[TMP40]], <4 x i32> zeroinitializer
@@ -432,9 +432,9 @@ define i32 @reduction_xor(ptr nocapture %A, ptr nocapture %B) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP38:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP32]], <4 x i1> [[TMP0]], <4 x i32> poison)
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP39:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP35]], <4 x i1> [[TMP0]], <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP40:%.*]] = add nsw <4 x i32> [[TMP39]], [[TMP38]]
 ; CHECK-NEXT:    [[TMP41:%.*]] = select <4 x i1> [[TMP0]], <4 x i32> [[TMP40]], <4 x i32> zeroinitializer
@@ -483,9 +483,9 @@ define float @reduction_fadd(ptr nocapture %A, ptr nocapture %B) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP40:%.*]] = call <4 x float> @llvm.masked.load.v4f32.p0(ptr align 4 [[TMP32]], <4 x i1> [[TMP0]], <4 x float> zeroinitializer)
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP42:%.*]] = call <4 x float> @llvm.masked.load.v4f32.p0(ptr align 4 [[TMP35]], <4 x i1> [[TMP0]], <4 x float> zeroinitializer)
 ; CHECK-NEXT:    [[TMP41:%.*]] = call fast float @llvm.vector.reduce.fadd.v4f32(float [[VEC_PHI]], <4 x float> [[TMP40]])
 ; CHECK-NEXT:    [[TMP43]] = call fast float @llvm.vector.reduce.fadd.v4f32(float [[TMP41]], <4 x float> [[TMP42]])
@@ -532,8 +532,8 @@ define float @reduction_fmul(ptr nocapture %A, ptr nocapture %B) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
-; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP32:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[TMP31]]
+; CHECK-NEXT:    [[TMP35:%.*]] = getelementptr inbounds [4 x i8], ptr [[B:%.*]], i64 [[TMP31]]
 ; CHECK-NEXT:    [[TMP40:%.*]] = call <4 x float> @llvm.masked.load.v4f32.p0(ptr align 4 [[TMP32]], <4 x i1> [[TMP0]], <4 x float> splat (float 1.000000e+00))
 ; CHECK-NEXT:    [[TMP41:%.*]] = call fast float @llvm.vector.reduce.fmul.v4f32(float 1.000000e+00, <4 x float> [[TMP40]])
 ; CHECK-NEXT:    [[TMP42:%.*]] = fmul fast float [[VEC_PHI]], [[TMP41]]
@@ -583,7 +583,7 @@ define i32 @reduction_min(ptr nocapture %A, ptr nocapture %B) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP2]], <4 x i1> [[TMP0]], <4 x i32> splat (i32 2147483647))
 ; CHECK-NEXT:    [[TMP25:%.*]] = call i32 @llvm.vector.reduce.smin.v4i32(<4 x i32> [[TMP24]])
 ; CHECK-NEXT:    [[RDX_MINMAX]] = call i32 @llvm.smin.i32(i32 [[TMP25]], i32 [[VEC_PHI]])
@@ -628,7 +628,7 @@ define i32 @reduction_max(ptr nocapture %A, ptr nocapture %B) {
 ; CHECK-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i64> [[VEC_IV]], splat (i64 257)
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [4 x i8], ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds [4 x i8], ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[TMP24:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP2]], <4 x i1> [[TMP0]], <4 x i32> zeroinitializer)
 ; CHECK-NEXT:    [[TMP25:%.*]] = call i32 @llvm.vector.reduce.umax.v4i32(<4 x i32> [[TMP24]])
 ; CHECK-NEXT:    [[RDX_MINMAX]] = call i32 @llvm.umax.i32(i32 [[TMP25]], i32 [[VEC_PHI]])
@@ -752,7 +752,7 @@ define i8 @reduction_add_trunc(ptr noalias nocapture %A) {
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i32> [[VEC_IV]], splat (i32 257)
 ; CHECK-NEXT:    [[TMP1:%.*]] = and <4 x i32> [[VEC_PHI]], splat (i32 255)
 ; CHECK-NEXT:    [[TMP3:%.*]] = sext i32 [[INDEX]] to i64
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr i8, ptr [[A:%.*]], i64 [[TMP3]]
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i8, ptr [[A:%.*]], i64 [[TMP3]]
 ; CHECK-NEXT:    [[TMP28:%.*]] = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr align 4 [[TMP4]], <4 x i1> [[TMP0]], <4 x i8> poison)
 ; CHECK-NEXT:    [[TMP29:%.*]] = zext <4 x i8> [[TMP28]] to <4 x i32>
 ; CHECK-NEXT:    [[TMP30]] = add nuw nsw <4 x i32> [[TMP1]], [[TMP29]]
@@ -803,7 +803,7 @@ define i8 @reduction_and_trunc(ptr noalias nocapture %A) {
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = or disjoint <4 x i32> [[BROADCAST_SPLAT]], <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[TMP0:%.*]] = icmp ult <4 x i32> [[VEC_IV]], splat (i32 257)
 ; CHECK-NEXT:    [[TMP2:%.*]] = sext i32 [[INDEX]] to i64
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i8, ptr [[A:%.*]], i64 [[TMP2]]
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i8, ptr [[A:%.*]], i64 [[TMP2]]
 ; CHECK-NEXT:    [[TMP27:%.*]] = call <4 x i8> @llvm.masked.load.v4i8.p0(ptr align 4 [[TMP3]], <4 x i1> [[TMP0]], <4 x i8> poison)
 ; CHECK-NEXT:    [[TMP28:%.*]] = zext <4 x i8> [[TMP27]] to <4 x i32>
 ; CHECK-NEXT:    [[TMP29]] = and <4 x i32> [[VEC_PHI]], [[TMP28]]

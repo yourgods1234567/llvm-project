@@ -3669,6 +3669,14 @@ void VPlanTransforms::dropPoisonGeneratingRecipes(VPlan &Plan) {
     }
   });
 
+  // We want to exclude the tail folding case, as we don't need to drop flags
+  // for operations computing the first lane in this case: the first lane of the
+  // header mask must always be true.
+  VPSingleDefRecipe *HeaderMask = vputils::findHeaderMask(Plan);
+  auto IsNotHeaderMask = [HeaderMask](VPValue *Mask) {
+    return Mask && Mask != HeaderMask;
+  };
+
   // Traverse all the recipes in the VPlan and collect the poison-generating
   // recipes in the backward slice starting at the address of a VPWidenRecipe or
   // VPInterleaveRecipe.
@@ -3678,11 +3686,12 @@ void VPlanTransforms::dropPoisonGeneratingRecipes(VPlan &Plan) {
     for (VPRecipeBase &Recipe : *VPBB) {
       if (auto *WidenRec = dyn_cast<VPWidenMemoryRecipe>(&Recipe)) {
         VPRecipeBase *AddrDef = WidenRec->getAddr()->getDefiningRecipe();
-        if (AddrDef && WidenRec->isConsecutive() && WidenRec->isMasked())
+        if (AddrDef && WidenRec->isConsecutive() &&
+            IsNotHeaderMask(WidenRec->getMask()))
           CollectPoisonGeneratingInstrsInBackwardSlice(AddrDef);
       } else if (auto *InterleaveRec = dyn_cast<VPInterleaveRecipe>(&Recipe)) {
         VPRecipeBase *AddrDef = InterleaveRec->getAddr()->getDefiningRecipe();
-        if (AddrDef && InterleaveRec->getMask())
+        if (AddrDef && IsNotHeaderMask(InterleaveRec->getMask()))
           CollectPoisonGeneratingInstrsInBackwardSlice(AddrDef);
       }
     }
