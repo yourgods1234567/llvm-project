@@ -15,6 +15,7 @@
 #define OMPTARGET_SHARED_UTILS_H
 
 #include <stdint.h>
+#include "llvm/ADT/bit.h"
 
 namespace utils {
 
@@ -42,26 +43,26 @@ template <typename Ty> inline Ty roundUp(Ty V, Ty Boundary) {
 
 /// Return the first bit set in \p V.
 inline uint32_t ffs(uint32_t V) {
-  static_assert(sizeof(int) == sizeof(uint32_t), "type size mismatch");
-  return __builtin_ffs(V);
+  if (V == 0)
+    return 0;
+  return llvm::countr_zero(V) + 1;
 }
 
 /// Return the first bit set in \p V.
 inline uint32_t ffs(uint64_t V) {
-  static_assert(sizeof(long) == sizeof(uint64_t), "type size mismatch");
-  return __builtin_ffsl(V);
+  if (V == 0)
+    return 0;
+  return llvm::countr_zero(V) + 1;
 }
 
 /// Return the number of bits set in \p V.
 inline uint32_t popc(uint32_t V) {
-  static_assert(sizeof(int) == sizeof(uint32_t), "type size mismatch");
-  return __builtin_popcount(V);
+  return llvm::popcount(V);
 }
 
 /// Return the number of bits set in \p V.
 inline uint32_t popc(uint64_t V) {
-  static_assert(sizeof(long) == sizeof(uint64_t), "type size mismatch");
-  return __builtin_popcountl(V);
+  return llvm::popcount(V);
 }
 
 } // namespace utils
