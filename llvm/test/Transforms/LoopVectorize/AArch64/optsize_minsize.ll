@@ -422,7 +422,7 @@ define void @sve_tail_predicate_without_minsize(ptr %p, i8 %a, i8 %b, i8 %c, i32
 ; DEFAULT-NEXT:    [[TMP19:%.*]] = lshr <vscale x 16 x i8> [[VEC_IND]], splat (i8 2)
 ; DEFAULT-NEXT:    [[TMP20:%.*]] = mul <vscale x 16 x i8> [[TMP19]], [[BROADCAST_SPLAT4]]
 ; DEFAULT-NEXT:    [[TMP21:%.*]] = add <vscale x 16 x i8> [[TMP18]], [[TMP20]]
-; DEFAULT-NEXT:    [[TMP22:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 [[INDEX]]
+; DEFAULT-NEXT:    [[TMP22:%.*]] = getelementptr i8, ptr [[P]], i64 [[INDEX]]
 ; DEFAULT-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP21]], ptr align 1 [[TMP22]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]])
 ; DEFAULT-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP6]]
 ; DEFAULT-NEXT:    [[ACTIVE_LANE_MASK_NEXT]] = call <vscale x 16 x i1> @llvm.get.active.lane.mask.nxv16i1.i64(i64 [[INDEX_NEXT]], i64 15)
@@ -465,7 +465,7 @@ define void @sve_tail_predicate_without_minsize(ptr %p, i8 %a, i8 %b, i8 %c, i32
 ; OPTSIZE-NEXT:    [[TMP19:%.*]] = lshr <vscale x 16 x i8> [[VEC_IND]], splat (i8 2)
 ; OPTSIZE-NEXT:    [[TMP20:%.*]] = mul <vscale x 16 x i8> [[TMP19]], [[BROADCAST_SPLAT4]]
 ; OPTSIZE-NEXT:    [[TMP21:%.*]] = add <vscale x 16 x i8> [[TMP18]], [[TMP20]]
-; OPTSIZE-NEXT:    [[TMP22:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 [[INDEX]]
+; OPTSIZE-NEXT:    [[TMP22:%.*]] = getelementptr i8, ptr [[P]], i64 [[INDEX]]
 ; OPTSIZE-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP21]], ptr align 1 [[TMP22]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]])
 ; OPTSIZE-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP6]]
 ; OPTSIZE-NEXT:    [[ACTIVE_LANE_MASK_NEXT]] = call <vscale x 16 x i1> @llvm.get.active.lane.mask.nxv16i1.i64(i64 [[INDEX_NEXT]], i64 15)
@@ -508,7 +508,7 @@ define void @sve_tail_predicate_without_minsize(ptr %p, i8 %a, i8 %b, i8 %c, i32
 ; MINSIZE-NEXT:    [[TMP19:%.*]] = lshr <vscale x 16 x i8> [[VEC_IND]], splat (i8 2)
 ; MINSIZE-NEXT:    [[TMP20:%.*]] = mul <vscale x 16 x i8> [[TMP19]], [[BROADCAST_SPLAT4]]
 ; MINSIZE-NEXT:    [[TMP21:%.*]] = add <vscale x 16 x i8> [[TMP18]], [[TMP20]]
-; MINSIZE-NEXT:    [[TMP22:%.*]] = getelementptr inbounds i8, ptr [[P]], i64 [[INDEX]]
+; MINSIZE-NEXT:    [[TMP22:%.*]] = getelementptr i8, ptr [[P]], i64 [[INDEX]]
 ; MINSIZE-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP21]], ptr align 1 [[TMP22]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]])
 ; MINSIZE-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP6]]
 ; MINSIZE-NEXT:    [[ACTIVE_LANE_MASK_NEXT]] = call <vscale x 16 x i1> @llvm.get.active.lane.mask.nxv16i1.i64(i64 [[INDEX_NEXT]], i64 15)

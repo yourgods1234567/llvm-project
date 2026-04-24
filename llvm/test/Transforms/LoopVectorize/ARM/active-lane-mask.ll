@@ -21,14 +21,14 @@ define void @f0(ptr noalias %dst, ptr readonly %src, i64 %n) #0 {
 ; CHECK-NEXT:    [[TMP0:%.*]] = add i64 [[INDEX]], 16
 ; CHECK-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = call <16 x i1> @llvm.get.active.lane.mask.v16i1.i64(i64 [[INDEX]], i64 [[N]])
 ; CHECK-NEXT:    [[ACTIVE_LANE_MASK1:%.*]] = call <16 x i1> @llvm.get.active.lane.mask.v16i1.i64(i64 [[TMP0]], i64 [[N]])
-; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr inbounds i8, ptr [[SRC]], i64 [[INDEX]]
-; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i8, ptr [[TMP1]], i32 16
+; CHECK-NEXT:    [[TMP1:%.*]] = getelementptr i8, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr i8, ptr [[TMP1]], i32 16
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr align 1 [[TMP1]], <16 x i1> [[ACTIVE_LANE_MASK]], <16 x i8> poison)
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD2:%.*]] = call <16 x i8> @llvm.masked.load.v16i8.p0(ptr align 1 [[TMP3]], <16 x i1> [[ACTIVE_LANE_MASK1]], <16 x i8> poison)
 ; CHECK-NEXT:    [[TMP4:%.*]] = mul <16 x i8> [[WIDE_MASKED_LOAD]], splat (i8 3)
 ; CHECK-NEXT:    [[TMP5:%.*]] = mul <16 x i8> [[WIDE_MASKED_LOAD2]], splat (i8 3)
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i8, ptr [[DST]], i64 [[INDEX]]
-; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i8, ptr [[TMP6]], i32 16
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i8, ptr [[DST]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr i8, ptr [[TMP6]], i32 16
 ; CHECK-NEXT:    call void @llvm.masked.store.v16i8.p0(<16 x i8> [[TMP4]], ptr align 1 [[TMP6]], <16 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-NEXT:    call void @llvm.masked.store.v16i8.p0(<16 x i8> [[TMP5]], ptr align 1 [[TMP8]], <16 x i1> [[ACTIVE_LANE_MASK1]])
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 32

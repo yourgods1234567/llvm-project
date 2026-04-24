@@ -19,7 +19,7 @@ define void @vector_udiv(ptr noalias nocapture %a, i64 %v, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP10:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 2 x i64> @llvm.vp.load.nxv2i64.p0(ptr align 8 [[TMP7]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP10]])
 ; CHECK-NEXT:    [[TMP9:%.*]] = udiv <vscale x 2 x i64> [[WIDE_LOAD]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    call void @llvm.vp.store.nxv2i64.p0(<vscale x 2 x i64> [[TMP9]], ptr align 8 [[TMP7]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP10]])
@@ -83,7 +83,7 @@ define void @vector_sdiv(ptr noalias nocapture %a, i64 %v, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP10:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 2 x i64> @llvm.vp.load.nxv2i64.p0(ptr align 8 [[TMP7]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP10]])
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <vscale x 2 x i64> @llvm.vp.merge.nxv2i64(<vscale x 2 x i1> splat (i1 true), <vscale x 2 x i64> [[BROADCAST_SPLAT]], <vscale x 2 x i64> splat (i64 1), i32 [[TMP10]])
 ; CHECK-NEXT:    [[TMP9:%.*]] = sdiv <vscale x 2 x i64> [[WIDE_LOAD]], [[TMP2]]
@@ -148,7 +148,7 @@ define void @vector_urem(ptr noalias nocapture %a, i64 %v, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP10:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 2 x i64> @llvm.vp.load.nxv2i64.p0(ptr align 8 [[TMP7]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP10]])
 ; CHECK-NEXT:    [[TMP9:%.*]] = urem <vscale x 2 x i64> [[WIDE_LOAD]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    call void @llvm.vp.store.nxv2i64.p0(<vscale x 2 x i64> [[TMP9]], ptr align 8 [[TMP7]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP10]])
@@ -212,7 +212,7 @@ define void @vector_srem(ptr noalias nocapture %a, i64 %v, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP10:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 2 x i64> @llvm.vp.load.nxv2i64.p0(ptr align 8 [[TMP7]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP10]])
 ; CHECK-NEXT:    [[TMP2:%.*]] = call <vscale x 2 x i64> @llvm.vp.merge.nxv2i64(<vscale x 2 x i1> splat (i1 true), <vscale x 2 x i64> [[BROADCAST_SPLAT]], <vscale x 2 x i64> splat (i64 1), i32 [[TMP10]])
 ; CHECK-NEXT:    [[TMP9:%.*]] = srem <vscale x 2 x i64> [[WIDE_LOAD]], [[TMP2]]
@@ -278,7 +278,7 @@ define void @predicated_udiv(ptr noalias nocapture %a, i64 %v, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
-; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 2 x i64> @llvm.vp.load.nxv2i64.p0(ptr align 8 [[TMP8]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP12]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = call <vscale x 2 x i64> @llvm.vp.merge.nxv2i64(<vscale x 2 x i1> [[TMP6]], <vscale x 2 x i64> [[BROADCAST_SPLAT]], <vscale x 2 x i64> splat (i64 1), i32 [[TMP12]])
 ; CHECK-NEXT:    [[TMP11:%.*]] = udiv <vscale x 2 x i64> [[WIDE_LOAD]], [[TMP10]]
@@ -357,7 +357,7 @@ define void @predicated_sdiv(ptr noalias nocapture %a, i64 %v, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
-; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP8:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 2 x i64> @llvm.vp.load.nxv2i64.p0(ptr align 8 [[TMP8]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP12]])
 ; CHECK-NEXT:    [[TMP10:%.*]] = call <vscale x 2 x i64> @llvm.vp.merge.nxv2i64(<vscale x 2 x i1> [[TMP6]], <vscale x 2 x i64> [[BROADCAST_SPLAT]], <vscale x 2 x i64> splat (i64 1), i32 [[TMP12]])
 ; CHECK-NEXT:    [[TMP11:%.*]] = sdiv <vscale x 2 x i64> [[WIDE_LOAD]], [[TMP10]]
@@ -433,7 +433,7 @@ define void @predicated_udiv_by_constant(ptr noalias nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP14:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 2 x i64> @llvm.vp.load.nxv2i64.p0(ptr align 8 [[TMP7]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP14]])
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ne <vscale x 2 x i64> [[WIDE_LOAD]], splat (i64 42)
 ; CHECK-NEXT:    [[TMP10:%.*]] = udiv <vscale x 2 x i64> [[WIDE_LOAD]], splat (i64 27)
@@ -503,7 +503,7 @@ define void @predicated_sdiv_by_constant(ptr noalias nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP14:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 2, i1 true)
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i64, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 2 x i64> @llvm.vp.load.nxv2i64.p0(ptr align 8 [[TMP7]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP14]])
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ne <vscale x 2 x i64> [[WIDE_LOAD]], splat (i64 42)
 ; CHECK-NEXT:    [[TMP10:%.*]] = sdiv <vscale x 2 x i64> [[WIDE_LOAD]], splat (i64 27)
@@ -573,7 +573,7 @@ define void @predicated_sdiv_by_minus_one(ptr noalias nocapture %a, i64 %n) {
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[AVL:%.*]] = phi i64 [ 1024, [[VECTOR_PH]] ], [ [[AVL_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP12:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 16, i1 true)
-; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i8, ptr [[A:%.*]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i8, ptr [[A:%.*]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = call <vscale x 16 x i8> @llvm.vp.load.nxv16i8.p0(ptr align 1 [[TMP7]], <vscale x 16 x i1> splat (i1 true), i32 [[TMP12]])
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ne <vscale x 16 x i8> [[WIDE_LOAD]], splat (i8 -128)
 ; CHECK-NEXT:    [[TMP10:%.*]] = call <vscale x 16 x i8> @llvm.vp.merge.nxv16i8(<vscale x 16 x i1> [[TMP9]], <vscale x 16 x i8> splat (i8 -1), <vscale x 16 x i8> splat (i8 1), i32 [[TMP12]])

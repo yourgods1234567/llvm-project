@@ -402,7 +402,7 @@ define void @overflow_indvar_known_false(ptr nocapture noundef %p, i32 noundef %
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = phi <vscale x 16 x i1> [ [[ACTIVE_LANE_MASK_ENTRY]], %[[VECTOR_PH]] ], [ [[ACTIVE_LANE_MASK_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = add i64 [[TMP0]], [[INDEX]]
-; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr inbounds nuw i8, ptr [[V]], i64 [[OFFSET_IDX]]
+; CHECK-NEXT:    [[TMP13:%.*]] = getelementptr i8, ptr [[V]], i64 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 16 x i8> @llvm.masked.load.nxv16i8.p0(ptr align 1 [[TMP13]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]], <vscale x 16 x i8> poison)
 ; CHECK-NEXT:    [[TMP15:%.*]] = add <vscale x 16 x i8> [[WIDE_MASKED_LOAD]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP15]], ptr align 1 [[TMP13]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]])

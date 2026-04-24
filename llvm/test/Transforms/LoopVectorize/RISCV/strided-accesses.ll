@@ -1317,7 +1317,7 @@ define void @constant_stride_reinterpret(ptr noalias %in, ptr noalias %out) {
 ; NOSTRIDED-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <vscale x 2 x i64> [[BROADCAST_SPLATINSERT]], <vscale x 2 x i64> poison, <vscale x 2 x i32> zeroinitializer
 ; NOSTRIDED-NEXT:    [[TMP4:%.*]] = getelementptr inbounds nuw i32, ptr [[IN]], <vscale x 2 x i64> [[VEC_IND]]
 ; NOSTRIDED-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <vscale x 2 x i64> @llvm.vp.gather.nxv2i64.nxv2p0(<vscale x 2 x ptr> align 8 [[TMP4]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP2]])
-; NOSTRIDED-NEXT:    [[TMP5:%.*]] = getelementptr inbounds nuw i64, ptr [[OUT]], i64 [[EVL_BASED_IV]]
+; NOSTRIDED-NEXT:    [[TMP5:%.*]] = getelementptr i64, ptr [[OUT]], i64 [[EVL_BASED_IV]]
 ; NOSTRIDED-NEXT:    call void @llvm.vp.store.nxv2i64.p0(<vscale x 2 x i64> [[WIDE_MASKED_GATHER]], ptr align 8 [[TMP5]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP2]])
 ; NOSTRIDED-NEXT:    [[INDEX_EVL_NEXT]] = add nuw i64 [[TMP3]], [[EVL_BASED_IV]]
 ; NOSTRIDED-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP3]]
@@ -1397,7 +1397,7 @@ define void @constant_stride_reinterpret(ptr noalias %in, ptr noalias %out) {
 ; STRIDED-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <vscale x 2 x i64> [[BROADCAST_SPLATINSERT]], <vscale x 2 x i64> poison, <vscale x 2 x i32> zeroinitializer
 ; STRIDED-NEXT:    [[TMP4:%.*]] = getelementptr inbounds nuw i32, ptr [[IN]], <vscale x 2 x i64> [[VEC_IND]]
 ; STRIDED-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <vscale x 2 x i64> @llvm.vp.gather.nxv2i64.nxv2p0(<vscale x 2 x ptr> align 8 [[TMP4]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP2]])
-; STRIDED-NEXT:    [[TMP5:%.*]] = getelementptr inbounds nuw i64, ptr [[OUT]], i64 [[EVL_BASED_IV]]
+; STRIDED-NEXT:    [[TMP5:%.*]] = getelementptr i64, ptr [[OUT]], i64 [[EVL_BASED_IV]]
 ; STRIDED-NEXT:    call void @llvm.vp.store.nxv2i64.p0(<vscale x 2 x i64> [[WIDE_MASKED_GATHER]], ptr align 8 [[TMP5]], <vscale x 2 x i1> splat (i1 true), i32 [[TMP2]])
 ; STRIDED-NEXT:    [[INDEX_EVL_NEXT]] = add nuw i64 [[TMP3]], [[EVL_BASED_IV]]
 ; STRIDED-NEXT:    [[AVL_NEXT]] = sub nuw i64 [[AVL]], [[TMP3]]

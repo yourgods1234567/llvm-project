@@ -70,8 +70,8 @@ define void @load_store_interleave_group(ptr noalias %data, i64 %n) {
 ; SVE:       [[VECTOR_BODY]]:
 ; SVE-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, %[[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], %[[VECTOR_BODY]] ]
 ; SVE-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = phi <vscale x 2 x i1> [ [[ACTIVE_LANE_MASK_ENTRY]], %[[VECTOR_PH]] ], [ [[ACTIVE_LANE_MASK_NEXT:%.*]], %[[VECTOR_BODY]] ]
-; SVE-NEXT:    [[TMP2:%.*]] = shl nsw i64 [[INDEX]], 1
-; SVE-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i64, ptr [[DATA]], i64 [[TMP2]]
+; SVE-NEXT:    [[TMP2:%.*]] = shl i64 [[INDEX]], 1
+; SVE-NEXT:    [[TMP3:%.*]] = getelementptr i64, ptr [[DATA]], i64 [[TMP2]]
 ; SVE-NEXT:    [[INTERLEAVED_MASK:%.*]] = call <vscale x 4 x i1> @llvm.vector.interleave2.nxv4i1(<vscale x 2 x i1> [[ACTIVE_LANE_MASK]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; SVE-NEXT:    [[WIDE_MASKED_VEC:%.*]] = call <vscale x 4 x i64> @llvm.masked.load.nxv4i64.p0(ptr align 8 [[TMP3]], <vscale x 4 x i1> [[INTERLEAVED_MASK]], <vscale x 4 x i64> poison)
 ; SVE-NEXT:    [[STRIDED_VEC:%.*]] = call { <vscale x 2 x i64>, <vscale x 2 x i64> } @llvm.vector.deinterleave2.nxv4i64(<vscale x 4 x i64> [[WIDE_MASKED_VEC]])

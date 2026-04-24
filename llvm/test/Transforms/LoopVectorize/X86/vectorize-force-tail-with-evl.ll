@@ -27,12 +27,12 @@ define void @foo(ptr noalias %a, ptr noalias %b, ptr noalias %c, i64 %N) {
 ; IF-EVL-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <16 x i64> [[BROADCAST_SPLATINSERT]], <16 x i64> poison, <16 x i32> zeroinitializer
 ; IF-EVL-NEXT:    [[VEC_IV:%.*]] = add <16 x i64> [[BROADCAST_SPLAT]], <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>
 ; IF-EVL-NEXT:    [[TMP1:%.*]] = icmp ule <16 x i64> [[VEC_IV]], [[BROADCAST_SPLAT2]]
-; IF-EVL-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[B:%.*]], i64 [[INDEX]]
+; IF-EVL-NEXT:    [[TMP2:%.*]] = getelementptr i32, ptr [[B:%.*]], i64 [[INDEX]]
 ; IF-EVL-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr align 4 [[TMP2]], <16 x i1> [[TMP1]], <16 x i32> poison)
-; IF-EVL-NEXT:    [[TMP4:%.*]] = getelementptr inbounds i32, ptr [[C:%.*]], i64 [[INDEX]]
+; IF-EVL-NEXT:    [[TMP4:%.*]] = getelementptr i32, ptr [[C:%.*]], i64 [[INDEX]]
 ; IF-EVL-NEXT:    [[WIDE_MASKED_LOAD3:%.*]] = call <16 x i32> @llvm.masked.load.v16i32.p0(ptr align 4 [[TMP4]], <16 x i1> [[TMP1]], <16 x i32> poison)
 ; IF-EVL-NEXT:    [[TMP6:%.*]] = add nsw <16 x i32> [[WIDE_MASKED_LOAD3]], [[WIDE_MASKED_LOAD]]
-; IF-EVL-NEXT:    [[TMP7:%.*]] = getelementptr inbounds i32, ptr [[A:%.*]], i64 [[INDEX]]
+; IF-EVL-NEXT:    [[TMP7:%.*]] = getelementptr i32, ptr [[A:%.*]], i64 [[INDEX]]
 ; IF-EVL-NEXT:    call void @llvm.masked.store.v16i32.p0(<16 x i32> [[TMP6]], ptr align 4 [[TMP7]], <16 x i1> [[TMP1]])
 ; IF-EVL-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 16
 ; IF-EVL-NEXT:    [[TMP9:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]

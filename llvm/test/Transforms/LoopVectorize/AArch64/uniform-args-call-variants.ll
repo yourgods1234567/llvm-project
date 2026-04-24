@@ -20,7 +20,7 @@ define void @test_uniform(ptr noalias %dst, ptr readonly %src, i64 %uniform , i6
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [8 x i8], ptr [[SRC]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP2]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]], <vscale x 2 x double> poison)
 ; CHECK-NEXT:    [[TMP3:%.*]] = call <vscale x 2 x double> @foo_uniform(<vscale x 2 x double> [[WIDE_MASKED_LOAD]], i64 [[UNIFORM]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds [8 x i8], ptr [[DST]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr [8 x i8], ptr [[DST]], i64 [[INDEX]]
 ; CHECK-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP3]], ptr align 8 [[TMP4]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP1]]
 ; CHECK-NEXT:    [[ACTIVE_LANE_MASK_NEXT]] = call <vscale x 2 x i1> @llvm.get.active.lane.mask.nxv2i1.i64(i64 [[INDEX_NEXT]], i64 [[N]])
@@ -48,8 +48,8 @@ define void @test_uniform(ptr noalias %dst, ptr readonly %src, i64 %uniform , i6
 ; INTERLEAVE-NEXT:    [[WIDE_MASKED_LOAD3:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP4]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK2]], <vscale x 2 x double> poison)
 ; INTERLEAVE-NEXT:    [[TMP5:%.*]] = call <vscale x 2 x double> @foo_uniform(<vscale x 2 x double> [[WIDE_MASKED_LOAD]], i64 [[UNIFORM]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; INTERLEAVE-NEXT:    [[TMP6:%.*]] = call <vscale x 2 x double> @foo_uniform(<vscale x 2 x double> [[WIDE_MASKED_LOAD3]], i64 [[UNIFORM]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK2]])
-; INTERLEAVE-NEXT:    [[TMP7:%.*]] = getelementptr inbounds [8 x i8], ptr [[DST]], i64 [[INDEX]]
-; INTERLEAVE-NEXT:    [[TMP8:%.*]] = getelementptr inbounds [8 x i8], ptr [[TMP7]], i64 [[TMP1]]
+; INTERLEAVE-NEXT:    [[TMP7:%.*]] = getelementptr [8 x i8], ptr [[DST]], i64 [[INDEX]]
+; INTERLEAVE-NEXT:    [[TMP8:%.*]] = getelementptr [8 x i8], ptr [[TMP7]], i64 [[TMP1]]
 ; INTERLEAVE-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP5]], ptr align 8 [[TMP7]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; INTERLEAVE-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP6]], ptr align 8 [[TMP8]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK2]])
 ; INTERLEAVE-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP2]]
@@ -93,7 +93,7 @@ define void @test_uniform_smaller_scalar(ptr noalias %dst, ptr readonly %src, i3
 ; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr [8 x i8], ptr [[SRC]], i64 [[INDEX]]
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP2]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]], <vscale x 2 x double> poison)
 ; CHECK-NEXT:    [[TMP3:%.*]] = call <vscale x 2 x double> @bar_uniform(<vscale x 2 x double> [[WIDE_MASKED_LOAD]], i32 [[UNIFORM]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
-; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr inbounds [8 x i8], ptr [[DST]], i64 [[INDEX]]
+; CHECK-NEXT:    [[TMP4:%.*]] = getelementptr [8 x i8], ptr [[DST]], i64 [[INDEX]]
 ; CHECK-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP3]], ptr align 8 [[TMP4]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP1]]
 ; CHECK-NEXT:    [[ACTIVE_LANE_MASK_NEXT]] = call <vscale x 2 x i1> @llvm.get.active.lane.mask.nxv2i1.i64(i64 [[INDEX_NEXT]], i64 [[N]])
@@ -121,8 +121,8 @@ define void @test_uniform_smaller_scalar(ptr noalias %dst, ptr readonly %src, i3
 ; INTERLEAVE-NEXT:    [[WIDE_MASKED_LOAD3:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP4]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK2]], <vscale x 2 x double> poison)
 ; INTERLEAVE-NEXT:    [[TMP5:%.*]] = call <vscale x 2 x double> @bar_uniform(<vscale x 2 x double> [[WIDE_MASKED_LOAD]], i32 [[UNIFORM]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; INTERLEAVE-NEXT:    [[TMP6:%.*]] = call <vscale x 2 x double> @bar_uniform(<vscale x 2 x double> [[WIDE_MASKED_LOAD3]], i32 [[UNIFORM]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK2]])
-; INTERLEAVE-NEXT:    [[TMP7:%.*]] = getelementptr inbounds [8 x i8], ptr [[DST]], i64 [[INDEX]]
-; INTERLEAVE-NEXT:    [[TMP8:%.*]] = getelementptr inbounds [8 x i8], ptr [[TMP7]], i64 [[TMP1]]
+; INTERLEAVE-NEXT:    [[TMP7:%.*]] = getelementptr [8 x i8], ptr [[DST]], i64 [[INDEX]]
+; INTERLEAVE-NEXT:    [[TMP8:%.*]] = getelementptr [8 x i8], ptr [[TMP7]], i64 [[TMP1]]
 ; INTERLEAVE-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP5]], ptr align 8 [[TMP7]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; INTERLEAVE-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP6]], ptr align 8 [[TMP8]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK2]])
 ; INTERLEAVE-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP2]]

@@ -15,11 +15,11 @@ define void @test_stride1_4i32(ptr readonly %data, ptr noalias nocapture %dst, i
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = call <4 x i1> @llvm.get.active.lane.mask.v4i1.i32(i32 [[INDEX]], i32 [[N]])
-; CHECK-NEXT:    [[TMP1:%.*]] = add nuw nsw i32 [[INDEX]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[DATA:%.*]], i32 [[TMP1]]
+; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[INDEX]], 2
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr i32, ptr [[DATA:%.*]], i32 [[TMP0]]
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP2]], <4 x i1> [[ACTIVE_LANE_MASK]], <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i32> splat (i32 5), [[WIDE_MASKED_LOAD]]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[DST:%.*]], i32 [[INDEX]]
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i32, ptr [[DST:%.*]], i32 [[INDEX]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0(<4 x i32> [[TMP4]], ptr align 4 [[TMP5]], <4 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i32 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]
@@ -189,7 +189,7 @@ define void @test_stride3_4i32(ptr readonly %data, ptr noalias nocapture %dst, i
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[DATA:%.*]], <4 x i32> [[TMP2]]
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> align 4 [[TMP3]], <4 x i1> [[ACTIVE_LANE_MASK]], <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i32> splat (i32 5), [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[DST:%.*]], i32 [[INDEX]]
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i32, ptr [[DST:%.*]], i32 [[INDEX]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0(<4 x i32> [[TMP4]], ptr align 4 [[TMP5]], <4 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i32 [[INDEX]], 4
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i32> [[VEC_IND]], splat (i32 4)
@@ -236,7 +236,7 @@ define void @test_stride4_4i32(ptr readonly %data, ptr noalias nocapture %dst, i
 ; CHECK-NEXT:    [[TMP3:%.*]] = getelementptr inbounds i32, ptr [[DATA:%.*]], <4 x i32> [[TMP2]]
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> align 4 [[TMP3]], <4 x i1> [[ACTIVE_LANE_MASK]], <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i32> splat (i32 5), [[WIDE_MASKED_GATHER]]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[DST:%.*]], i32 [[INDEX]]
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i32, ptr [[DST:%.*]], i32 [[INDEX]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0(<4 x i32> [[TMP4]], ptr align 4 [[TMP5]], <4 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i32 [[INDEX]], 4
 ; CHECK-NEXT:    [[VEC_IND_NEXT]] = add <4 x i32> [[VEC_IND]], splat (i32 4)
@@ -280,11 +280,11 @@ define void @test_stride_loopinvar_4i32(ptr readonly %data, ptr noalias nocaptur
 ; CHECK:       vector.body:
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = call <4 x i1> @llvm.get.active.lane.mask.v4i1.i32(i32 [[INDEX]], i32 [[N]])
-; CHECK-NEXT:    [[TMP1:%.*]] = add nuw nsw i32 [[INDEX]], 2
-; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr inbounds i32, ptr [[DATA:%.*]], i32 [[TMP1]]
+; CHECK-NEXT:    [[TMP0:%.*]] = add i32 [[INDEX]], 2
+; CHECK-NEXT:    [[TMP2:%.*]] = getelementptr i32, ptr [[DATA:%.*]], i32 [[TMP0]]
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0(ptr align 4 [[TMP2]], <4 x i1> [[ACTIVE_LANE_MASK]], <4 x i32> poison)
 ; CHECK-NEXT:    [[TMP4:%.*]] = add nsw <4 x i32> splat (i32 5), [[WIDE_MASKED_LOAD]]
-; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr inbounds i32, ptr [[DST:%.*]], i32 [[INDEX]]
+; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i32, ptr [[DST:%.*]], i32 [[INDEX]]
 ; CHECK-NEXT:    call void @llvm.masked.store.v4i32.p0(<4 x i32> [[TMP4]], ptr align 4 [[TMP5]], <4 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-NEXT:    [[INDEX_NEXT]] = add i32 [[INDEX]], 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i32 [[INDEX_NEXT]], [[N_VEC]]

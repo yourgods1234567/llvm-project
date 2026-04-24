@@ -3609,9 +3609,7 @@ void VPlanTransforms::replaceSymbolicStrides(
   }
 }
 
-void VPlanTransforms::dropPoisonGeneratingRecipes(
-    VPlan &Plan,
-    const std::function<bool(BasicBlock *)> &BlockNeedsPredication) {
+void VPlanTransforms::dropPoisonGeneratingRecipes(VPlan &Plan) {
   // Collect recipes in the backward slice of `Root` that may generate a poison
   // value that is used after vectorization.
   SmallPtrSet<VPRecipeBase *, 16> Visited;
@@ -3679,28 +3677,13 @@ void VPlanTransforms::dropPoisonGeneratingRecipes(
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(Iter)) {
     for (VPRecipeBase &Recipe : *VPBB) {
       if (auto *WidenRec = dyn_cast<VPWidenMemoryRecipe>(&Recipe)) {
-        Instruction &UnderlyingInstr = WidenRec->getIngredient();
         VPRecipeBase *AddrDef = WidenRec->getAddr()->getDefiningRecipe();
-        if (AddrDef && WidenRec->isConsecutive() &&
-            BlockNeedsPredication(UnderlyingInstr.getParent()))
+        if (AddrDef && WidenRec->isConsecutive() && WidenRec->isMasked())
           CollectPoisonGeneratingInstrsInBackwardSlice(AddrDef);
       } else if (auto *InterleaveRec = dyn_cast<VPInterleaveRecipe>(&Recipe)) {
         VPRecipeBase *AddrDef = InterleaveRec->getAddr()->getDefiningRecipe();
-        if (AddrDef) {
-          // Check if any member of the interleave group needs predication.
-          const InterleaveGroup<Instruction> *InterGroup =
-              InterleaveRec->getInterleaveGroup();
-          bool NeedPredication = false;
-          for (int I = 0, NumMembers = InterGroup->getNumMembers();
-               I < NumMembers; ++I) {
-            Instruction *Member = InterGroup->getMember(I);
-            if (Member)
-              NeedPredication |= BlockNeedsPredication(Member->getParent());
-          }
-
-          if (NeedPredication)
-            CollectPoisonGeneratingInstrsInBackwardSlice(AddrDef);
-        }
+        if (AddrDef && InterleaveRec->getMask())
+          CollectPoisonGeneratingInstrsInBackwardSlice(AddrDef);
       }
     }
   }

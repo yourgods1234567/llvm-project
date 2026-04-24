@@ -19,10 +19,10 @@ define void @scalable_wide_active_lane_mask(ptr noalias %dst, ptr readonly %src,
 ; CHECK-UF1:       vector.body:
 ; CHECK-UF1-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH1]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-UF1-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = phi <vscale x 16 x i1> [ [[ACTIVE_LANE_MASK_ENTRY]], [[VECTOR_PH1]] ], [ [[ACTIVE_LANE_MASK_NEXT:%.*]], [[VECTOR_BODY]] ]
-; CHECK-UF1-NEXT:    [[TMP10:%.*]] = getelementptr inbounds i8, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-UF1-NEXT:    [[TMP10:%.*]] = getelementptr i8, ptr [[SRC]], i64 [[INDEX]]
 ; CHECK-UF1-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 16 x i8> @llvm.masked.load.nxv16i8.p0(ptr align 1 [[TMP10]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]], <vscale x 16 x i8> poison)
 ; CHECK-UF1-NEXT:    [[TMP6:%.*]] = mul <vscale x 16 x i8> [[WIDE_MASKED_LOAD]], splat (i8 3)
-; CHECK-UF1-NEXT:    [[TMP13:%.*]] = getelementptr inbounds i8, ptr [[DST]], i64 [[INDEX]]
+; CHECK-UF1-NEXT:    [[TMP13:%.*]] = getelementptr i8, ptr [[DST]], i64 [[INDEX]]
 ; CHECK-UF1-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP6]], ptr align 1 [[TMP13]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-UF1-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP18]]
 ; CHECK-UF1-NEXT:    [[ACTIVE_LANE_MASK_NEXT]] = call <vscale x 16 x i1> @llvm.get.active.lane.mask.nxv16i1.i64(i64 [[INDEX_NEXT]], i64 [[N]])
@@ -51,12 +51,12 @@ define void @scalable_wide_active_lane_mask(ptr noalias %dst, ptr readonly %src,
 ; CHECK-UF4-NEXT:    [[ACTIVE_LANE_MASK6:%.*]] = phi <vscale x 16 x i1> [ [[TMP17]], [[VECTOR_PH1]] ], [ [[TMP56:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-UF4-NEXT:    [[ACTIVE_LANE_MASK7:%.*]] = phi <vscale x 16 x i1> [ [[TMP18]], [[VECTOR_PH1]] ], [ [[TMP57:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-UF4-NEXT:    [[ACTIVE_LANE_MASK8:%.*]] = phi <vscale x 16 x i1> [ [[TMP19]], [[VECTOR_PH1]] ], [ [[TMP58:%.*]], [[VECTOR_BODY]] ]
-; CHECK-UF4-NEXT:    [[TMP20:%.*]] = getelementptr inbounds i8, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-UF4-NEXT:    [[TMP20:%.*]] = getelementptr i8, ptr [[SRC]], i64 [[INDEX]]
 ; CHECK-UF4-NEXT:    [[TMP32:%.*]] = shl nuw nsw i64 [[TMP1]], 1
 ; CHECK-UF4-NEXT:    [[TMP29:%.*]] = mul nuw nsw i64 [[TMP1]], 3
-; CHECK-UF4-NEXT:    [[TMP24:%.*]] = getelementptr inbounds i8, ptr [[TMP20]], i64 [[TMP1]]
-; CHECK-UF4-NEXT:    [[TMP33:%.*]] = getelementptr inbounds i8, ptr [[TMP20]], i64 [[TMP32]]
-; CHECK-UF4-NEXT:    [[TMP30:%.*]] = getelementptr inbounds i8, ptr [[TMP20]], i64 [[TMP29]]
+; CHECK-UF4-NEXT:    [[TMP24:%.*]] = getelementptr i8, ptr [[TMP20]], i64 [[TMP1]]
+; CHECK-UF4-NEXT:    [[TMP33:%.*]] = getelementptr i8, ptr [[TMP20]], i64 [[TMP32]]
+; CHECK-UF4-NEXT:    [[TMP30:%.*]] = getelementptr i8, ptr [[TMP20]], i64 [[TMP29]]
 ; CHECK-UF4-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 16 x i8> @llvm.masked.load.nxv16i8.p0(ptr align 1 [[TMP20]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]], <vscale x 16 x i8> poison)
 ; CHECK-UF4-NEXT:    [[WIDE_MASKED_LOAD9:%.*]] = call <vscale x 16 x i8> @llvm.masked.load.nxv16i8.p0(ptr align 1 [[TMP24]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK6]], <vscale x 16 x i8> poison)
 ; CHECK-UF4-NEXT:    [[WIDE_MASKED_LOAD10:%.*]] = call <vscale x 16 x i8> @llvm.masked.load.nxv16i8.p0(ptr align 1 [[TMP33]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK7]], <vscale x 16 x i8> poison)
@@ -65,10 +65,10 @@ define void @scalable_wide_active_lane_mask(ptr noalias %dst, ptr readonly %src,
 ; CHECK-UF4-NEXT:    [[TMP26:%.*]] = mul <vscale x 16 x i8> [[WIDE_MASKED_LOAD9]], splat (i8 3)
 ; CHECK-UF4-NEXT:    [[TMP27:%.*]] = mul <vscale x 16 x i8> [[WIDE_MASKED_LOAD10]], splat (i8 3)
 ; CHECK-UF4-NEXT:    [[TMP28:%.*]] = mul <vscale x 16 x i8> [[WIDE_MASKED_LOAD11]], splat (i8 3)
-; CHECK-UF4-NEXT:    [[TMP35:%.*]] = getelementptr inbounds i8, ptr [[DST]], i64 [[INDEX]]
-; CHECK-UF4-NEXT:    [[TMP39:%.*]] = getelementptr inbounds i8, ptr [[TMP35]], i64 [[TMP1]]
-; CHECK-UF4-NEXT:    [[TMP42:%.*]] = getelementptr inbounds i8, ptr [[TMP35]], i64 [[TMP32]]
-; CHECK-UF4-NEXT:    [[TMP45:%.*]] = getelementptr inbounds i8, ptr [[TMP35]], i64 [[TMP29]]
+; CHECK-UF4-NEXT:    [[TMP35:%.*]] = getelementptr i8, ptr [[DST]], i64 [[INDEX]]
+; CHECK-UF4-NEXT:    [[TMP39:%.*]] = getelementptr i8, ptr [[TMP35]], i64 [[TMP1]]
+; CHECK-UF4-NEXT:    [[TMP42:%.*]] = getelementptr i8, ptr [[TMP35]], i64 [[TMP32]]
+; CHECK-UF4-NEXT:    [[TMP45:%.*]] = getelementptr i8, ptr [[TMP35]], i64 [[TMP29]]
 ; CHECK-UF4-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP25]], ptr align 1 [[TMP35]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-UF4-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP26]], ptr align 1 [[TMP39]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK6]])
 ; CHECK-UF4-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP27]], ptr align 1 [[TMP42]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK7]])
@@ -100,14 +100,14 @@ define void @scalable_wide_active_lane_mask(ptr noalias %dst, ptr readonly %src,
 ; CHECK-TF-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-TF-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = phi <vscale x 16 x i1> [ [[TMP8]], [[VECTOR_PH]] ], [ [[TMP20:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-TF-NEXT:    [[ACTIVE_LANE_MASK1:%.*]] = phi <vscale x 16 x i1> [ [[TMP7]], [[VECTOR_PH]] ], [ [[TMP19:%.*]], [[VECTOR_BODY]] ]
-; CHECK-TF-NEXT:    [[TMP9:%.*]] = getelementptr inbounds i8, ptr [[SRC]], i64 [[INDEX]]
-; CHECK-TF-NEXT:    [[TMP12:%.*]] = getelementptr inbounds i8, ptr [[TMP9]], i64 [[TMP10]]
+; CHECK-TF-NEXT:    [[TMP9:%.*]] = getelementptr i8, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-TF-NEXT:    [[TMP12:%.*]] = getelementptr i8, ptr [[TMP9]], i64 [[TMP10]]
 ; CHECK-TF-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 16 x i8> @llvm.masked.load.nxv16i8.p0(ptr align 1 [[TMP9]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]], <vscale x 16 x i8> poison)
 ; CHECK-TF-NEXT:    [[WIDE_MASKED_LOAD2:%.*]] = call <vscale x 16 x i8> @llvm.masked.load.nxv16i8.p0(ptr align 1 [[TMP12]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK1]], <vscale x 16 x i8> poison)
 ; CHECK-TF-NEXT:    [[TMP13:%.*]] = mul <vscale x 16 x i8> [[WIDE_MASKED_LOAD]], splat (i8 3)
 ; CHECK-TF-NEXT:    [[TMP14:%.*]] = mul <vscale x 16 x i8> [[WIDE_MASKED_LOAD2]], splat (i8 3)
-; CHECK-TF-NEXT:    [[TMP15:%.*]] = getelementptr inbounds i8, ptr [[DST]], i64 [[INDEX]]
-; CHECK-TF-NEXT:    [[TMP18:%.*]] = getelementptr inbounds i8, ptr [[TMP15]], i64 [[TMP10]]
+; CHECK-TF-NEXT:    [[TMP15:%.*]] = getelementptr i8, ptr [[DST]], i64 [[INDEX]]
+; CHECK-TF-NEXT:    [[TMP18:%.*]] = getelementptr i8, ptr [[TMP15]], i64 [[TMP10]]
 ; CHECK-TF-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP13]], ptr align 1 [[TMP15]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-TF-NEXT:    call void @llvm.masked.store.nxv16i8.p0(<vscale x 16 x i8> [[TMP14]], ptr align 1 [[TMP18]], <vscale x 16 x i1> [[ACTIVE_LANE_MASK1]])
 ; CHECK-TF-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP1]]
@@ -153,10 +153,10 @@ define void @scalable_wide_active_lane_mask_double(ptr noalias %dst, ptr readonl
 ; CHECK-UF1:       vector.body:
 ; CHECK-UF1-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-UF1-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = phi <vscale x 2 x i1> [ [[ACTIVE_LANE_MASK_ENTRY]], [[VECTOR_PH]] ], [ [[ACTIVE_LANE_MASK_NEXT:%.*]], [[VECTOR_BODY]] ]
-; CHECK-UF1-NEXT:    [[TMP5:%.*]] = getelementptr inbounds double, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-UF1-NEXT:    [[TMP5:%.*]] = getelementptr double, ptr [[SRC]], i64 [[INDEX]]
 ; CHECK-UF1-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP5]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]], <vscale x 2 x double> poison)
 ; CHECK-UF1-NEXT:    [[TMP3:%.*]] = fmul <vscale x 2 x double> [[WIDE_MASKED_LOAD]], splat (double 3.000000e+00)
-; CHECK-UF1-NEXT:    [[TMP8:%.*]] = getelementptr inbounds double, ptr [[DST]], i64 [[INDEX]]
+; CHECK-UF1-NEXT:    [[TMP8:%.*]] = getelementptr double, ptr [[DST]], i64 [[INDEX]]
 ; CHECK-UF1-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP3]], ptr align 8 [[TMP8]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-UF1-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP9]]
 ; CHECK-UF1-NEXT:    [[ACTIVE_LANE_MASK_NEXT]] = call <vscale x 2 x i1> @llvm.get.active.lane.mask.nxv2i1.i64(i64 [[INDEX_NEXT]], i64 [[N]])
@@ -188,12 +188,12 @@ define void @scalable_wide_active_lane_mask_double(ptr noalias %dst, ptr readonl
 ; CHECK-UF4-NEXT:    [[ACTIVE_LANE_MASK6:%.*]] = phi <vscale x 2 x i1> [ [[TMP12]], [[VECTOR_PH]] ], [ [[TMP51:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-UF4-NEXT:    [[ACTIVE_LANE_MASK7:%.*]] = phi <vscale x 2 x i1> [ [[TMP13]], [[VECTOR_PH]] ], [ [[TMP52:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-UF4-NEXT:    [[ACTIVE_LANE_MASK8:%.*]] = phi <vscale x 2 x i1> [ [[TMP14]], [[VECTOR_PH]] ], [ [[TMP53:%.*]], [[VECTOR_BODY]] ]
-; CHECK-UF4-NEXT:    [[TMP15:%.*]] = getelementptr inbounds double, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-UF4-NEXT:    [[TMP15:%.*]] = getelementptr double, ptr [[SRC]], i64 [[INDEX]]
 ; CHECK-UF4-NEXT:    [[TMP21:%.*]] = shl nuw nsw i64 [[TMP1]], 1
 ; CHECK-UF4-NEXT:    [[TMP24:%.*]] = mul nuw nsw i64 [[TMP1]], 3
-; CHECK-UF4-NEXT:    [[TMP29:%.*]] = getelementptr inbounds double, ptr [[TMP15]], i64 [[TMP1]]
-; CHECK-UF4-NEXT:    [[TMP22:%.*]] = getelementptr inbounds double, ptr [[TMP15]], i64 [[TMP21]]
-; CHECK-UF4-NEXT:    [[TMP25:%.*]] = getelementptr inbounds double, ptr [[TMP15]], i64 [[TMP24]]
+; CHECK-UF4-NEXT:    [[TMP29:%.*]] = getelementptr double, ptr [[TMP15]], i64 [[TMP1]]
+; CHECK-UF4-NEXT:    [[TMP22:%.*]] = getelementptr double, ptr [[TMP15]], i64 [[TMP21]]
+; CHECK-UF4-NEXT:    [[TMP25:%.*]] = getelementptr double, ptr [[TMP15]], i64 [[TMP24]]
 ; CHECK-UF4-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP15]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]], <vscale x 2 x double> poison)
 ; CHECK-UF4-NEXT:    [[WIDE_MASKED_LOAD9:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP29]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK6]], <vscale x 2 x double> poison)
 ; CHECK-UF4-NEXT:    [[WIDE_MASKED_LOAD10:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP22]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK7]], <vscale x 2 x double> poison)
@@ -202,10 +202,10 @@ define void @scalable_wide_active_lane_mask_double(ptr noalias %dst, ptr readonl
 ; CHECK-UF4-NEXT:    [[TMP17:%.*]] = fmul <vscale x 2 x double> [[WIDE_MASKED_LOAD9]], splat (double 3.000000e+00)
 ; CHECK-UF4-NEXT:    [[TMP18:%.*]] = fmul <vscale x 2 x double> [[WIDE_MASKED_LOAD10]], splat (double 3.000000e+00)
 ; CHECK-UF4-NEXT:    [[TMP19:%.*]] = fmul <vscale x 2 x double> [[WIDE_MASKED_LOAD11]], splat (double 3.000000e+00)
-; CHECK-UF4-NEXT:    [[TMP30:%.*]] = getelementptr inbounds double, ptr [[DST]], i64 [[INDEX]]
-; CHECK-UF4-NEXT:    [[TMP34:%.*]] = getelementptr inbounds double, ptr [[TMP30]], i64 [[TMP1]]
-; CHECK-UF4-NEXT:    [[TMP37:%.*]] = getelementptr inbounds double, ptr [[TMP30]], i64 [[TMP21]]
-; CHECK-UF4-NEXT:    [[TMP40:%.*]] = getelementptr inbounds double, ptr [[TMP30]], i64 [[TMP24]]
+; CHECK-UF4-NEXT:    [[TMP30:%.*]] = getelementptr double, ptr [[DST]], i64 [[INDEX]]
+; CHECK-UF4-NEXT:    [[TMP34:%.*]] = getelementptr double, ptr [[TMP30]], i64 [[TMP1]]
+; CHECK-UF4-NEXT:    [[TMP37:%.*]] = getelementptr double, ptr [[TMP30]], i64 [[TMP21]]
+; CHECK-UF4-NEXT:    [[TMP40:%.*]] = getelementptr double, ptr [[TMP30]], i64 [[TMP24]]
 ; CHECK-UF4-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP16]], ptr align 8 [[TMP30]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-UF4-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP17]], ptr align 8 [[TMP34]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK6]])
 ; CHECK-UF4-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP18]], ptr align 8 [[TMP37]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK7]])
@@ -240,14 +240,14 @@ define void @scalable_wide_active_lane_mask_double(ptr noalias %dst, ptr readonl
 ; CHECK-TF-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-TF-NEXT:    [[ACTIVE_LANE_MASK:%.*]] = phi <vscale x 2 x i1> [ [[TMP8]], [[VECTOR_PH]] ], [ [[TMP20:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-TF-NEXT:    [[ACTIVE_LANE_MASK1:%.*]] = phi <vscale x 2 x i1> [ [[TMP7]], [[VECTOR_PH]] ], [ [[TMP19:%.*]], [[VECTOR_BODY]] ]
-; CHECK-TF-NEXT:    [[TMP9:%.*]] = getelementptr inbounds double, ptr [[SRC]], i64 [[INDEX]]
-; CHECK-TF-NEXT:    [[TMP12:%.*]] = getelementptr inbounds double, ptr [[TMP9]], i64 [[TMP10]]
+; CHECK-TF-NEXT:    [[TMP9:%.*]] = getelementptr double, ptr [[SRC]], i64 [[INDEX]]
+; CHECK-TF-NEXT:    [[TMP12:%.*]] = getelementptr double, ptr [[TMP9]], i64 [[TMP10]]
 ; CHECK-TF-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP9]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]], <vscale x 2 x double> poison)
 ; CHECK-TF-NEXT:    [[WIDE_MASKED_LOAD2:%.*]] = call <vscale x 2 x double> @llvm.masked.load.nxv2f64.p0(ptr align 8 [[TMP12]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK1]], <vscale x 2 x double> poison)
 ; CHECK-TF-NEXT:    [[TMP13:%.*]] = fmul <vscale x 2 x double> [[WIDE_MASKED_LOAD]], splat (double 3.000000e+00)
 ; CHECK-TF-NEXT:    [[TMP14:%.*]] = fmul <vscale x 2 x double> [[WIDE_MASKED_LOAD2]], splat (double 3.000000e+00)
-; CHECK-TF-NEXT:    [[TMP15:%.*]] = getelementptr inbounds double, ptr [[DST]], i64 [[INDEX]]
-; CHECK-TF-NEXT:    [[TMP18:%.*]] = getelementptr inbounds double, ptr [[TMP15]], i64 [[TMP10]]
+; CHECK-TF-NEXT:    [[TMP15:%.*]] = getelementptr double, ptr [[DST]], i64 [[INDEX]]
+; CHECK-TF-NEXT:    [[TMP18:%.*]] = getelementptr double, ptr [[TMP15]], i64 [[TMP10]]
 ; CHECK-TF-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP13]], ptr align 8 [[TMP15]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK]])
 ; CHECK-TF-NEXT:    call void @llvm.masked.store.nxv2f64.p0(<vscale x 2 x double> [[TMP14]], ptr align 8 [[TMP18]], <vscale x 2 x i1> [[ACTIVE_LANE_MASK1]])
 ; CHECK-TF-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], [[TMP1]]
