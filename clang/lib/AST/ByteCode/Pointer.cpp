@@ -633,6 +633,7 @@ void Pointer::activate() const {
   std::function<void(Pointer &)> activate;
   activate = [&activate](Pointer &P) -> void {
     P.getInlineDesc()->IsActive = true;
+    P.startLifetime();
     if (const Record *R = P.getRecord(); R && !R->isUnion()) {
       for (const Record::Field &F : R->fields()) {
         Pointer FieldPtr = P.atField(F.Offset);
