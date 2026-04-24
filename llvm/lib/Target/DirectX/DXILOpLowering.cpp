@@ -1023,6 +1023,7 @@ public:
       case Intrinsic::dx_resource_handlefrombinding:
         HasErrors |= lowerHandleFromBinding(F);
         break;
+      case Intrinsic::dx_resource_getbasepointer:
       case Intrinsic::dx_resource_getpointer:
         HasErrors |= lowerGetPointer(F);
         break;

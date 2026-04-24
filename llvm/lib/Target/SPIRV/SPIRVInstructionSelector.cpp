@@ -697,6 +697,7 @@ static bool intrinsicHasSideEffects(Intrinsic::ID ID) {
   case Intrinsic::spv_radians:
   case Intrinsic::spv_reflect:
   case Intrinsic::spv_refract:
+  case Intrinsic::spv_resource_getbasepointer:
   case Intrinsic::spv_resource_getpointer:
   case Intrinsic::spv_resource_handlefrombinding:
   case Intrinsic::spv_resource_handlefromimplicitbinding:
@@ -1884,7 +1885,9 @@ bool SPIRVInstructionSelector::selectLoad(Register ResVReg,
   auto *PtrDef = getVRegDef(*MRI, Ptr);
   auto *IntPtrDef = dyn_cast<GIntrinsic>(PtrDef);
   if (IntPtrDef &&
-      IntPtrDef->getIntrinsicID() == Intrinsic::spv_resource_getpointer) {
+      (IntPtrDef->getIntrinsicID() == Intrinsic::spv_resource_getbasepointer ||
+       IntPtrDef->getIntrinsicID() == Intrinsic::spv_resource_getpointer)) {
+
     Register HandleReg = IntPtrDef->getOperand(2).getReg();
     SPIRVTypeInst HandleType = GR.getSPIRVTypeForVReg(HandleReg);
     if (HandleType->getOpcode() == SPIRV::OpTypeImage) {
@@ -1976,7 +1979,9 @@ bool SPIRVInstructionSelector::selectStore(MachineInstr &I) const {
   auto *PtrDef = getVRegDef(*MRI, Ptr);
   auto *IntPtrDef = dyn_cast<GIntrinsic>(PtrDef);
   if (IntPtrDef &&
-      IntPtrDef->getIntrinsicID() == Intrinsic::spv_resource_getpointer) {
+      (IntPtrDef->getIntrinsicID() == Intrinsic::spv_resource_getbasepointer ||
+       IntPtrDef->getIntrinsicID() == Intrinsic::spv_resource_getpointer)) {
+
     Register HandleReg = IntPtrDef->getOperand(2).getReg();
     Register NewHandleReg =
         MRI->createVirtualRegister(MRI->getRegClass(HandleReg));
@@ -5041,6 +5046,7 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
   case Intrinsic::spv_resource_gather:
   case Intrinsic::spv_resource_gather_cmp:
     return selectGatherIntrinsic(ResVReg, ResType, I);
+  case Intrinsic::spv_resource_getbasepointer:
   case Intrinsic::spv_resource_getpointer: {
     return selectResourceGetPointer(ResVReg, ResType, I);
   }
@@ -5837,16 +5843,20 @@ bool SPIRVInstructionSelector::selectResourceGetPointer(Register &ResVReg,
   assert(ResType->getOpcode() == SPIRV::OpTypePointer);
   MachineIRBuilder MIRBuilder(I);
 
-  Register IndexReg = I.getOperand(3).getReg();
   Register ZeroReg =
       buildZerosVal(GR.getOrCreateSPIRVIntegerType(32, I, TII), I);
-  BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(SPIRV::OpAccessChain))
-      .addDef(ResVReg)
-      .addUse(GR.getSPIRVTypeID(ResType))
-      .addUse(ResourcePtr)
-      .addUse(ZeroReg)
-      .addUse(IndexReg)
-      .constrainAllUses(TII, TRI, RBI);
+  auto MIB =
+      BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(SPIRV::OpAccessChain))
+          .addDef(ResVReg)
+          .addUse(GR.getSPIRVTypeID(ResType))
+          .addUse(ResourcePtr)
+          .addUse(ZeroReg);
+
+  if (I.getNumExplicitOperands() > 3) {
+    Register IndexReg = I.getOperand(3).getReg();
+    MIB.addUse(IndexReg);
+  }
+  MIB.constrainAllUses(TII, TRI, RBI);
   return true;
 }
 
