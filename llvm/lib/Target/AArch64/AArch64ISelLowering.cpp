@@ -5180,6 +5180,36 @@ SDValue AArch64TargetLowering::LowerVectorXRINT(SDValue Op,
   EVT CastVT = VT.changeVectorElementType(
       *DAG.getContext(), Src.getValueType().getVectorElementType());
 
+  unsigned IntBits = VT.getScalarSizeInBits();
+  unsigned FPBits = CastVT.getScalarSizeInBits();
+
+  bool UseFRINTX = Subtarget->isSVEorStreamingSVEAvailable() &&
+                   Subtarget->hasSVE2p2() && (FPBits == 32 || FPBits == 64);
+
+  // Convert fixed-length vectors to scalable and re-emit the same opcode.
+  if (UseFRINTX && useSVEForFixedLengthVectorVT(
+                       Op.getValueType(), !Subtarget->isNeonAvailable())) {
+    EVT ContainerSrcVT =
+        getContainerForFixedLengthVector(DAG, Src.getValueType());
+    EVT ContainerVT = getContainerForFixedLengthVector(DAG, VT);
+    SDValue ScalableSrc = convertToScalableVector(DAG, ContainerSrcVT, Src);
+
+    SDValue ScalableRes =
+        DAG.getNode(Op.getOpcode(), DL, ContainerVT, ScalableSrc);
+    return convertFromScalableVector(DAG, VT, ScalableRes);
+  }
+
+  // Lower to FRINT32X/FRINT64X for scalable vectors if Sve2p2 is available.
+  if (VT.isScalableVector() && UseFRINTX) {
+    assert(IntBits == 32 || IntBits == 64);
+    unsigned FrintOp = (IntBits == 32) ? AArch64ISD::FRINT32_MERGE_PASSTHRU
+                                       : AArch64ISD::FRINT64_MERGE_PASSTHRU;
+    SDValue Pg = getPredicateForVector(DAG, DL, CastVT);
+    SDValue Passthru = DAG.getUNDEF(CastVT);
+    SDValue FOp = DAG.getNode(FrintOp, DL, CastVT, Pg, Src, Passthru);
+    return DAG.getNode(ISD::FP_TO_SINT, DL, VT, FOp);
+  }
+
   // Round the floating-point value into a floating-point register with the
   // current rounding mode.
   SDValue FOp = DAG.getNode(ISD::FRINT, DL, CastVT, Src);
