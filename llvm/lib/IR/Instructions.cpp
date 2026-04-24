@@ -802,6 +802,7 @@ CallInst::CallInst(const CallInst &CI, AllocInfo AllocInfo)
   std::copy(CI.bundle_op_info_begin(), CI.bundle_op_info_end(),
             bundle_op_info_begin());
   SubclassOptionalData = CI.SubclassOptionalData;
+  FMFValue = CI.FMFValue;
 }
 
 CallInst *CallInst::Create(CallInst *CI, ArrayRef<OperandBundleDef> OpB,
@@ -813,6 +814,7 @@ CallInst *CallInst::Create(CallInst *CI, ArrayRef<OperandBundleDef> OpB,
   NewCI->setTailCallKind(CI->getTailCallKind());
   NewCI->setCallingConv(CI->getCallingConv());
   NewCI->SubclassOptionalData = CI->SubclassOptionalData;
+  NewCI->FMFValue = CI->FMFValue;
   NewCI->setAttributes(CI->getAttributes());
   NewCI->setDebugLoc(CI->getDebugLoc());
   return NewCI;
@@ -2611,7 +2613,12 @@ UnaryOperator::UnaryOperator(UnaryOps iType, Value *S, Type *Ty,
 
 UnaryOperator *UnaryOperator::Create(UnaryOps Op, Value *S, const Twine &Name,
                                      InsertPosition InsertBefore) {
-  return new UnaryOperator(Op, S, S->getType(), Name, InsertBefore);
+  switch (Op) {
+  case UnaryOps::FNeg:
+    return new FPUnaryOperator(Op, S, S->getType(), Name, InsertBefore);
+  default:
+    return new UnaryOperator(Op, S, S->getType(), Name, InsertBefore);
+  }
 }
 
 void UnaryOperator::AssertOK() {
@@ -2717,7 +2724,16 @@ BinaryOperator *BinaryOperator::Create(BinaryOps Op, Value *S1, Value *S2,
                                        InsertPosition InsertBefore) {
   assert(S1->getType() == S2->getType() &&
          "Cannot create binary operator with two operands of differing type!");
-  return new BinaryOperator(Op, S1, S2, S1->getType(), Name, InsertBefore);
+  switch (Op) {
+  case BinaryOps::FAdd:
+  case BinaryOps::FSub:
+  case BinaryOps::FMul:
+  case BinaryOps::FDiv:
+  case BinaryOps::FRem:
+    return new FPBinaryOperator(Op, S1, S2, S1->getType(), Name, InsertBefore);
+  default:
+    return new BinaryOperator(Op, S1, S2, S1->getType(), Name, InsertBefore);
+  }
 }
 
 BinaryOperator *BinaryOperator::CreateNeg(Value *Op, const Twine &Name,
@@ -3532,7 +3548,8 @@ CmpInst::CmpInst(Type *ty, OtherOps op, Predicate predicate, Value *LHS,
   setPredicate(predicate);
   setName(Name);
   if (FlagsSource)
-    copyIRFlags(FlagsSource);
+    copyIRFlags(FlagsSource, /*IncludeWrapFlags=*/true,
+                /*IncludeFastMathFlags=*/false);
 }
 
 CmpInst *CmpInst::Create(OtherOps Op, Predicate predicate, Value *S1, Value *S2,
@@ -4349,12 +4366,29 @@ UnaryOperator *UnaryOperator::cloneImpl() const {
   return Create(getOpcode(), Op<0>());
 }
 
+FPUnaryOperator *FPUnaryOperator::cloneImpl() const {
+  auto *I = static_cast<FPUnaryOperator *>(Create(getOpcode(), Op<0>()));
+  I->FMFValue = FMFValue;
+  return I;
+}
+
 BinaryOperator *BinaryOperator::cloneImpl() const {
+  assert(!isa<FPBinaryOperator>(this) &&
+         "Should call FPBinaryOperator::cloneImpl!");
   return Create(getOpcode(), Op<0>(), Op<1>());
 }
 
+FPBinaryOperator *FPBinaryOperator::cloneImpl() const {
+  auto *I =
+      static_cast<FPBinaryOperator *>(Create(getOpcode(), Op<0>(), Op<1>()));
+  I->FMFValue = FMFValue;
+  return I;
+}
+
 FCmpInst *FCmpInst::cloneImpl() const {
-  return new FCmpInst(getPredicate(), Op<0>(), Op<1>());
+  auto *I = new FCmpInst(getPredicate(), Op<0>(), Op<1>());
+  I->FMFValue = FMFValue;
+  return I;
 }
 
 ICmpInst *ICmpInst::cloneImpl() const {
@@ -4421,11 +4455,15 @@ SExtInst *SExtInst::cloneImpl() const {
 }
 
 FPTruncInst *FPTruncInst::cloneImpl() const {
-  return new FPTruncInst(getOperand(0), getType());
+  auto *I = new FPTruncInst(getOperand(0), getType());
+  I->FMFValue = FMFValue;
+  return I;
 }
 
 FPExtInst *FPExtInst::cloneImpl() const {
-  return new FPExtInst(getOperand(0), getType());
+  auto *I = new FPExtInst(getOperand(0), getType());
+  I->FMFValue = FMFValue;
+  return I;
 }
 
 UIToFPInst *UIToFPInst::cloneImpl() const {
@@ -4469,14 +4507,20 @@ CallInst *CallInst::cloneImpl() const {
     IntrusiveOperandsAndDescriptorAllocMarker AllocMarker{
         getNumOperands(),
         getNumOperandBundles() * unsigned(sizeof(BundleOpInfo))};
-    return new (AllocMarker) CallInst(*this, AllocMarker);
+    auto *I = new (AllocMarker) CallInst(*this, AllocMarker);
+    I->FMFValue = FMFValue;
+    return I;
   }
   IntrusiveOperandsAllocMarker AllocMarker{getNumOperands()};
-  return new (AllocMarker) CallInst(*this, AllocMarker);
+  auto *I = new (AllocMarker) CallInst(*this, AllocMarker);
+  I->FMFValue = FMFValue;
+  return I;
 }
 
 SelectInst *SelectInst::cloneImpl() const {
-  return SelectInst::Create(getOperand(0), getOperand(1), getOperand(2));
+  auto *I = SelectInst::Create(getOperand(0), getOperand(1), getOperand(2));
+  I->FMFValue = FMFValue;
+  return I;
 }
 
 VAArgInst *VAArgInst::cloneImpl() const {
@@ -4495,7 +4539,11 @@ ShuffleVectorInst *ShuffleVectorInst::cloneImpl() const {
   return new ShuffleVectorInst(getOperand(0), getOperand(1), getShuffleMask());
 }
 
-PHINode *PHINode::cloneImpl() const { return new (AllocMarker) PHINode(*this); }
+PHINode *PHINode::cloneImpl() const {
+  auto *I = new (AllocMarker) PHINode(*this);
+  I->FMFValue = FMFValue;
+  return I;
+}
 
 LandingPadInst *LandingPadInst::cloneImpl() const {
   return new LandingPadInst(*this);
