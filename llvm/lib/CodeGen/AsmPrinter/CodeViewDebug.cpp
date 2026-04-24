@@ -3134,6 +3134,11 @@ static bool isUsableDebugLoc(DebugLoc DL) {
 void CodeViewDebug::beginInstruction(const MachineInstr *MI) {
   DebugHandlerBase::beginInstruction(MI);
 
+  if (MI->isInlineAsm() && MI->getInlineAsmSourceLocMD()) {
+    PrevInstBB = MI->getParent();
+    return;
+  }
+
   // Ignore DBG_VALUE and DBG_LABEL locations and function prologue.
   if (!Asm || !CurFn || MI->isDebugInstr() ||
       MI->getFlag(MachineInstr::FrameSetup))
@@ -3160,6 +3165,14 @@ void CodeViewDebug::beginInstruction(const MachineInstr *MI) {
     return;
 
   maybeRecordLocation(DL, Asm->MF);
+}
+
+void CodeViewDebug::beginInlineAsmInstruction(const MachineInstr *MI,
+                                              const DILocation *Loc) {
+  if (!Asm || !CurFn || !MI || !Loc)
+    return;
+
+  maybeRecordLocation(DebugLoc(Loc), Asm->MF);
 }
 
 MCSymbol *CodeViewDebug::beginCVSubsection(DebugSubsectionKind Kind) {
