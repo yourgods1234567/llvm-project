@@ -317,6 +317,27 @@ static mlir::Value emitCommonNeonSISDBuiltinExpr(
   case NEON::BI__builtin_neon_vcvtd_n_f64_u64:
   case NEON::BI__builtin_neon_vcvtd_n_s64_f64:
   case NEON::BI__builtin_neon_vcvtd_n_u64_f64:
+  case NEON::BI__builtin_neon_vaddlv_s32:
+  case NEON::BI__builtin_neon_vaddlv_u32:
+  case NEON::BI__builtin_neon_vaddlvq_s32:
+  case NEON::BI__builtin_neon_vaddlvq_u32:
+  case NEON::BI__builtin_neon_vaddv_s8:
+  case NEON::BI__builtin_neon_vaddv_s16:
+  case NEON::BI__builtin_neon_vaddv_s32:
+  case NEON::BI__builtin_neon_vaddv_u8:
+  case NEON::BI__builtin_neon_vaddv_u16:
+  case NEON::BI__builtin_neon_vaddv_u32:
+  case NEON::BI__builtin_neon_vaddv_f32:
+  case NEON::BI__builtin_neon_vaddvq_s8:
+  case NEON::BI__builtin_neon_vaddvq_s16:
+  case NEON::BI__builtin_neon_vaddvq_s32:
+  case NEON::BI__builtin_neon_vaddvq_s64:
+  case NEON::BI__builtin_neon_vaddvq_u8:
+  case NEON::BI__builtin_neon_vaddvq_u16:
+  case NEON::BI__builtin_neon_vaddvq_u32:
+  case NEON::BI__builtin_neon_vaddvq_u64:
+  case NEON::BI__builtin_neon_vaddvq_f32:
+  case NEON::BI__builtin_neon_vaddvq_f64:
     return emitNeonCall(cgf.cgm, cgf.getBuilder(),
                         {cgf.convertType(expr->getArg(0)->getType())}, ops,
                         llvmIntrName, cgf.convertType(expr->getType()), loc);
@@ -2701,14 +2722,6 @@ CIRGenFunction::emitAArch64BuiltinExpr(unsigned builtinID, const CallExpr *expr,
   case NEON::BI__builtin_neon_vminnmv_f16:
   case NEON::BI__builtin_neon_vminnmvq_f16:
   case NEON::BI__builtin_neon_vmul_n_f64:
-  case NEON::BI__builtin_neon_vaddlv_u8:
-  case NEON::BI__builtin_neon_vaddlv_u16:
-  case NEON::BI__builtin_neon_vaddlvq_u8:
-  case NEON::BI__builtin_neon_vaddlvq_u16:
-  case NEON::BI__builtin_neon_vaddlv_s8:
-  case NEON::BI__builtin_neon_vaddlv_s16:
-  case NEON::BI__builtin_neon_vaddlvq_s8:
-  case NEON::BI__builtin_neon_vaddlvq_s16:
   case NEON::BI__builtin_neon_vsri_n_v:
   case NEON::BI__builtin_neon_vsriq_n_v:
   case NEON::BI__builtin_neon_vsli_n_v:
@@ -2719,6 +2732,32 @@ CIRGenFunction::emitAArch64BuiltinExpr(unsigned builtinID, const CallExpr *expr,
                  std::string("unimplemented AArch64 builtin call: ") +
                      getContext().BuiltinInfo.getName(builtinID));
     return mlir::Value{};
+  case NEON::BI__builtin_neon_vaddlv_u8:
+  case NEON::BI__builtin_neon_vaddlvq_u8:
+  case NEON::BI__builtin_neon_vaddlv_u16:
+  case NEON::BI__builtin_neon_vaddlvq_u16:
+  case NEON::BI__builtin_neon_vaddlv_s8:
+  case NEON::BI__builtin_neon_vaddlvq_s8:
+  case NEON::BI__builtin_neon_vaddlv_s16:
+  case NEON::BI__builtin_neon_vaddlvq_s16: {
+    mlir::Type argTy = convertType(expr->getArg(0)->getType());
+    mlir::Type userRetTy = convertType(expr->getType());
+    auto eltTy = mlir::cast<cir::IntType>(
+        mlir::cast<cir::VectorType>(argTy).getElementType());
+    bool isUnsigned = !eltTy.isSigned();
+    // The intrinsic always returns a 32-bit integer for these variants;
+    // only the 8-bit element variants need a further truncation to i16.
+    bool needsTrunc = eltTy.getWidth() == 8;
+    intrName = isUnsigned ? "aarch64.neon.uaddlv" : "aarch64.neon.saddlv";
+    mlir::Type intrRetTy = userRetTy;
+    if (needsTrunc)
+      intrRetTy = isUnsigned ? builder.getUInt32Ty() : builder.getSInt32Ty();
+    mlir::Value result =
+        emitNeonCall(cgm, builder, {argTy}, ops, intrName, intrRetTy, loc);
+    if (needsTrunc)
+      result = builder.createIntCast(result, userRetTy);
+    return result;
+  }
   case NEON::BI__builtin_neon_vrsra_n_v:
   case NEON::BI__builtin_neon_vrsraq_n_v: {
     intrName = usgn ? "aarch64.neon.urshl" : "aarch64.neon.srshl";
