@@ -83,6 +83,7 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/UniformityAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -104,6 +105,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -141,6 +143,7 @@ public:
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
+    AU.addRequired<UniformityInfoWrapperPass>();
     AU.setPreservesCFG();
   }
 
@@ -159,6 +162,7 @@ INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(UniformityInfoWrapperPass)
 INITIALIZE_PASS_END(NaryReassociateLegacyPass, "nary-reassociate",
                     "Nary reassociation", false, false)
 
@@ -175,8 +179,10 @@ bool NaryReassociateLegacyPass::runOnFunction(Function &F) {
   auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  UniformityInfo *UI =
+      &getAnalysis<UniformityInfoWrapperPass>().getUniformityInfo();
 
-  return Impl.runImpl(F, AC, DT, SE, TLI, TTI);
+  return Impl.runImpl(F, AC, DT, SE, TLI, TTI, UI);
 }
 
 PreservedAnalyses NaryReassociatePass::run(Function &F,
@@ -186,8 +192,9 @@ PreservedAnalyses NaryReassociatePass::run(Function &F,
   auto *SE = &AM.getResult<ScalarEvolutionAnalysis>(F);
   auto *TLI = &AM.getResult<TargetLibraryAnalysis>(F);
   auto *TTI = &AM.getResult<TargetIRAnalysis>(F);
+  UniformityInfo *UI = &AM.getResult<UniformityInfoAnalysis>(F);
 
-  if (!runImpl(F, AC, DT, SE, TLI, TTI))
+  if (!runImpl(F, AC, DT, SE, TLI, TTI, UI))
     return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
@@ -199,12 +206,14 @@ PreservedAnalyses NaryReassociatePass::run(Function &F,
 bool NaryReassociatePass::runImpl(Function &F, AssumptionCache *AC_,
                                   DominatorTree *DT_, ScalarEvolution *SE_,
                                   TargetLibraryInfo *TLI_,
-                                  TargetTransformInfo *TTI_) {
+                                  TargetTransformInfo *TTI_,
+                                  UniformityInfo *UI_) {
   AC = AC_;
   DT = DT_;
   SE = SE_;
   TLI = TLI_;
   TTI = TTI_;
+  UI = UI_;
   DL = &F.getDataLayout();
 
   bool Changed = false, ChangedInThisIteration;
@@ -379,14 +388,33 @@ NaryReassociatePass::tryReassociateGEPAtIndex(GetElementPtrInst *GEP,
 
     Value *LHS = AO->getOperand(0), *RHS = AO->getOperand(1);
     // IndexToSplit = LHS + RHS.
-    if (auto *NewGEP = tryReassociateGEPAtIndex(GEP, I, LHS, RHS, IndexedType))
-      return NewGEP;
-    // Symmetrically, try IndexToSplit = RHS + LHS.
-    if (LHS != RHS) {
-      if (auto *NewGEP =
+    // tryReassociateGEPAtIndex(GEP, I, LHS, RHS, ...) looks for a dominating
+    // GEP with LHS as index, then creates: NewGEP = existingGEP + RHS * scale.
+    // So the RHS becomes the "remaining" index calculation.
+
+    // When LHS == RHS, both call orders are identical, so only try once.
+    if (LHS == RHS)
+      return tryReassociateGEPAtIndex(GEP, I, LHS, RHS, IndexedType);
+
+    // When uniformity analysis is available, prefer the remaining calculation
+    // to be uniform, keeping uniform computations grouped together.
+    // Default order tries LHS first (RHS as remainder). If LHS is uniform and
+    // RHS is divergent, try RHS first so uniform LHS becomes the remainder.
+    if (UI && !UI->isDivergentUse(AO->getOperandUse(0)) &&
+        UI->isDivergentUse(AO->getOperandUse(1))) {
+      LLVM_DEBUG(
+          dbgs() << "NARY: Preferring uniform remainder for GEP index\n");
+      if (GetElementPtrInst *NewGEP =
               tryReassociateGEPAtIndex(GEP, I, RHS, LHS, IndexedType))
         return NewGEP;
+      return tryReassociateGEPAtIndex(GEP, I, LHS, RHS, IndexedType);
     }
+
+    // Default order: try (LHS, RHS) first, then (RHS, LHS).
+    if (GetElementPtrInst *NewGEP =
+            tryReassociateGEPAtIndex(GEP, I, LHS, RHS, IndexedType))
+      return NewGEP;
+    return tryReassociateGEPAtIndex(GEP, I, RHS, LHS, IndexedType);
   }
   return nullptr;
 }
@@ -461,19 +489,22 @@ NaryReassociatePass::tryReassociateGEPAtIndex(GetElementPtrInst *GEP,
 }
 
 Instruction *NaryReassociatePass::tryReassociateBinaryOp(BinaryOperator *I) {
-  Value *LHS = I->getOperand(0), *RHS = I->getOperand(1);
   // There is no need to reassociate 0.
   if (SE->getSCEV(I)->isZero())
     return nullptr;
-  if (auto *NewI = tryReassociateBinaryOp(LHS, RHS, I))
+  if (Instruction *NewI =
+          tryReassociateBinaryOp(I->getOperandUse(0), I->getOperandUse(1), I))
     return NewI;
-  if (auto *NewI = tryReassociateBinaryOp(RHS, LHS, I))
+  if (Instruction *NewI =
+          tryReassociateBinaryOp(I->getOperandUse(1), I->getOperandUse(0), I))
     return NewI;
   return nullptr;
 }
 
-Instruction *NaryReassociatePass::tryReassociateBinaryOp(Value *LHS, Value *RHS,
+Instruction *NaryReassociatePass::tryReassociateBinaryOp(const Use &LHSUse,
+                                                         const Use &RHSUse,
                                                          BinaryOperator *I) {
+  Value *LHS = LHSUse.get(), *RHS = RHSUse.get();
   Value *A = nullptr, *B = nullptr;
   // To be conservative, we reassociate I only when it is the only user of (A op
   // B).
@@ -482,6 +513,41 @@ Instruction *NaryReassociatePass::tryReassociateBinaryOp(Value *LHS, Value *RHS,
     //   = (A op RHS) op B or (B op RHS) op A
     SCEVUse AExpr = SE->getSCEV(A), BExpr = SE->getSCEV(B);
     SCEVUse RHSExpr = SE->getSCEV(RHS);
+
+    // When uniformity analysis is available, prefer reassociations that group
+    // uniform values together. This can reduce register pressure on targets
+    // with divergent execution.
+    //
+    // For I = (A op B) op RHS, we can form:
+    //   - (A op RHS) op B: groups A and RHS
+    //   - (B op RHS) op A: groups B and RHS
+    //
+    // Prefer the grouping where both operands in the new sub-expression are
+    // uniform, keeping uniform computations grouped together.
+    //
+    // We only need to handle the case where B and RHS are uniform but A is
+    // divergent. The symmetric case (A and RHS uniform, B divergent) is already
+    // handled by the default order which tries (A op RHS) op B first.
+    User *LHSOp = cast<User>(LHS);
+    if (UI && !UI->isDivergentUse(LHSOp->getOperandUse(1)) &&
+        !UI->isDivergentUse(RHSUse) &&
+        UI->isDivergentUse(LHSOp->getOperandUse(0))) {
+      LLVM_DEBUG(dbgs() << "NARY: Preferring uniform grouping for " << *I
+                        << "\n");
+      if (AExpr != RHSExpr) {
+        if (Instruction *NewI =
+                tryReassociatedBinaryOp(getBinarySCEV(I, BExpr, RHSExpr), A, I))
+          return NewI;
+      }
+      if (BExpr != RHSExpr) {
+        if (Instruction *NewI =
+                tryReassociatedBinaryOp(getBinarySCEV(I, AExpr, RHSExpr), B, I))
+          return NewI;
+      }
+      return nullptr;
+    }
+
+    // Default order: try (A op RHS) op B first
     if (BExpr != RHSExpr) {
       if (auto *NewI =
               tryReassociatedBinaryOp(getBinarySCEV(I, AExpr, RHSExpr), B, I))
@@ -649,6 +715,32 @@ Value *NaryReassociatePass::tryReassociateMinOrMax(Instruction *I,
   SCEVUse BExpr = SE->getSCEV(B);
   SCEVUse RHSExpr = SE->getSCEV(RHS);
 
+  // Similar to binary ops, prefer grouping uniform values together when
+  // uniformity analysis is available.
+  // For I = minmax(minmax(A, B), RHS), we can form:
+  //   - minmax(minmax(A, RHS), B): groups A and RHS
+  //   - minmax(minmax(B, RHS), A): groups B and RHS
+  User *LHSOp = cast<User>(LHS);
+  unsigned AIdx = (LHSOp->getOperand(0) == A) ? 0 : 1;
+  unsigned RHSIdx = (I->getOperand(0) == RHS) ? 0 : 1;
+  if (UI && !UI->isDivergentUse(LHSOp->getOperandUse(1 - AIdx)) &&
+      !UI->isDivergentUse(I->getOperandUse(RHSIdx)) &&
+      UI->isDivergentUse(LHSOp->getOperandUse(AIdx))) {
+    LLVM_DEBUG(dbgs() << "NARY: Preferring uniform grouping for minmax " << *I
+                      << "\n");
+    // Try (B op RHS) op A first - groups uniform B with uniform RHS
+    if (AExpr != RHSExpr) {
+      if (Value *NewMinMax = tryCombination(RHS, RHSExpr, B, BExpr, A, AExpr))
+        return NewMinMax;
+    }
+    if (BExpr != RHSExpr) {
+      if (Value *NewMinMax = tryCombination(A, AExpr, RHS, RHSExpr, B, BExpr))
+        return NewMinMax;
+    }
+    return nullptr;
+  }
+
+  // Default order
   if (BExpr != RHSExpr) {
     // Try (A op RHS) op B
     if (auto *NewMinMax = tryCombination(A, AExpr, RHS, RHSExpr, B, BExpr))
