@@ -51,6 +51,8 @@ AVRRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
 }
 
 BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+  const AVRSubtarget &Subtarget = MF.getSubtarget<AVRSubtarget>();
+
   BitVector Reserved(getNumRegs());
 
   // Reserve the intermediate result registers r1 and r2
@@ -66,7 +68,7 @@ BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(AVR::SP);
 
   // Reserve R2~R17 only on avrtiny.
-  if (MF.getSubtarget<AVRSubtarget>().hasTinyEncoding()) {
+  if (Subtarget.hasTinyEncoding()) {
     // Reserve 8-bit registers R2~R15, Rtmp(R16) and Zero(R17).
     for (unsigned Reg = AVR::R2; Reg <= AVR::R17; Reg++)
       Reserved.set(Reg);
@@ -75,7 +77,7 @@ BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
       Reserved.set(Reg);
   }
 
-  // We tenatively reserve the frame pointer register r29:r28 because the
+  // We tentatively reserve the frame pointer register r29:r28 because the
   // function may require one, but we cannot tell until register allocation
   // is complete, which can be too late.
   //
@@ -84,9 +86,15 @@ BitVector AVRRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   // TODO: Write a pass to enumerate functions which reserved the Y register
   //       but didn't end up needing a frame pointer. In these, we can
   //       convert one or two of the spills inside to use the Y register.
-  Reserved.set(AVR::R28);
-  Reserved.set(AVR::R29);
-  Reserved.set(AVR::R29R28);
+  Reserved.set(AVR::FPReg);
+  Reserved.set(AVR::FPRegLo);
+  Reserved.set(AVR::FPRegHi);
+
+  if (Subtarget.getFrameLowering()->hasFP(MF) && hasStackRealignment(MF)) {
+    Reserved.set(AVR::SPReg);
+    Reserved.set(AVR::SPRegLo);
+    Reserved.set(AVR::SPRegHi);
+  }
 
   return Reserved;
 }
@@ -144,82 +152,78 @@ bool AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   assert(SPAdj == 0 && "Unexpected SPAdj value");
 
   MachineInstr &MI = *II;
-  DebugLoc dl = MI.getDebugLoc();
+  DebugLoc DL = MI.getDebugLoc();
   MachineBasicBlock &MBB = *MI.getParent();
   const MachineFunction &MF = *MBB.getParent();
   const AVRTargetMachine &TM = (const AVRTargetMachine &)MF.getTarget();
   const TargetInstrInfo &TII = *TM.getSubtargetImpl()->getInstrInfo();
-  const MachineFrameInfo &MFI = MF.getFrameInfo();
   const TargetFrameLowering *TFI = TM.getSubtargetImpl()->getFrameLowering();
   const AVRSubtarget &STI = MF.getSubtarget<AVRSubtarget>();
-  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
-  int Offset = MFI.getObjectOffset(FrameIndex);
 
-  // Add one to the offset because SP points to an empty slot.
-  Offset += MFI.getStackSize() - TFI->getOffsetOfLocalArea() + 1;
-  // Fold incoming offset.
-  Offset += MI.getOperand(FIOperandNum + 1).getImm();
+  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
+  int FrameOffset = MI.getOperand(FIOperandNum + 1).getImm();
+  Register FrameReg;
+
+  int Offset =
+      TFI->getFrameIndexReference(MF, FrameIndex, FrameReg).getFixed() +
+      FrameOffset;
 
   // This is actually "load effective address" of the stack slot
   // instruction. We have only two-address instructions, thus we need to
   // expand it into move + add.
   if (MI.getOpcode() == AVR::FRMIDX) {
     Register DstReg = MI.getOperand(0).getReg();
-    assert(DstReg != AVR::R29R28 && "Dest reg cannot be the frame pointer");
 
-    // Copy the frame pointer.
-    if (STI.hasMOVW()) {
-      BuildMI(MBB, MI, dl, TII.get(AVR::MOVWRdRr), DstReg).addReg(AVR::R29R28);
-    } else {
-      Register DstLoReg, DstHiReg;
-      splitReg(DstReg, DstLoReg, DstHiReg);
-      BuildMI(MBB, MI, dl, TII.get(AVR::MOVRdRr), DstLoReg).addReg(AVR::R28);
-      BuildMI(MBB, MI, dl, TII.get(AVR::MOVRdRr), DstHiReg).addReg(AVR::R29);
-    }
+    assert(DstReg != FrameReg && "Dest reg cannot be the frame pointer");
 
-    assert(Offset > 0 && "Invalid offset");
+    TII.copyPhysReg(MBB, MI, DL, DstReg, FrameReg, false, false, false);
 
-    // We need to materialize the offset via an add instruction.
-    unsigned Opcode;
+    if (Offset > 0) {
+      // We need to materialize the offset via an add instruction.
+      unsigned Opcode;
 
-    II++; // Skip over the FRMIDX instruction.
+      // Skip over the FRMIDX instruction.
+      II++;
 
-    // Generally, to load a frame address two add instructions are emitted that
-    // could get folded into a single one:
-    //  movw    r31:r30, r29:r28
-    //  adiw    r31:r30, 29
-    //  adiw    r31:r30, 16
-    // to:
-    //  movw    r31:r30, r29:r28
-    //  adiw    r31:r30, 45
-    if (II != MBB.end())
-      foldFrameOffset(II, Offset, DstReg);
+      // Generally, to load a frame address two add instructions are emitted
+      // that could get folded into a single one:
+      //  movw    r31:r30, r29:r28
+      //  adiw    r31:r30, 29
+      //  adiw    r31:r30, 16
+      // to:
+      //  movw    r31:r30, r29:r28
+      //  adiw    r31:r30, 45
+      if (II != MBB.end())
+        foldFrameOffset(II, Offset, DstReg);
 
-    // Select the best opcode based on DstReg and the offset size.
-    switch (DstReg) {
-    case AVR::R25R24:
-    case AVR::R27R26:
-    case AVR::R31R30: {
-      if (isUInt<6>(Offset) && STI.hasADDSUBIW()) {
-        Opcode = AVR::ADIWRdK;
+      // Select the best opcode based on DstReg and the offset size.
+      switch (DstReg) {
+      case AVR::R25R24:
+      case AVR::R27R26:
+      case AVR::R31R30: {
+        if (isUInt<6>(Offset) && STI.hasADDSUBIW()) {
+          Opcode = AVR::ADIWRdK;
+          break;
+        }
+        [[fallthrough]];
+      }
+      default: {
+        // This opcode will get expanded into a pair of subi/sbci.
+        Opcode = AVR::SUBIWRdK;
+        Offset = -Offset;
         break;
       }
-      [[fallthrough]];
-    }
-    default: {
-      // This opcode will get expanded into a pair of subi/sbci.
-      Opcode = AVR::SUBIWRdK;
-      Offset = -Offset;
-      break;
-    }
+      }
+
+      MachineInstr *New = BuildMI(MBB, II, DL, TII.get(Opcode), DstReg)
+                              .addReg(DstReg, RegState::Kill)
+                              .addImm(Offset);
+
+      New->getOperand(3).setIsDead();
     }
 
-    MachineInstr *New = BuildMI(MBB, II, dl, TII.get(Opcode), DstReg)
-                            .addReg(DstReg, RegState::Kill)
-                            .addImm(Offset);
-    New->getOperand(3).setIsDead();
-
-    MI.eraseFromParent(); // remove FRMIDX
+    // Remove FRMIDX.
+    MI.eraseFromParent();
 
     return false;
   }
@@ -250,42 +254,88 @@ bool AVRRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     // a compare and branch, invalidating the contents of SREG set by the
     // compare instruction because of the add/sub pairs. Conservatively save and
     // restore SREG before and after each add/sub pair.
-    BuildMI(MBB, II, dl, TII.get(AVR::INRdA), STI.getTmpRegister())
+    BuildMI(MBB, II, DL, TII.get(AVR::INRdA), STI.getTmpRegister())
         .addImm(STI.getIORegSREG());
 
-    MachineInstr *New = BuildMI(MBB, II, dl, TII.get(AddOpc), AVR::R29R28)
-                            .addReg(AVR::R29R28, RegState::Kill)
+    MachineInstr *New = BuildMI(MBB, II, DL, TII.get(AddOpc), FrameReg)
+                            .addReg(FrameReg, RegState::Kill)
                             .addImm(AddOffset);
+
     New->getOperand(3).setIsDead();
 
     // Restore SREG.
-    BuildMI(MBB, std::next(II), dl, TII.get(AVR::OUTARr))
+    BuildMI(MBB, std::next(II), DL, TII.get(AVR::OUTARr))
         .addImm(STI.getIORegSREG())
         .addReg(STI.getTmpRegister(), RegState::Kill);
 
     // No need to set SREG as dead here otherwise if the next instruction is a
     // cond branch it will be using a dead register.
-    BuildMI(MBB, std::next(II), dl, TII.get(SubOpc), AVR::R29R28)
-        .addReg(AVR::R29R28, RegState::Kill)
+    BuildMI(MBB, std::next(II), DL, TII.get(SubOpc), FrameReg)
+        .addReg(FrameReg, RegState::Kill)
         .addImm(Offset - MaxOffset);
 
     Offset = MaxOffset;
   }
 
-  MI.getOperand(FIOperandNum).ChangeToRegister(AVR::R29R28, false);
   assert(isUInt<6>(Offset) && "Offset is out of range");
-  MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+
+  if (FrameReg == AVR::FPReg) {
+    // Materializing a load for the frame pointer is straightforward - just
+    // replace %stack.0 with the Y register.
+
+    MI.getOperand(FIOperandNum).ChangeToRegister(FrameReg, false);
+    MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+  } else {
+    // Materializing a load for the stack pointer is more involved, because we
+    // can't emit ldd for arbitrary registers - we have to project the load
+    // through a temporary, r31r30.
+
+    auto MI0 = MI.getOperand(0);
+
+    if (MI0.isReg() && MI0.getReg() == AVR::R31R30) {
+      // If the stars align just wrong, LLVM will tell us to materialize the
+      // load into r31r30 itself:
+      //
+      // ```
+      // early-clobber $r31r30 = LDDWRdPtrQ %stack.0
+      // ```
+      //
+      // In this case we can't use r31r30 as the temporary, we have to spill.
+      //
+      // TODO maybe we could use register scavenger here?
+
+      // `pushw r29r28`
+      BuildMI(MBB, II, DL, TII.get(AVR::PUSHWRr))
+          .addReg(AVR::R29R28, RegState::Kill);
+
+      // `movw r29r28, SP`
+      TII.copyPhysReg(MBB, MI, DL, AVR::R29R28, AVR::SPReg, true);
+
+      // `lddw r31r30, r29r28+Offset`
+      MI.getOperand(FIOperandNum)
+          .ChangeToRegister(AVR::R29R28, false, false, true);
+
+      MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+
+      // `popw r29r28`
+      BuildMI(MBB, std::next(II), DL, TII.get(AVR::POPWRd))
+          .addReg(AVR::R29R28, RegState::Define);
+    } else {
+      TII.copyPhysReg(MBB, MI, DL, AVR::R31R30, FrameReg, false);
+
+      MI.getOperand(FIOperandNum)
+          .ChangeToRegister(AVR::R31R30, false, false, true);
+
+      MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+    }
+  }
+
   return false;
 }
 
 Register AVRRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-  if (TFI->hasFP(MF)) {
-    // The Y pointer register
-    return AVR::R28;
-  }
-
-  return AVR::SP;
+  return TFI->hasFP(MF) ? AVR::FPRegLo : AVR::SP;
 }
 
 const TargetRegisterClass *
