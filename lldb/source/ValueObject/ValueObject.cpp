@@ -1241,16 +1241,30 @@ void ValueObject::SetValueFromInteger(const llvm::APInt &value, Status &error,
     return;
   }
 
+  // Make sure we're not trying to assign to a constant.
+  if (GetIsConstant()) {
+    error =
+        Status::FromErrorString("current value is not assignable (a constant)");
+    return;
+  }
+
   // Verify the proposed new value is the right size.
   lldb::TargetSP target = GetTargetSP();
   uint64_t byte_size = 0;
-  if (auto temp =
-          llvm::expectedToOptional(GetCompilerType().GetByteSize(target.get())))
-    byte_size = temp.value();
-  if (value.getBitWidth() != byte_size * CHAR_BIT) {
-    error = Status::FromErrorString(
-        "illegal argument: new value should be of the same size");
-    return;
+  // Exclude size check when assigning an integer 1 or 0 to a boolean.
+  if (!val_type.IsBoolean() || (!value.isOne() && !value.isZero())) {
+    if (auto temp = llvm::expectedToOptional(
+            GetCompilerType().GetByteSize(target.get())))
+      byte_size = temp.value();
+    if (value.getBitWidth() > byte_size * CHAR_BIT) {
+      // The type is too big, but maybe the value itself is small enough?
+      uint64_t u_max = (1 << (byte_size * CHAR_BIT)) - 1;
+      if (*(value.getRawData()) > u_max) {
+        error =
+            Status::FromErrorString("illegal argument: new value is too big");
+        return;
+      }
+    }
   }
 
   lldb::DataExtractorSP data_sp = std::make_shared<DataExtractor>(
@@ -1282,14 +1296,15 @@ void ValueObject::SetValueFromInteger(lldb::ValueObjectSP new_val_sp,
 
   // Verify the proposed new value is the right type.
   CompilerType new_val_type = new_val_sp->GetCompilerType();
-  if (!new_val_type.IsInteger() && !HasFloatingRepresentation(new_val_type) &&
+  if (!new_val_type.IsInteger() && !new_val_type.IsUnscopedEnumerationType() &&
+      !HasFloatingRepresentation(new_val_type) &&
       !new_val_type.IsPointerType()) {
     error = Status::FromErrorString(
-        "illegal argument: new value should be of the same size");
+        "illegal argument: new value is not a scalar object");
     return;
   }
 
-  if (new_val_type.IsInteger()) {
+  if (new_val_type.IsInteger() || new_val_type.IsUnscopedEnumerationType()) {
     auto value_or_err = new_val_sp->GetValueAsAPSInt();
     if (value_or_err)
       SetValueFromInteger(*value_or_err, error, can_update_var);
