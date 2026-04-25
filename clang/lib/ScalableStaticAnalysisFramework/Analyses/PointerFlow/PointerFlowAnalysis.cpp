@@ -5,27 +5,34 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-// PointerFlowAnalysis is a noop analysis.
-//
-// PointerFlowAnalysisResult is a map from EntityIds to
-// EdgeSets.
-//===----------------------------------------------------------------------===//
 
 #include "clang/ScalableStaticAnalysisFramework/Analyses/PointerFlow/PointerFlowAnalysis.h"
 #include "SSAFAnalysesCommon.h"
+#include "clang/ScalableStaticAnalysisFramework/Analyses/EntityPointerLevel/EntityPointerLevel.h"
+#include "clang/ScalableStaticAnalysisFramework/Analyses/EntityPointerLevel/EntityPointerLevelFormat.h"
 #include "clang/ScalableStaticAnalysisFramework/Analyses/PointerFlow/PointerFlow.h"
 #include "clang/ScalableStaticAnalysisFramework/Analyses/PointerFlow/PointerFlowFormat.h"
+#include "clang/ScalableStaticAnalysisFramework/Analyses/UnsafeBufferUsage/UnsafeBufferUsageAnalysis.h"
+#include "clang/ScalableStaticAnalysisFramework/Core/Model/EntityId.h"
 #include "clang/ScalableStaticAnalysisFramework/Core/Serialization/JSONFormat.h"
 #include "clang/ScalableStaticAnalysisFramework/Core/WholeProgramAnalysis/AnalysisRegistry.h"
+#include "clang/ScalableStaticAnalysisFramework/Core/WholeProgramAnalysis/DerivedAnalysis.h"
 #include "clang/ScalableStaticAnalysisFramework/Core/WholeProgramAnalysis/SummaryAnalysis.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/JSON.h"
 #include <memory>
+#include <unordered_set>
 
 using namespace clang::ssaf;
 using namespace llvm;
 
 namespace {
+
+//===----------------------------------------------------------------------===//
+// PointerFlowAnalysis---a no-op analysis
+//===----------------------------------------------------------------------===//
 
 // Serialized as a flat array of alternating [EntityId, EdgesArray, ...] pairs.
 json::Object
@@ -102,13 +109,124 @@ public:
                   const PointerFlowEntitySummary &Summary) override {
     auto EdgesOfEntity = getEdges(Summary);
 
-    getResult().Edges[Id] = EdgeSet(EdgesOfEntity.begin(), EdgesOfEntity.end());
+    this->getResult().Edges[Id] =
+        EdgeSet(EdgesOfEntity.begin(), EdgesOfEntity.end());
     return llvm::Error::success();
   }
 };
 
 AnalysisRegistry::Add<PointerFlowAnalysis>
     RegisterPointerFlowAnalysis("Whole-program pointer flow analysis");
+
+//===----------------------------------------------------------------------===//
+// PointerFlowReachableAnalysis---computes reachable node
+//===----------------------------------------------------------------------===//
+
+json::Object serializePointerFlowReachableAnalysisResult(
+    const UnsafeBufferReachableAnalysisResult &R,
+    JSONFormat::EntityIdToJSONFn IdToJSON) {
+  json::Object Result;
+
+  Result[UnsafeBufferReachableAnalysisResultName] =
+      entityPointerLevelMapToJSON(R.Reachables, IdToJSON);
+  return Result;
+}
+
+Expected<std::unique_ptr<AnalysisResult>>
+deserializePointerFlowReachableAnalysisResult(
+    const json::Object &Obj, JSONFormat::EntityIdFromJSONFn IdFromJSON) {
+  const json::Array *Content =
+      Obj.getArray(UnsafeBufferReachableAnalysisResultName);
+
+  if (!Content)
+    return makeSawButExpectedError(
+        Obj, "an object with a key %s",
+        UnsafeBufferReachableAnalysisResultName.data());
+
+  auto Reachables = entityPointerLevelMapFromJSON(*Content, IdFromJSON);
+
+  if (!Reachables)
+    return Reachables.takeError();
+
+  auto Ret = std::make_unique<UnsafeBufferReachableAnalysisResult>();
+
+  Ret->Reachables = std::move(*Reachables);
+  return Ret;
+}
+
+JSONFormat::AnalysisResultRegistry::Add<UnsafeBufferReachableAnalysisResult>
+    RegisterPointerFlowReachableResultForJSON(
+        serializePointerFlowReachableAnalysisResult,
+        deserializePointerFlowReachableAnalysisResult);
+
+/// Computes all the reachable "nodes" (pointers) in a pointer flow graph from a
+/// provided starter node set.  Specifically, the starter set is the unsafe
+/// pointers found by `UnsafeBufferUsageAnalysis`.
+class UnsafeBufferReachableAnalysis
+    : public DerivedAnalysis<UnsafeBufferReachableAnalysisResult,
+                             PointerFlowAnalysisResult,
+                             UnsafeBufferUsageAnalysisResult> {
+  using GraphT = std::map<EntityId, EdgeSet>;
+  const GraphT *Graph = nullptr;
+
+  // Use pointers for efficiency. Both `Graph` and `Reachables` in the result
+  // are tree-based containers that only grow. So pointers to them are stable.
+  using EPLPtr = const EntityPointerLevel *;
+  using EPLPtrSet = std::unordered_set<EPLPtr>;
+  // The analysis needs to track EPLs with their contributor IDs:
+  using EPLPtrSetWithId = std::map<EntityId, std::unordered_set<EPLPtr>>;
+
+  // Find all outgoing edges from `EPL` in the `Graph`, insert their
+  // destination nodes into `Reachables`, and add newly discovered nodes to
+  // `Worklist`:
+  void updateReachablesWithOutgoings(EPLPtr EPL,
+                                     std::vector<EPLPtr> &WorkList) {
+    for (auto &[Id, SubGraph] : *Graph) {
+      auto I = SubGraph.find(*EPL);
+
+      if (I != SubGraph.end()) {
+        for (const auto &EPL : I->second) {
+          auto [Ignored, Inserted] =
+              this->getResult().Reachables[Id].insert(EPL);
+          if (Inserted)
+            WorkList.push_back(&EPL);
+        }
+      }
+    }
+  }
+
+public:
+  llvm::Error
+  initialize(const PointerFlowAnalysisResult &Graph,
+             const UnsafeBufferUsageAnalysisResult &Starter) override {
+    this->Graph = &Graph.Edges;
+    assert(this->getResult().Reachables.empty());
+    this->getResult().Reachables.insert(Starter.begin(), Starter.end());
+    return llvm::Error::success();
+  }
+
+  llvm::Expected<bool> step() override {
+    auto &Reachables = this->getResult().Reachables;
+    // Simple DFS:
+    std::vector<EPLPtr> Worklist;
+
+    for (auto &[Id, EPLs] : Reachables)
+      for (auto &EPL : EPLs)
+        Worklist.push_back(&EPL);
+
+    while (!Worklist.empty()) {
+      EPLPtr Node = Worklist.back();
+      Worklist.pop_back();
+
+      updateReachablesWithOutgoings(Node, Worklist);
+    }
+    return false;
+  }
+};
+
+AnalysisRegistry::Add<UnsafeBufferReachableAnalysis>
+    RegisterPointerFlowReachableAnalysis(
+        "Reachable pointers from unsafe buffer usage in pointer flow graph");
 
 } // namespace
 
