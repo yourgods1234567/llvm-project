@@ -13,7 +13,9 @@
 #ifndef LLVM_LIB_TARGET_AMDGPU_GCNSCHEDSTRATEGY_H
 #define LLVM_LIB_TARGET_AMDGPU_GCNSCHEDSTRATEGY_H
 
+#include "AMDGPUResourceDistanceMap.h"
 #include "GCNRegPressure.h"
+
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
@@ -152,6 +154,12 @@ public:
 
   void setTargetOccupancy(unsigned Occ) { TargetOccupancy = Occ; }
 
+  /// Per-region notification from GCNSchedStage about whether the upcoming
+  /// region contains IGLP scheduling instructions (SCHED_GROUP_BARRIER /
+  /// IGLP_OPT). Strategies that need to disable themselves for IGLP-managed
+  /// regions override this; the default is a no-op.
+  virtual void notifyRegionIGLPInstrs(bool HasIGLPInstrs) {}
+
   GCNSchedStageID getCurrentStage();
 
   // Advances stage. Returns true if there are remaining stages.
@@ -172,7 +180,7 @@ public:
 
 /// The goal of this scheduling strategy is to maximize kernel occupancy (i.e.
 /// maximum number of waves per simd).
-class GCNMaxOccupancySchedStrategy final : public GCNSchedStrategy {
+class GCNMaxOccupancySchedStrategy : public GCNSchedStrategy {
 public:
   GCNMaxOccupancySchedStrategy(const MachineSchedContext *C,
                                bool IsLegacyScheduler = false);
@@ -198,6 +206,63 @@ protected:
 
 public:
   GCNMaxMemoryClauseSchedStrategy(const MachineSchedContext *C);
+};
+
+class GCNPreRACriticalResource final : public GCNSchedStrategy {
+  AMDGPU::ResourceDistanceMaps ResDistMap;
+
+  bool TrackRemCriticalRes;
+
+  unsigned RemCriticalRes;
+
+  std::optional<unsigned> PendingResInstrs;
+
+  bool tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand,
+                    SchedBoundary *Zone) const override;
+
+  void updateRemainderCriticalRes();
+
+  void initialize(ScheduleDAGMI *DAG) override;
+
+  void schedNode(SUnit *SU, bool IsTopNode) override;
+
+  SUnit *pickNode(bool &IsTopNode) override;
+
+  void setTrackRemainderCriticalRes(const GCNSubtarget &ST, bool B) {
+    TrackRemCriticalRes = B && ST.hasGFX940Insts();
+  }
+
+public:
+  GCNPreRACriticalResource(const MachineSchedContext *C);
+
+  void notifyRegionIGLPInstrs(bool HasIGLPInstrs) override {
+    setTrackRemainderCriticalRes(
+        Context->MF->getSubtarget<GCNSubtarget>(), !HasIGLPInstrs);
+  }
+};
+
+class GCNPostRACriticalResource final : public PostGenericScheduler {
+  AMDGPU::ResourceDistanceMaps ResDistMap;
+
+  bool TrackRemCriticalRes;
+
+  unsigned RemCriticalRes;
+
+  bool tryCandidate(SchedCandidate &Cand, SchedCandidate &TryCand) override;
+
+  void updateRemainderCriticalRes();
+
+  void initialize(ScheduleDAGMI *Dag) override;
+
+  void schedNode(SUnit *SU, bool IsTopNode) override;
+
+public:
+  GCNPostRACriticalResource(const MachineSchedContext *C)
+      : PostGenericScheduler(C) {}
+
+  void setTrackRemainderCriticalRes(const GCNSubtarget &ST, bool B) {
+    TrackRemCriticalRes = B && ST.hasGFX940Insts();
+  }
 };
 
 class ScheduleMetrics {
@@ -336,6 +401,10 @@ public:
   void schedule() override;
 
   void finalizeSchedule() override;
+
+  bool hasIGLPInstrs(unsigned RegionIdx) const {
+    return RegionsWithIGLPInstrs[RegionIdx];
+  }
 };
 
 // GCNSchedStrategy applies multiple scheduling stages to a function.
@@ -798,6 +867,8 @@ public:
   GCNPostScheduleDAGMILive(MachineSchedContext *C,
                            std::unique_ptr<MachineSchedStrategy> S,
                            bool RemoveKillFlags);
+
+  bool hasIGLPInstrs() const { return HasIGLPInstrs; }
 };
 
 } // End namespace llvm

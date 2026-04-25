@@ -50,6 +50,7 @@ add_llvm_target(AMDGPUCodeGen
   AMDGPUAtomicOptimizer.cpp
   AMDGPUAttributor.cpp
   AMDGPUBarrierLatency.cpp
+  AMDGPUCacheCapacityHazardRecognizer.cpp
   AMDGPUCallLowering.cpp
   AMDGPUCodeGenPrepare.cpp
   AMDGPUCombinerHelper.cpp
@@ -109,6 +110,7 @@ add_llvm_target(AMDGPUCodeGen
   AMDGPURegisterBankInfo.cpp
   AMDGPURemoveIncompatibleFunctions.cpp
   AMDGPUReserveWWMRegs.cpp
+  AMDGPUResourceDistanceMap.cpp
   AMDGPUResourceUsageAnalysis.cpp
   AMDGPURewriteAGPRCopyMFMA.cpp
   AMDGPURewriteOutArguments.cpp
