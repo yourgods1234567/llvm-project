@@ -10,7 +10,9 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#include "lldb/Interpreter/CommandOptionArgumentTable.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
+#include "lldb/Interpreter/OptionArgParser.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -83,22 +85,67 @@ static int ActOnMatchingPlugins(
 // Used to share the majority of the code between the enable
 // and disable commands.
 int SetEnableOnMatchingPlugins(const llvm::StringRef &pattern,
-                               CommandReturnObject &result, bool enabled) {
+                               CommandReturnObject &result, bool enabled,
+                               Debugger &requesting_debugger,
+                               PluginDomainKind domain) {
   return ActOnMatchingPlugins(
       pattern, [&](const PluginNamespace &plugin_namespace,
                    const std::vector<RegisteredPluginInfo> &plugins) {
-        result.AppendMessage(plugin_namespace.name);
-        for (const auto &plugin : plugins) {
-          if (!plugin_namespace.set_enabled(plugin.name, enabled)) {
-            result.AppendErrorWithFormat("failed to enable plugin %s.%s",
-                                         plugin_namespace.name.data(),
-                                         plugin.name.data());
-            continue;
-          }
-
+        auto PrintEnablement = [enabled,
+                                &result](const RegisteredPluginInfo plugin) {
           result.AppendMessageWithFormatv("  {0} {1, -30} {2}",
                                           enabled ? "[+]" : "[-]", plugin.name,
                                           plugin.description);
+        };
+
+        result.AppendMessage(plugin_namespace.name);
+        for (const auto &plugin : plugins) {
+          if (plugin_namespace.SupportsOnlyDomain(
+                  PluginDomainKind::ePluginDomainKindGlobal)) {
+            bool success = true;
+            if (domain != ePluginDomainKindGlobal) {
+              result.AppendErrorWithFormatv(
+                  "failed to {} plugin {}.{}: {} domain is not supported",
+                  enabled ? "enable" : "disable", plugin_namespace.name,
+                  plugin.name, PluginManager::PluginDomainKindToStr(domain));
+              continue;
+            }
+            success = (*plugin_namespace.GetSetEnabledGlobalFn())(plugin.name,
+                                                                  enabled);
+
+            if (!success) {
+              result.AppendErrorWithFormatv("failed to {} plugin {}.{}",
+                                            enabled ? "enable" : "disable",
+                                            plugin_namespace.name, plugin.name);
+              continue;
+            }
+            PrintEnablement(plugin);
+            continue;
+          }
+
+          // Handle plugin namespace that supports more than just the global
+          // domain. Currently this is just the instrumentation-runtime
+          // namespace.
+          if (!plugin_namespace.SupportsDomain(domain)) {
+            result.AppendErrorWithFormatv(
+                "failed to {0} plugin {1}.{2}: because the {1} namespace "
+                "does not support the {3} domain",
+                enabled ? "enable" : "disable", plugin_namespace.name,
+                plugin.name, PluginManager::PluginDomainKindToStr(domain));
+            continue;
+          }
+          assert(plugin_namespace.GetSetEnabledAllDomainsFn().has_value());
+          llvm::Error error = (*plugin_namespace.GetSetEnabledAllDomainsFn())(
+              plugin.name, enabled, requesting_debugger, domain);
+
+          if (error) {
+            result.AppendErrorWithFormatv("failed to {} plugin {}.{}: {}",
+                                          enabled ? "enable" : "disable",
+                                          plugin_namespace.name, plugin.name,
+                                          llvm::toString(std::move(error)));
+            continue;
+          }
+          PrintEnablement(plugin);
         }
       });
 }
@@ -116,6 +163,9 @@ static std::string ConvertJSONToPrettyString(const llvm::json::Value &json) {
 
 // These option definitions are used by the plugin list command.
 class PluginListCommandOptions : public Options {
+  static constexpr const PluginDomainKind kDefaultDomain =
+      ePluginDomainKindGlobal;
+
 public:
   PluginListCommandOptions() = default;
 
@@ -130,6 +180,11 @@ public:
     case 'j':
       m_json_format = true;
       break;
+    case 'd':
+      m_domain = (PluginDomainKind)OptionArgParser::ToOptionEnum(
+          option_arg, GetDefinitions()[option_idx].enum_values, kDefaultDomain,
+          error);
+      break;
     default:
       llvm_unreachable("Unimplemented option");
     }
@@ -139,6 +194,7 @@ public:
 
   void OptionParsingStarting(ExecutionContext *execution_context) override {
     m_json_format = false;
+    m_domain = kDefaultDomain;
   }
 
   llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
@@ -147,6 +203,7 @@ public:
 
   // Instance variables to hold the values for command options.
   bool m_json_format = false;
+  PluginDomainKind m_domain = kDefaultDomain;
 };
 } // namespace
 
@@ -218,18 +275,21 @@ protected:
         patterns.push_back(command[i].ref());
 
     if (m_options.m_json_format)
-      OutputJsonFormat(patterns, result);
+      OutputJsonFormat(patterns, result, GetDebugger(), m_options.m_domain);
     else
-      OutputTextFormat(patterns, result);
+      OutputTextFormat(patterns, result, GetDebugger(), m_options.m_domain);
   }
 
 private:
   void OutputJsonFormat(const std::vector<llvm::StringRef> &patterns,
-                        CommandReturnObject &result) {
+                        CommandReturnObject &result,
+                        Debugger &requesting_debugger,
+                        PluginDomainKind domain) {
     llvm::json::Object obj;
     bool found_empty = false;
     for (const llvm::StringRef pattern : patterns) {
-      llvm::json::Object pat_obj = PluginManager::GetJSON(pattern);
+      llvm::json::Object pat_obj = PluginManager::GetJSON(
+          pattern, requesting_debugger.shared_from_this(), domain);
       if (pat_obj.empty()) {
         found_empty = true;
         result.AppendErrorWithFormat(
@@ -246,16 +306,66 @@ private:
   }
 
   void OutputTextFormat(const std::vector<llvm::StringRef> &patterns,
-                        CommandReturnObject &result) {
+                        CommandReturnObject &result,
+                        Debugger &requesting_debugger,
+                        PluginDomainKind domain) {
+
+    auto PrintEnablement = [&](bool enabled,
+                               const RegisteredPluginInfo &plugin) {
+      result.AppendMessageWithFormatv("  {0} {1, -30} {2}",
+                                      enabled ? "[+]" : "[-]", plugin.name,
+                                      plugin.description);
+    };
+
     for (const llvm::StringRef pattern : patterns) {
       int num_matching = ActOnMatchingPlugins(
           pattern, [&](const PluginNamespace &plugin_namespace,
                        const std::vector<RegisteredPluginInfo> &plugins) {
-            result.AppendMessage(plugin_namespace.name);
-            for (auto &plugin : plugins) {
-              result.AppendMessageWithFormatv("  {0} {1, -30} {2}",
-                                              plugin.enabled ? "[+]" : "[-]",
-                                              plugin.name, plugin.description);
+            switch (domain) {
+
+            case lldb::ePluginDomainKindGlobal: {
+              result.AppendMessage(plugin_namespace.name);
+              for (auto &plugin : plugins)
+                PrintEnablement(plugin.enabled, plugin);
+              break;
+            }
+            case lldb::ePluginDomainKindDebugger:
+              // Currently enablement status of plugins is not stored inside
+              // debugger instances. If that ever changes we can support
+              // querying enablement here.
+              result.AppendErrorWithFormatv(
+                  "plugin namespace {0} does not support querying enablement "
+                  "in the debugger domain",
+                  plugin_namespace.name);
+              return;
+            case lldb::ePluginDomainKindTarget:
+              if (!plugin_namespace.SupportsDomain(
+                      lldb::ePluginDomainKindTarget)) {
+                result.AppendErrorWithFormatv(
+                    "plugin namespace {0} does not support querying enablement "
+                    "in the target domain",
+                    plugin_namespace.name);
+                return;
+              }
+              auto target = requesting_debugger.GetSelectedTarget();
+
+              // Only instrumentation-runtime plugins support the target domain
+              // currently so we can assume that's the case when querying
+              // enablement.
+              assert(plugin_namespace.name == "instrumentation-runtime");
+              result.AppendMessage(plugin_namespace.name);
+              for (auto &plugin : plugins) {
+                auto enabled =
+                    PluginManager::IsInstrumentationRuntimePluginEnabled(
+                        plugin.name, target, domain);
+                if (llvm::Error E = enabled.takeError()) {
+                  result.AppendErrorWithFormatv("{}",
+                                                llvm::toString(std::move(E)));
+                  continue;
+                }
+                PrintEnablement(*enabled, plugin);
+              }
+              break;
             }
           });
       if (num_matching == 0) {
@@ -270,7 +380,8 @@ private:
 };
 
 static void DoPluginEnableDisable(Args &command, CommandReturnObject &result,
-                                  bool enable) {
+                                  bool enable, Debugger &requesting_debugger,
+                                  PluginDomainKind domain) {
   const char *name = enable ? "enable" : "disable";
   size_t argc = command.GetArgumentCount();
   if (argc == 0) {
@@ -282,7 +393,8 @@ static void DoPluginEnableDisable(Args &command, CommandReturnObject &result,
 
   for (size_t i = 0; i < argc; ++i) {
     llvm::StringRef pattern = command[i].ref();
-    int num_matching = SetEnableOnMatchingPlugins(pattern, result, enable);
+    int num_matching = SetEnableOnMatchingPlugins(pattern, result, enable,
+                                                  requesting_debugger, domain);
 
     if (num_matching == 0) {
       result.AppendErrorWithFormat(
@@ -293,11 +405,58 @@ static void DoPluginEnableDisable(Args &command, CommandReturnObject &result,
   }
 }
 
+#define LLDB_OPTIONS_plugin_enable
+#include "CommandOptions.inc"
+
+#define LLDB_OPTIONS_plugin_disable
+#include "CommandOptions.inc"
+
+// Options class for the --domain flag, shared by plugin enable and
+// plugin disable (and reusable by plugin status in the future).
+class PluginDomainOptions : public Options {
+  static constexpr const PluginDomainKind kDefaultDomain =
+      ePluginDomainKindGlobal;
+
+public:
+  PluginDomainOptions(llvm::ArrayRef<OptionDefinition> definitions)
+      : m_definitions(definitions) {}
+
+  Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                        ExecutionContext *execution_context) override {
+    Status error;
+    const int short_option = m_getopt_table[option_idx].val;
+    switch (short_option) {
+    case 'd':
+      m_domain = (PluginDomainKind)OptionArgParser::ToOptionEnum(
+          option_arg, GetDefinitions()[option_idx].enum_values, kDefaultDomain,
+          error);
+      break;
+    default:
+      llvm_unreachable("Unimplemented option");
+    }
+    return error;
+  }
+
+  void OptionParsingStarting(ExecutionContext *execution_context) override {
+    m_domain = kDefaultDomain;
+  }
+
+  llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+    return m_definitions;
+  }
+
+  PluginDomainKind m_domain = kDefaultDomain;
+
+private:
+  llvm::ArrayRef<OptionDefinition> m_definitions;
+};
+
 class CommandObjectPluginEnable : public CommandObjectParsed {
 public:
   CommandObjectPluginEnable(CommandInterpreter &interpreter)
       : CommandObjectParsed(interpreter, "plugin enable",
-                            "Enable registered LLDB plugins.", nullptr) {
+                            "Enable registered LLDB plugins.", nullptr),
+        m_options(llvm::ArrayRef(g_plugin_enable_options)) {
     AddSimpleArgumentList(eArgTypeManagedPlugin);
   }
 
@@ -311,17 +470,23 @@ public:
 
   ~CommandObjectPluginEnable() override = default;
 
+  Options *GetOptions() override { return &m_options; }
+
 protected:
   void DoExecute(Args &command, CommandReturnObject &result) override {
-    DoPluginEnableDisable(command, result, /*enable=*/true);
+    DoPluginEnableDisable(command, result, /*enable=*/true, GetDebugger(),
+                          m_options.m_domain);
   }
+
+  PluginDomainOptions m_options;
 };
 
 class CommandObjectPluginDisable : public CommandObjectParsed {
 public:
   CommandObjectPluginDisable(CommandInterpreter &interpreter)
       : CommandObjectParsed(interpreter, "plugin disable",
-                            "Disable registered LLDB plugins.", nullptr) {
+                            "Disable registered LLDB plugins.", nullptr),
+        m_options(llvm::ArrayRef(g_plugin_disable_options)) {
     AddSimpleArgumentList(eArgTypeManagedPlugin);
   }
 
@@ -335,10 +500,15 @@ public:
 
   ~CommandObjectPluginDisable() override = default;
 
+  Options *GetOptions() override { return &m_options; }
+
 protected:
   void DoExecute(Args &command, CommandReturnObject &result) override {
-    DoPluginEnableDisable(command, result, /*enable=*/false);
+    DoPluginEnableDisable(command, result, /*enable=*/false, GetDebugger(),
+                          m_options.m_domain);
   }
+
+  PluginDomainOptions m_options;
 };
 
 CommandObjectPlugin::CommandObjectPlugin(CommandInterpreter &interpreter)
