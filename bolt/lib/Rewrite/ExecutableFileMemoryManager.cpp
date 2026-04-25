@@ -104,6 +104,8 @@ public:
 void ExecutableFileMemoryManager::updateSection(
     const jitlink::Section &JLSection, uint8_t *Contents, size_t Size,
     size_t Alignment) {
+  LLVM_DEBUG(dbgs() << "[sect] updateSection " << JLSection.getName() << "\n");
+
   auto SectionID = JLSection.getName();
   auto SectionName = sectionName(JLSection, BC);
   auto Prot = JLSection.getMemProt();
@@ -139,6 +141,15 @@ void ExecutableFileMemoryManager::updateSection(
   }
 
   BinarySection *Section = nullptr;
+
+  // CRITICAL: Skip registering backup sections - they should be handled
+  // separately
+  if (SectionName.starts_with(OrgSecPrefix)) {
+    LLVM_DEBUG(dbgs() << "[EFMM] Skipping backup section registration: "
+                      << SectionName << "\n");
+    return;
+  }
+
   if (!OrgSecPrefix.empty() && SectionName.starts_with(OrgSecPrefix)) {
     // Update the original section contents.
     ErrorOr<BinarySection &> OrgSection =
@@ -181,6 +192,32 @@ void ExecutableFileMemoryManager::updateSection(
   });
 
   Section->setSectionID(SectionID);
+
+  // DEBUG: Verify section ID is set correctly
+  LLVM_DEBUG({
+    dbgs() << "[EFMM] Section: " << SectionName
+           << " hasValidSectionID=" << Section->hasValidSectionID()
+           << " isAnonymous=" << Section->isAnonymous()
+           << " isBoltOrg=" << SectionName.starts_with(".bolt.org") << "\n";
+  });
+
+  LLVM_DEBUG({
+    dbgs() << "[sect] updateSection:"
+           << " JL=" << JLSection.getName() << " Name=" << SectionName
+           << " BS=" << Section->getName() << " IsCode=" << (IsCode ? "Y" : "N")
+           << " IsRO=" << (IsReadOnly ? "Y" : "N") << "\n";
+  });
+
+  static constexpr char kOrgPrefix[] = ".bolt.org";
+  const bool IsOrgByJL = JLSection.getName().starts_with(kOrgPrefix);
+  const bool IsOrgByName = SectionName.starts_with(OrgSecPrefix);
+
+  // Skip buffer management for backup (.bolt.org.*) sections
+  if (IsOrgByJL || IsOrgByName) {
+    LLVM_DEBUG(dbgs() << "[sect] skip setSectionID for backup section");
+    Section->setLinkOnly();
+    return; // CRITICAL: prevent setSectionID for backups
+  }
 }
 
 void ExecutableFileMemoryManager::allocate(const jitlink::JITLinkDylib *JD,
