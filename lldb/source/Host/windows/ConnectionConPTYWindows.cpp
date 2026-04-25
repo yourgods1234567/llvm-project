@@ -8,39 +8,83 @@
 
 #include "lldb/Host/windows/ConnectionConPTYWindows.h"
 #include "lldb/Utility/Status.h"
+#include "lldb/Utility/Timeout.h"
+
+#include <cstring>
 
 using namespace lldb;
 using namespace lldb_private;
 
-/// Strips the ConPTY initialization sequences that Windows unconditionally
-/// emits when a process is first attached to a pseudo console.
+/// Remove ConPTY management sequences from a buffer in-place.
 ///
-/// These are emitted by ConPTY's host process (conhost.exe) at process attach
-/// time, not by the debuggee. They are always the first bytes on the output
-/// pipe and are always present as a contiguous prefix.
+/// ConPTY injects several VT sequences into its output pipe that are not part
+/// of the inferior's output: a cursor-position query (\x1b[6n) emitted during
+/// PSEUDOCONSOLE_INHERIT_CURSOR initialisation, Win32 Input Mode toggles
+/// (\x1b[?9001h/l), focus-event toggles (\x1b[?1004h/l), and a window-title
+/// OSC sequence (\x1b]0;...\x07). These sequences must not reach the outer
+/// terminal.
 ///
-/// \param dst  Buffer containing the data read from the ConPTY output pipe.
-///             Modified in place: if the initialization sequences are present
-///             as a prefix, they are removed by shifting the remaining bytes
-///             to the front of the buffer.
-/// \param dst_len The size of \p dst.
-/// \param len  On input, the number of valid bytes in \p dst. On output,
-///             reduced by the number of bytes stripped.
-/// \return
-///     \p true if the sequence was found and stripped.
-static bool StripConPTYInitSequences(void *dst, size_t dst_len, size_t &len) {
-  static const char sequences[] = "\x1b[?9001l\x1b[?1004l";
-  static const size_t sequences_len = sizeof(sequences) - 1;
-  char *buf = static_cast<char *>(dst);
-  if (len >= sequences_len) {
-    assert(dst_len >= len - sequences_len);
-    if (memcmp(buf, sequences, sequences_len) == 0) {
-      memmove(buf, buf + sequences_len, len - sequences_len);
-      len -= sequences_len;
-      return true;
+/// \param[in,out] data  Buffer containing raw ConPTY output.
+/// \param[in,out] len   On entry, the number of valid bytes in \p data.
+///                      Updated to the number of bytes after stripping.
+/// \return  true if at least one sequence was stripped (caller should stop
+///          calling this function on future reads).
+static bool StripConPTYSequences(void *data, size_t &len) {
+  auto *buf = static_cast<char *>(data);
+  char *out = buf;
+  const char *in = buf;
+  const char *end = buf + len;
+  bool stripped = false;
+
+  while (in < end) {
+    if (*in != '\x1b') {
+      *out++ = *in++;
+      continue;
     }
+
+    size_t remaining = end - in;
+
+    // \x1b[6n - cursor-position query (PSEUDOCONSOLE_INHERIT_CURSOR init)
+    if (remaining >= 4 && memcmp(in, "\x1b[6n", 4) == 0) {
+      in += 4;
+      stripped = true;
+      continue;
+    }
+
+    // \x1b[?9001h / \x1b[?9001l - Win32 Input Mode enable/disable
+    if (remaining >= 8 && memcmp(in, "\x1b[?9001", 7) == 0 &&
+        (in[7] == 'h' || in[7] == 'l')) {
+      in += 8;
+      stripped = true;
+      continue;
+    }
+
+    // \x1b[?1004h / \x1b[?1004l - focus-event reporting enable/disable
+    if (remaining >= 8 && memcmp(in, "\x1b[?1004", 7) == 0 &&
+        (in[7] == 'h' || in[7] == 'l')) {
+      in += 8;
+      stripped = true;
+      continue;
+    }
+
+    // \x1b]0;...\x07 - ConPTY window-title OSC sequence
+    if (remaining >= 4 && in[1] == ']' && in[2] == '0' && in[3] == ';') {
+      const char *bel =
+          static_cast<const char *>(memchr(in + 4, '\x07', end - in - 4));
+      if (bel) {
+        in = bel + 1;
+      } else {
+        in = end;
+      }
+      stripped = true;
+      continue;
+    }
+
+    *out++ = *in++;
   }
-  return false;
+
+  len = static_cast<size_t>(out - buf);
+  return stripped;
 }
 
 ConnectionConPTY::ConnectionConPTY(std::shared_ptr<PseudoConsole> pty)
@@ -69,12 +113,42 @@ size_t ConnectionConPTY::Read(void *dst, size_t dst_len,
     m_pty->GetCV().wait(guard, [this] { return !m_pty->IsStopping(); });
   }
 
+  char *out = static_cast<char *>(dst);
   size_t bytes_read =
-      ConnectionGenericFile::Read(dst, dst_len, timeout, status, error_ptr);
+      ConnectionGenericFile::Read(out, dst_len, timeout, status, error_ptr);
 
-  if (bytes_read > 0 && !m_pty_vt_sequence_was_stripped) {
-    if (StripConPTYInitSequences(dst, dst_len, bytes_read))
-      m_pty_vt_sequence_was_stripped = true;
+  if (bytes_read > 0 && !m_conpty_sequences_stripped)
+    if (StripConPTYSequences(out, bytes_read))
+      m_conpty_sequences_stripped = true;
+
+  // ConPTY translates LF -> CRLF via two separate pipe writes.
+  if (bytes_read > 0 && bytes_read < dst_len && out[bytes_read - 1] == '\r' &&
+      status == eConnectionStatusSuccess) {
+    OVERLAPPED lf_ov = {};
+    lf_ov.hEvent = ::CreateEvent(nullptr, /*bManualReset=*/TRUE,
+                                 /*bInitialState=*/FALSE, nullptr);
+    if (lf_ov.hEvent) {
+      BOOL ok = ::ReadFile(m_file, out + bytes_read, 1, nullptr, &lf_ov);
+      DWORD err = ok ? ERROR_SUCCESS : ::GetLastError();
+      if (err == ERROR_IO_PENDING) {
+        if (::WaitForSingleObject(lf_ov.hEvent, 20) == WAIT_OBJECT_0)
+          err = ERROR_SUCCESS;
+        else {
+          ::CancelIoEx(m_file, &lf_ov);
+          err = ERROR_OPERATION_ABORTED;
+        }
+      }
+      if (err == ERROR_SUCCESS) {
+        DWORD lf_read = 0;
+        if (::GetOverlappedResult(m_file, &lf_ov, &lf_read, FALSE))
+          bytes_read += lf_read;
+      } else if (err == ERROR_OPERATION_ABORTED) {
+        // Wait for the cancel to complete so lf_ov is safe to destroy.
+        DWORD dummy = 0;
+        ::GetOverlappedResult(m_file, &lf_ov, &dummy, TRUE);
+      }
+      ::CloseHandle(lf_ov.hEvent);
+    }
   }
 
   return bytes_read;
