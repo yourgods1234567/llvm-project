@@ -1,6 +1,6 @@
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../runtimes/cmake/Modules")
 include(WarningFlags)
-
+add_definitions(-g -O0)
 function(add_sycl_rt_library LIB_TARGET_NAME LIB_OBJ_NAME LIB_OUTPUT_NAME)
   cmake_parse_arguments(ARG "" "" "COMPILE_OPTIONS;SOURCES" ${ARGN})
 
@@ -80,6 +80,18 @@ function(add_sycl_rt_library LIB_TARGET_NAME LIB_OBJ_NAME LIB_OUTPUT_NAME)
   set_target_properties(${LIB_TARGET_NAME}
     PROPERTIES
       OUTPUT_NAME ${LIB_OUTPUT_NAME})
+
+# Unit tests
+set (UT_LIB_TARGET_NAME ${LIB_TARGET_NAME}_ut)
+add_library(${UT_LIB_TARGET_NAME} STATIC $<TARGET_OBJECTS:${LIB_OBJ_NAME}>)
+target_link_libraries(${UT_LIB_TARGET_NAME}
+  PRIVATE
+    ol_mock
+    LLVMObject
+  )
+add_dependencies(${UT_LIB_TARGET_NAME}
+  ol_mock
+)
 
 endfunction(add_sycl_rt_library)
 
