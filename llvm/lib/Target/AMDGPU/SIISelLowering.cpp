@@ -5016,6 +5016,7 @@ SITargetLowering::splitKillBlock(MachineInstr &MI,
     const SIRegisterInfo *TRI = ST.getRegisterInfo();
     MachineRegisterInfo &MRI = BB->getParent()->getRegInfo();
     DebugLoc DL = MI.getDebugLoc();
+
     // Insert a COPY from SCC from the last instruction which defines SCC in
     // `BB`
     bool Inserted = false;
