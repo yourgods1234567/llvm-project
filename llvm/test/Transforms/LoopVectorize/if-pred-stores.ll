@@ -1032,16 +1032,18 @@ define void @hoistable_predicated_store(ptr %A, ptr %B, ptr %C, ptr %D) {
 ; VEC-NEXT:    [[FOUND_CONFLICT17:%.*]] = and i1 [[BOUND015]], [[BOUND116]]
 ; VEC-NEXT:    [[CONFLICT_RDX18:%.*]] = or i1 [[CONFLICT_RDX14]], [[FOUND_CONFLICT17]]
 ; VEC-NEXT:    br i1 [[CONFLICT_RDX18]], label [[SCALAR_PH:%.*]], label [[VECTOR_BODY:%.*]]
+; VEC:       vector.ph:
+; VEC-NEXT:    [[TMP0:%.*]] = load i32, ptr [[A]], align 8, !alias.scope [[META15:![0-9]+]]
+; VEC-NEXT:    br label [[VECTOR_BODY1:%.*]]
 ; VEC:       vector.body:
-; VEC-NEXT:    [[INDEX:%.*]] = phi i64 [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ], [ 0, [[ENTRY:%.*]] ]
-; VEC-NEXT:    store i32 0, ptr [[C]], align 4, !alias.scope [[META15:![0-9]+]], !noalias [[META18:![0-9]+]]
-; VEC-NEXT:    [[TMP0:%.*]] = load i32, ptr [[A]], align 8, !alias.scope [[META22:![0-9]+]]
+; VEC-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_BODY]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY1]] ]
+; VEC-NEXT:    store i32 0, ptr [[C]], align 4, !alias.scope [[META18:![0-9]+]], !noalias [[META20:![0-9]+]]
 ; VEC-NEXT:    store i32 [[TMP0]], ptr [[B]], align 4, !alias.scope [[META23:![0-9]+]], !noalias [[META24:![0-9]+]]
 ; VEC-NEXT:    [[INDEX_NEXT]] = add nuw i64 [[INDEX]], 2
 ; VEC-NEXT:    [[TMP1:%.*]] = icmp eq i64 [[INDEX_NEXT]], 100
-; VEC-NEXT:    br i1 [[TMP1]], label [[SCALAR_PH]], label [[VECTOR_BODY]], !llvm.loop [[LOOP25:![0-9]+]]
+; VEC-NEXT:    br i1 [[TMP1]], label [[SCALAR_PH]], label [[VECTOR_BODY1]], !llvm.loop [[LOOP25:![0-9]+]]
 ; VEC:       scalar.ph:
-; VEC-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[ENTRY]] ], [ 100, [[VECTOR_BODY]] ]
+; VEC-NEXT:    [[BC_RESUME_VAL:%.*]] = phi i64 [ 0, [[ENTRY:%.*]] ], [ 100, [[VECTOR_BODY1]] ]
 ; VEC-NEXT:    br label [[LOOP:%.*]]
 ; VEC:       loop:
 ; VEC-NEXT:    [[IV:%.*]] = phi i64 [ [[BC_RESUME_VAL]], [[SCALAR_PH]] ], [ [[IV_NEXT:%.*]], [[LOOP]] ]
