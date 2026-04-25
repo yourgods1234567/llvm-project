@@ -334,14 +334,10 @@ define i32 @test_tst_assessment(i32 %a, i32 %b) {
 ;
 ; THUMB-LABEL: test_tst_assessment:
 ; THUMB:       @ %bb.0:
-; THUMB-NEXT:    movs r2, r0
-; THUMB-NEXT:    movs r0, #1
+; THUMB-NEXT:    movs r2, #1
+; THUMB-NEXT:    ands r1, r2
 ; THUMB-NEXT:    ands r0, r2
-; THUMB-NEXT:    lsls r1, r1, #31
-; THUMB-NEXT:    beq .LBB2_2
-; THUMB-NEXT:  @ %bb.1:
-; THUMB-NEXT:    subs r0, r0, #1
-; THUMB-NEXT:  .LBB2_2:
+; THUMB-NEXT:    subs r0, r0, r1
 ; THUMB-NEXT:    bx lr
 ;
 ; T2-LABEL: test_tst_assessment:
@@ -364,6 +360,282 @@ define i32 @test_tst_assessment(i32 %a, i32 %b) {
   %and2 = and i32 %b, 1
   %cmp = icmp eq i32 %and2, 0
   %sel = select i1 %cmp, i32 %and1, i32 %sub
+  ret i32 %sel
+}
+
+define i32 @thumb_select_identity_or(i32 %x, i32 %y, i32 %z) {
+; ARM-LABEL: thumb_select_identity_or:
+; ARM:       @ %bb.0:
+; ARM-NEXT:    tst r0, #1
+; ARM-NEXT:    orrne r1, r1, r2
+; ARM-NEXT:    mov r0, r1
+; ARM-NEXT:    mov pc, lr
+;
+; THUMB-LABEL: thumb_select_identity_or:
+; THUMB:       @ %bb.0:
+; THUMB-NEXT:    movs r3, #1
+; THUMB-NEXT:    ands r3, r0
+; THUMB-NEXT:    rsbs r0, r3, #0
+; THUMB-NEXT:    ands r0, r2
+; THUMB-NEXT:    orrs r0, r1
+; THUMB-NEXT:    bx lr
+;
+; T2-LABEL: thumb_select_identity_or:
+; T2:       @ %bb.0:
+; T2-NEXT:    lsls r0, r0, #31
+; T2-NEXT:    it ne
+; T2-NEXT:    orrne r1, r2
+; T2-NEXT:    mov r0, r1
+; T2-NEXT:    bx lr
+;
+; V8-LABEL: thumb_select_identity_or:
+; V8:       @ %bb.0:
+; V8-NEXT:    lsls r0, r0, #31
+; V8-NEXT:    it ne
+; V8-NEXT:    orrne r1, r2
+; V8-NEXT:    mov r0, r1
+; V8-NEXT:    bx lr
+  %x.and = and i32 %x, 1
+  %cmp = icmp eq i32 %x.and, 0
+  %orv = or i32 %y, %z
+  %sel = select i1 %cmp, i32 %y, i32 %orv
+  ret i32 %sel
+}
+
+define i32 @thumb_select_identity_xor(i32 %x, i32 %y, i32 %z) {
+; ARM-LABEL: thumb_select_identity_xor:
+; ARM:       @ %bb.0:
+; ARM-NEXT:    tst r0, #1
+; ARM-NEXT:    eorne r1, r1, r2
+; ARM-NEXT:    mov r0, r1
+; ARM-NEXT:    mov pc, lr
+;
+; THUMB-LABEL: thumb_select_identity_xor:
+; THUMB:       @ %bb.0:
+; THUMB-NEXT:    movs r3, #1
+; THUMB-NEXT:    ands r3, r0
+; THUMB-NEXT:    rsbs r0, r3, #0
+; THUMB-NEXT:    ands r0, r2
+; THUMB-NEXT:    eors r0, r1
+; THUMB-NEXT:    bx lr
+;
+; T2-LABEL: thumb_select_identity_xor:
+; T2:       @ %bb.0:
+; T2-NEXT:    lsls r0, r0, #31
+; T2-NEXT:    it ne
+; T2-NEXT:    eorne r1, r2
+; T2-NEXT:    mov r0, r1
+; T2-NEXT:    bx lr
+;
+; V8-LABEL: thumb_select_identity_xor:
+; V8:       @ %bb.0:
+; V8-NEXT:    lsls r0, r0, #31
+; V8-NEXT:    it ne
+; V8-NEXT:    eorne r1, r2
+; V8-NEXT:    mov r0, r1
+; V8-NEXT:    bx lr
+  %x.and = and i32 %x, 1
+  %cmp = icmp eq i32 %x.and, 0
+  %xorv = xor i32 %y, %z
+  %sel = select i1 %cmp, i32 %y, i32 %xorv
+  ret i32 %sel
+}
+
+define i32 @thumb_select_identity_add(i32 %x, i32 %y, i32 %z) {
+; ARM-LABEL: thumb_select_identity_add:
+; ARM:       @ %bb.0:
+; ARM-NEXT:    tst r0, #1
+; ARM-NEXT:    addne r1, r1, r2
+; ARM-NEXT:    mov r0, r1
+; ARM-NEXT:    mov pc, lr
+;
+; THUMB-LABEL: thumb_select_identity_add:
+; THUMB:       @ %bb.0:
+; THUMB-NEXT:    movs r3, #1
+; THUMB-NEXT:    ands r3, r0
+; THUMB-NEXT:    rsbs r0, r3, #0
+; THUMB-NEXT:    ands r0, r2
+; THUMB-NEXT:    adds r0, r1, r0
+; THUMB-NEXT:    bx lr
+;
+; T2-LABEL: thumb_select_identity_add:
+; T2:       @ %bb.0:
+; T2-NEXT:    lsls r0, r0, #31
+; T2-NEXT:    it ne
+; T2-NEXT:    addne r1, r2
+; T2-NEXT:    mov r0, r1
+; T2-NEXT:    bx lr
+;
+; V8-LABEL: thumb_select_identity_add:
+; V8:       @ %bb.0:
+; V8-NEXT:    lsls r0, r0, #31
+; V8-NEXT:    it ne
+; V8-NEXT:    addne r1, r2
+; V8-NEXT:    mov r0, r1
+; V8-NEXT:    bx lr
+  %x.and = and i32 %x, 1
+  %cmp = icmp eq i32 %x.and, 0
+  %addv = add i32 %y, %z
+  %sel = select i1 %cmp, i32 %y, i32 %addv
+  ret i32 %sel
+}
+
+define i32 @thumb_select_identity_sub(i32 %x, i32 %y, i32 %z) {
+; ARM-LABEL: thumb_select_identity_sub:
+; ARM:       @ %bb.0:
+; ARM-NEXT:    tst r0, #1
+; ARM-NEXT:    subne r1, r1, r2
+; ARM-NEXT:    mov r0, r1
+; ARM-NEXT:    mov pc, lr
+;
+; THUMB-LABEL: thumb_select_identity_sub:
+; THUMB:       @ %bb.0:
+; THUMB-NEXT:    movs r3, #1
+; THUMB-NEXT:    ands r3, r0
+; THUMB-NEXT:    rsbs r0, r3, #0
+; THUMB-NEXT:    ands r0, r2
+; THUMB-NEXT:    subs r0, r1, r0
+; THUMB-NEXT:    bx lr
+;
+; T2-LABEL: thumb_select_identity_sub:
+; T2:       @ %bb.0:
+; T2-NEXT:    lsls r0, r0, #31
+; T2-NEXT:    it ne
+; T2-NEXT:    subne r1, r1, r2
+; T2-NEXT:    mov r0, r1
+; T2-NEXT:    bx lr
+;
+; V8-LABEL: thumb_select_identity_sub:
+; V8:       @ %bb.0:
+; V8-NEXT:    lsls r0, r0, #31
+; V8-NEXT:    it ne
+; V8-NEXT:    subne r1, r1, r2
+; V8-NEXT:    mov r0, r1
+; V8-NEXT:    bx lr
+  %x.and = and i32 %x, 1
+  %cmp = icmp eq i32 %x.and, 0
+  %subv = sub i32 %y, %z
+  %sel = select i1 %cmp, i32 %y, i32 %subv
+  ret i32 %sel
+}
+
+define i32 @thumb_select_identity_shl(i32 %x, i32 %y, i32 %z) {
+; ARM-LABEL: thumb_select_identity_shl:
+; ARM:       @ %bb.0:
+; ARM-NEXT:    tst r0, #1
+; ARM-NEXT:    lslne r1, r1, r2
+; ARM-NEXT:    mov r0, r1
+; ARM-NEXT:    mov pc, lr
+;
+; THUMB-LABEL: thumb_select_identity_shl:
+; THUMB:       @ %bb.0:
+; THUMB-NEXT:    movs r3, #1
+; THUMB-NEXT:    ands r3, r0
+; THUMB-NEXT:    rsbs r0, r3, #0
+; THUMB-NEXT:    ands r0, r2
+; THUMB-NEXT:    lsls r1, r0
+; THUMB-NEXT:    movs r0, r1
+; THUMB-NEXT:    bx lr
+;
+; T2-LABEL: thumb_select_identity_shl:
+; T2:       @ %bb.0:
+; T2-NEXT:    lsls r0, r0, #31
+; T2-NEXT:    it ne
+; T2-NEXT:    lslne r1, r2
+; T2-NEXT:    mov r0, r1
+; T2-NEXT:    bx lr
+;
+; V8-LABEL: thumb_select_identity_shl:
+; V8:       @ %bb.0:
+; V8-NEXT:    lsls r0, r0, #31
+; V8-NEXT:    it ne
+; V8-NEXT:    lslne r1, r2
+; V8-NEXT:    mov r0, r1
+; V8-NEXT:    bx lr
+  %x.and = and i32 %x, 1
+  %cmp = icmp eq i32 %x.and, 0
+  %shlv = shl i32 %y, %z
+  %sel = select i1 %cmp, i32 %y, i32 %shlv
+  ret i32 %sel
+}
+
+define i32 @thumb_select_identity_sra(i32 %x, i32 %y, i32 %z) {
+; ARM-LABEL: thumb_select_identity_sra:
+; ARM:       @ %bb.0:
+; ARM-NEXT:    tst r0, #1
+; ARM-NEXT:    asrne r1, r1, r2
+; ARM-NEXT:    mov r0, r1
+; ARM-NEXT:    mov pc, lr
+;
+; THUMB-LABEL: thumb_select_identity_sra:
+; THUMB:       @ %bb.0:
+; THUMB-NEXT:    movs r3, #1
+; THUMB-NEXT:    ands r3, r0
+; THUMB-NEXT:    rsbs r0, r3, #0
+; THUMB-NEXT:    ands r0, r2
+; THUMB-NEXT:    asrs r1, r0
+; THUMB-NEXT:    movs r0, r1
+; THUMB-NEXT:    bx lr
+;
+; T2-LABEL: thumb_select_identity_sra:
+; T2:       @ %bb.0:
+; T2-NEXT:    lsls r0, r0, #31
+; T2-NEXT:    it ne
+; T2-NEXT:    asrne r1, r2
+; T2-NEXT:    mov r0, r1
+; T2-NEXT:    bx lr
+;
+; V8-LABEL: thumb_select_identity_sra:
+; V8:       @ %bb.0:
+; V8-NEXT:    lsls r0, r0, #31
+; V8-NEXT:    it ne
+; V8-NEXT:    asrne r1, r2
+; V8-NEXT:    mov r0, r1
+; V8-NEXT:    bx lr
+  %x.and = and i32 %x, 1
+  %cmp = icmp eq i32 %x.and, 0
+  %srav = ashr i32 %y, %z
+  %sel = select i1 %cmp, i32 %y, i32 %srav
+  ret i32 %sel
+}
+
+define i32 @thumb_select_identity_srl(i32 %x, i32 %y, i32 %z) {
+; ARM-LABEL: thumb_select_identity_srl:
+; ARM:       @ %bb.0:
+; ARM-NEXT:    tst r0, #1
+; ARM-NEXT:    lsrne r1, r1, r2
+; ARM-NEXT:    mov r0, r1
+; ARM-NEXT:    mov pc, lr
+;
+; THUMB-LABEL: thumb_select_identity_srl:
+; THUMB:       @ %bb.0:
+; THUMB-NEXT:    movs r3, #1
+; THUMB-NEXT:    ands r3, r0
+; THUMB-NEXT:    rsbs r0, r3, #0
+; THUMB-NEXT:    ands r0, r2
+; THUMB-NEXT:    lsrs r1, r0
+; THUMB-NEXT:    movs r0, r1
+; THUMB-NEXT:    bx lr
+;
+; T2-LABEL: thumb_select_identity_srl:
+; T2:       @ %bb.0:
+; T2-NEXT:    lsls r0, r0, #31
+; T2-NEXT:    it ne
+; T2-NEXT:    lsrne r1, r2
+; T2-NEXT:    mov r0, r1
+; T2-NEXT:    bx lr
+;
+; V8-LABEL: thumb_select_identity_srl:
+; V8:       @ %bb.0:
+; V8-NEXT:    lsls r0, r0, #31
+; V8-NEXT:    it ne
+; V8-NEXT:    lsrne r1, r2
+; V8-NEXT:    mov r0, r1
+; V8-NEXT:    bx lr
+  %x.and = and i32 %x, 1
+  %cmp = icmp eq i32 %x.and, 0
+  %srlv = lshr i32 %y, %z
+  %sel = select i1 %cmp, i32 %y, i32 %srlv
   ret i32 %sel
 }
 
