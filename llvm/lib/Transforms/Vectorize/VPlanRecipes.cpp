@@ -225,6 +225,31 @@ bool VPRecipeBase::mayHaveSideEffects() const {
   }
 }
 
+bool VPRecipeBase::isSafeToSpeculativelyExecute() const {
+  switch (getVPRecipeID()) {
+  default:
+    return false;
+  case VPInstructionSC: {
+    unsigned Opcode = cast<VPInstruction>(this)->getOpcode();
+    if (Instruction::isCast(Opcode))
+      return true;
+
+    switch (Opcode) {
+    default:
+      return false;
+    case Instruction::Add:
+    case Instruction::Sub:
+    case Instruction::Mul:
+    case Instruction::GetElementPtr:
+      return true;
+    }
+  }
+  case VPVectorPointerSC:
+  case VPVectorEndPointerSC:
+    return true;
+  }
+}
+
 void VPRecipeBase::insertBefore(VPRecipeBase *InsertPos) {
   assert(!Parent && "Recipe already in some VPBasicBlock");
   assert(InsertPos->getParent() &&
