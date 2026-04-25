@@ -1532,7 +1532,7 @@ def : DiagGroup<"c++1y-extensions", [CXX14]>;
 def : DiagGroup<"c++1z-extensions", [CXX17]>;
 def : DiagGroup<"c++2a-extensions", [CXX20]>;
 def : DiagGroup<"c++2b-extensions", [CXX23]>;
-def : DiagGroup<"c++2c-extensions", [CXX26]>;
+def CXX2C : DiagGroup<"c++2c-extensions", [CXX26]>;
 
 def DelegatingCtorCycles :
   DiagGroup<"delegating-ctor-cycles">;

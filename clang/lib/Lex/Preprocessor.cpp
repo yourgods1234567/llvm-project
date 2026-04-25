@@ -1072,18 +1072,21 @@ void Preprocessor::LexTokensUntilEOF(std::vector<Token> *Tokens) {
 ///        token is a '<').
 /// \return \c true if we reached EOD or EOF while looking for a > token in
 ///         a concatenated header name and diagnosed it. \c false otherwise.
-bool Preprocessor::LexHeaderName(Token &FilenameTok, bool AllowMacroExpansion) {
+bool Preprocessor::LexHeaderName(Token &FilenameTok, bool AllowMacroExpansion,
+                                 bool SkipFirst) {
   // Lex using header-name tokenization rules if tokens are being lexed from
   // a file. Just grab a token normally if we're in a macro expansion.
-  if (CurPPLexer) {
-    // Avoid nested header-name lexing when macro expansion recurses
-    // __has_include(__has_include))
-    if (CurPPLexer->ParsingFilename)
-      LexUnexpandedToken(FilenameTok);
-    else
-      CurPPLexer->LexIncludeFilename(FilenameTok);
-  } else {
-    Lex(FilenameTok);
+  if (!SkipFirst) {
+    if (CurPPLexer) {
+      // Avoid nested header-name lexing when macro expansion recurses
+      // __has_include(__has_include))
+      if (CurPPLexer->ParsingFilename)
+        LexUnexpandedToken(FilenameTok);
+      else
+        CurPPLexer->LexIncludeFilename(FilenameTok);
+    } else {
+      Lex(FilenameTok);
+    }
   }
 
   // This could be a <foo/bar.h> file coming from a macro expansion.  In this

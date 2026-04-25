@@ -467,6 +467,9 @@ def warn_c23_compat_warning_directive : Warning<
 def ext_pp_embed_directive : ExtWarn<
   "#embed is a %select{C23|Clang}0 extension">,
   InGroup<C23>;
+def ext_pp_depend_directive : ExtWarn<
+  "#depend is a %select{C++2c|Clang}0 extension">,
+  InGroup<CXX2C>, DefaultIgnore;
 def warn_compat_pp_embed_directive : Warning<
   "#embed is incompatible with C standards before C23">,
   InGroup<CPre23Compat>, DefaultIgnore;
@@ -582,6 +585,7 @@ def err_pp_including_mainfile_in_preamble : Error<
 def err_pp_empty_filename : Error<"empty filename">;
 def err_pp_include_too_deep : Error<"#include nested too deeply">;
 def err_pp_expects_filename : Error<"expected \"FILENAME\" or <FILENAME>">;
+def err_pp_expects_pattern : Error<"expected \"PATTERN\" or <PATTERN>">;
 def err_pp_macro_not_identifier : Error<"macro name must be an identifier">;
 def err_pp_missing_macro_name : Error<"macro name missing">;
 def err_pp_missing_rparen_in_macro_def : Error<

@@ -515,6 +515,11 @@ feature_test_macros = [
             "libcxx_guard": "defined(__cpp_impl_destroying_delete) && __cpp_impl_destroying_delete >= 201806L",
         },
         {
+            "name": "__cpp_lib_embed",
+            "values": {"c++29": 202606},
+            "headers": ["embed"],
+        },
+        {
             "name": "__cpp_lib_enable_shared_from_this",
             "values": {"c++17": 201603},
             "headers": ["memory"],
@@ -1559,7 +1564,7 @@ lit_markup = {
 
 
 def get_std_dialects():
-    std_dialects = ["c++14", "c++17", "c++20", "c++23", "c++26"]
+    std_dialects = ["c++14", "c++17", "c++20", "c++23", "c++26", "c++29"]
     return list(std_dialects)
 
 
