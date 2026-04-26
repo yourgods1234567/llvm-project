@@ -442,14 +442,14 @@ define i1 @cmn_swap(i32 %a, i32 %b) {
 ; CHECK-ARM-LABEL: cmn_swap:
 ; CHECK-ARM:       @ %bb.0:
 ; CHECK-ARM-NEXT:    mov r2, #0
-; CHECK-ARM-NEXT:    cmn r1, r0
+; CHECK-ARM-NEXT:    cmn r0, r1
 ; CHECK-ARM-NEXT:    movwlt r2, #1
 ; CHECK-ARM-NEXT:    mov r0, r2
 ; CHECK-ARM-NEXT:    bx lr
 ;
 ; CHECK-T1-LABEL: cmn_swap:
 ; CHECK-T1:       @ %bb.0:
-; CHECK-T1-NEXT:    cmn r1, r0
+; CHECK-T1-NEXT:    cmn r0, r1
 ; CHECK-T1-NEXT:    blt .LBB11_2
 ; CHECK-T1-NEXT:  @ %bb.1:
 ; CHECK-T1-NEXT:    movs r0, #0
@@ -461,7 +461,7 @@ define i1 @cmn_swap(i32 %a, i32 %b) {
 ; CHECK-T2-LABEL: cmn_swap:
 ; CHECK-T2:       @ %bb.0:
 ; CHECK-T2-NEXT:    movs r2, #0
-; CHECK-T2-NEXT:    cmn r1, r0
+; CHECK-T2-NEXT:    cmn r0, r1
 ; CHECK-T2-NEXT:    it lt
 ; CHECK-T2-NEXT:    movlt r2, #1
 ; CHECK-T2-NEXT:    mov r0, r2
