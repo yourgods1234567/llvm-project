@@ -5359,8 +5359,11 @@ static unsigned getCallOpcode(PPCTargetLowering::CallFlags CFlags,
     // immediately followed by a load of the TOC pointer from the stack save
     // slot into gpr2. For 64-bit ELFv2 ABI with PCRel, do not restore the TOC
     // as it is not saved or used.
-    RetOpc = isTOCSaveRestoreRequired(Subtarget) ? PPCISD::BCTRL_LOAD_TOC
-                                                 : PPCISD::BCTRL;
+    if (Subtarget.noInlineGlue())
+      RetOpc = PPCISD::BL_LOAD_TOC;
+    else
+      RetOpc = isTOCSaveRestoreRequired(Subtarget) ? PPCISD::BCTRL_LOAD_TOC
+                                                   : PPCISD::BCTRL;
   } else if (Subtarget.isUsingPCRelativeCalls()) {
     assert(Subtarget.is64BitELFABI() && "PC Relative is only on ELF ABI.");
     RetOpc = PPCISD::CALL_NOTOC;
@@ -5539,7 +5542,6 @@ static void prepareDescriptorIndirectCall(SelectionDAG &DAG, SDValue &Callee,
   // copies together, a TOC access in the caller could be scheduled between
   // the assignment of the callee TOC and the branch to the callee, which leads
   // to incorrect code.
-
   // Start by loading the function address from the descriptor.
   SDValue LDChain = getOutputChainFromCallSeq(CallSeqStart);
   auto MMOFlags = Subtarget.hasInvariantFunctionDescriptors()
@@ -5600,6 +5602,23 @@ static void prepareDescriptorIndirectCall(SelectionDAG &DAG, SDValue &Callee,
   prepareIndirectCall(DAG, LoadFuncPtr, Glue, Chain, dl);
 }
 
+static void prepareOutOfLineGlueCall(SelectionDAG &DAG, SDValue &Callee,
+                                     SDValue &Glue, SDValue &Chain,
+                                     SDValue CallSeqStart, const CallBase *CB,
+                                     const SDLoc &dl, bool hasNest,
+                                     const PPCSubtarget &Subtarget) {
+  // On AIX there is a feature ("out of line glue code") which uses a special
+  // trampoline function ._ptrgl to do the indirect call. If this option is
+  // enabled we instead simply load the address of the descriptor into gpr11,
+  // with the arguments in the 'normal' registers and branch to the ._ptrgl
+  // stub.
+  const MCRegister PtrGlueReg = Subtarget.getGlueCodeDescriptorRegister();
+  SDValue MoveToPhysicalReg =
+      DAG.getCopyToReg(Chain, dl, PtrGlueReg, Callee, Glue);
+  Chain = MoveToPhysicalReg.getValue(0);
+  Glue = MoveToPhysicalReg.getValue(1);
+}
+
 static void
 buildCallOperands(SmallVectorImpl<SDValue> &Ops,
                   PPCTargetLowering::CallFlags CFlags, const SDLoc &dl,
@@ -5617,7 +5636,12 @@ buildCallOperands(SmallVectorImpl<SDValue> &Ops,
   // If it's a direct call pass the callee as the second operand.
   if (!CFlags.IsIndirect)
     Ops.push_back(Callee);
-  else {
+  else if (Subtarget.noInlineGlue()) {
+    Ops.push_back(Callee);
+    // Add the register used to pass the descriptor address.
+    Ops.push_back(
+        DAG.getRegister(Subtarget.getGlueCodeDescriptorRegister(), RegVT));
+  } else {
     assert(!CFlags.IsPatchPoint && "Patch point calls are not indirect.");
 
     // For the TOC based ABIs, we have saved the TOC pointer to the linkage area
@@ -5700,8 +5724,15 @@ SDValue PPCTargetLowering::FinishCall(
   if (!CFlags.IsIndirect)
     Callee = transformCallee(Callee, DAG, dl, Subtarget);
   else if (Subtarget.usesFunctionDescriptors())
-    prepareDescriptorIndirectCall(DAG, Callee, Glue, Chain, CallSeqStart, CB,
-                                  dl, CFlags.HasNest, Subtarget);
+    if (Subtarget.noInlineGlue()) {
+      prepareOutOfLineGlueCall(DAG, Callee, Glue, Chain, CallSeqStart, CB, dl,
+                               CFlags.HasNest, Subtarget);
+      SDValue PtrGlueCallee =
+          DAG.getExternalSymbol("_ptrgl", getPointerTy(DAG.getDataLayout()));
+      Callee = transformCallee(PtrGlueCallee, DAG, dl, Subtarget);
+    } else
+      prepareDescriptorIndirectCall(DAG, Callee, Glue, Chain, CallSeqStart, CB,
+                                    dl, CFlags.HasNest, Subtarget);
   else
     prepareIndirectCall(DAG, Callee, Glue, Chain, dl);
 
@@ -7747,7 +7778,7 @@ SDValue PPCTargetLowering::LowerCall_AIX(
 
   // For indirect calls, we need to save the TOC base to the stack for
   // restoration after the call.
-  if (CFlags.IsIndirect) {
+  if (CFlags.IsIndirect && !Subtarget.noInlineGlue()) {
     assert(!CFlags.IsTailCall && "Indirect tail-calls not supported.");
     const MCRegister TOCBaseReg = Subtarget.getTOCPointerRegister();
     const MCRegister StackPtrReg = Subtarget.getStackPointerRegister();
