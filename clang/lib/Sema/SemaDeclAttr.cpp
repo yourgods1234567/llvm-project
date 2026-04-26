@@ -6978,6 +6978,14 @@ static void handleUninitializedAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   D->addAttr(::new (S.Context) UninitializedAttr(S.Context, AL));
 }
 
+static void handleIndeterminateAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  if (!S.getLangOpts().CPlusPlus26 && AL.isCXX11Attribute() &&
+      !AL.getScopeName()) {
+    S.Diag(AL.getLoc(), diag::ext_cxx26_attr) << AL;
+  }
+  D->addAttr(::new (S.Context) IndeterminateAttr(S.Context, AL));
+}
+
 static void handleMIGServerRoutineAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   // Check that the return type is a `typedef int kern_return_t` or a typedef
   // around it, because otherwise MIG convention checks make no sense.
@@ -8235,6 +8243,10 @@ ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D, const ParsedAttr &AL,
 
   case ParsedAttr::AT_Uninitialized:
     handleUninitializedAttr(S, D, AL);
+    break;
+
+  case ParsedAttr::AT_Indeterminate:
+    handleIndeterminateAttr(S, D, AL);
     break;
 
   case ParsedAttr::AT_ObjCExternallyRetained:
