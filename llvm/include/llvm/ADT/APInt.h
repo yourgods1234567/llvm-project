@@ -1026,6 +1026,11 @@ public:
   LLVM_ABI APInt ushl_ov(const APInt &Amt, bool &Overflow) const;
   LLVM_ABI APInt ushl_ov(unsigned Amt, bool &Overflow) const;
 
+  // Overflow predicates (flag only, no product or shifted value computed).
+  /// Return true if unsigned multiplication of this and RHS would overflow.
+  /// Prefer this over umul_ov when only the overflow flag is needed.
+  LLVM_ABI bool umul_has_overflow(const APInt &RHS) const;
+
   /// Signed integer floor division operation.
   ///
   /// Rounds towards negative infinity, i.e. 5 / -2 = -3. Iff minimum value
