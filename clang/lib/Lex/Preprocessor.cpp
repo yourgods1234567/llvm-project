@@ -1443,8 +1443,7 @@ void Preprocessor::makeModuleVisible(Module *M, SourceLocation Loc,
         // FIXME: Include the path in the diagnostic.
         // FIXME: Include the import location for the conflicting module.
         Diag(ModuleImportLoc, diag::warn_module_conflict)
-            << Path[0]->getFullModuleName()
-            << Conflict->getFullModuleName()
+            << Path[0]->getFullModuleName() << Conflict->getFullModuleName()
             << Message;
       });
 
