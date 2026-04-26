@@ -12384,7 +12384,28 @@ static void AnalyzeImpConvsInComparison(Sema &S, BinaryOperator *E) {
   AnalyzeImplicitConversions(S, E->getRHS(), E->getOperatorLoc());
 }
 
-/// Implements -Wsign-compare.
+static void CheckBoolIntegralComparison(Sema &S, BinaryOperator *E) {
+  Expr *LHS = E->getLHS()->IgnoreParenImpCasts();
+  Expr *RHS = E->getRHS()->IgnoreParenImpCasts();
+  QualType LHSType = LHS->getType().getUnqualifiedType();
+  QualType RHSType = RHS->getType().getUnqualifiedType();
+
+  if (LHSType->isBooleanType() == RHSType->isBooleanType())
+    return;
+
+  QualType BoolType = LHSType->isBooleanType() ? LHSType : RHSType;
+  QualType OtherType = LHSType->isBooleanType() ? RHSType : LHSType;
+  Expr *OtherExpr = LHSType->isBooleanType() ? RHS : LHS;
+  if (!OtherType->isIntegralOrEnumerationType() ||
+      OtherExpr->isIntegerConstantExpr(S.Context))
+    return;
+
+  S.Diag(E->getOperatorLoc(), diag::warn_bool_integral_comparison)
+      << BoolType << OtherType << OtherType->isEnumeralType()
+      << LHS->getSourceRange() << RHS->getSourceRange();
+}
+
+/// Analyze comparison operators for comparison-related warnings.
 ///
 /// \param E the binary operator to check for warnings
 static void AnalyzeComparison(Sema &S, BinaryOperator *E) {
@@ -12426,6 +12447,8 @@ static void AnalyzeComparison(Sema &S, BinaryOperator *E) {
       if (CheckTautologicalComparison(S, E, Const, Other, Value, RhsConstant))
         return AnalyzeImpConvsInComparison(S, E);
     }
+
+    CheckBoolIntegralComparison(S, E);
   }
 
   if (!T->hasUnsignedIntegerRepresentation()) {
