@@ -198,12 +198,17 @@ static cl::opt<unsigned> VectorizeMemoryCheckThreshold(
     "vectorize-memory-check-threshold", cl::init(128), cl::Hidden,
     cl::desc("The maximum allowed number of runtime memory checks"));
 
-/// Option tail-folding-policy indicates that an epilogue is undesired, that
-/// tail folding is preferred, and this lists all options. I.e., the vectorizer
-/// will try to fold the tail-loop (epilogue) into the vector body and predicate
-/// the instructions accordingly. If tail-folding fails, there are different
-/// fallback strategies depending on these values:
-enum class TailFoldingPolicyTy { None = 0, PreferFoldTail, MustFoldTail };
+/// Option tail-folding-policy controls the tail-folding strategy and lists all
+/// available options. The vectorizer will attempt to fold the tail-loop into
+/// the vector loop (main/epilogue loops) and predicate the instructions
+/// accordingly. If tail-folding fails, there are different fallback strategies
+/// depending on these values:
+enum class TailFoldingPolicyTy {
+  None = 0,
+  PreferFoldTail,
+  MustFoldTail,
+  FoldEpilogueTail
+};
 
 static cl::opt<TailFoldingPolicyTy> TailFoldingPolicy(
     "tail-folding-policy", cl::init(TailFoldingPolicyTy::None), cl::Hidden,
@@ -216,7 +221,10 @@ static cl::opt<TailFoldingPolicyTy> TailFoldingPolicy(
                    "appropriate."),
         clEnumValN(TailFoldingPolicyTy::MustFoldTail, "must-fold-tail",
                    "always tail-fold, don't attempt vectorization if "
-                   "tail-folding fails.")));
+                   "tail-folding fails."),
+        clEnumValN(TailFoldingPolicyTy::FoldEpilogueTail, "fold-epilogue-tail",
+                   "prefer tail-folded vector epilogue, fall back to "
+                   "an epilogue if it fails.")));
 
 static cl::opt<TailFoldingStyle> ForceTailFoldingStyle(
     "force-tail-folding-style", cl::desc("Force the tail folding style"),
@@ -803,6 +811,12 @@ enum EpilogueLowering {
 
   // Loop hint indicating an epilogue is undesired, apply tail folding.
   CM_EpilogueNotNeededFoldTail,
+
+  // Tail-folded vector epilogue requested; the scalar tail will be folded into
+  // the vectorized epilogue loop if possible, otherwise fall back to an
+  // epilogue. This status is specifically for the CM instance of the
+  // tail-folded epilogue.
+  CM_EpilogueNotNeededFoldEpilogueTail,
 
   // Directive indicating we must either fold the epilogue/tail or not vectorize
   CM_EpilogueNotAllowedFoldTail
@@ -3046,6 +3060,11 @@ LoopVectorizationCostModel::computeMaxVF(ElementCount UserVF, unsigned UserIC) {
     if (Config.runtimeChecksRequired())
       return FixedScalableVFPair::getNone();
 
+    break;
+  default:
+    // Ignore the case of CM_EpilogueNotNeededFoldEpilogueTail for now.
+    // TODO: delete/clarify the comment when there is a handling for the case of
+    // CM_EpilogueNotNeededFoldEpilogueTail
     break;
   }
 
@@ -7517,6 +7536,9 @@ void LoopVectorizationPlanner::addMinimumIterationCheck(
 // for minimum code-size, 2) tail-folding compiler options, 3) loop
 // hints forcing tail-folding, and 4) a TTI hook that analyses whether the loop
 // is suitable for tail-folding.
+// This function determines epilogue lowering for the main vector loop while
+// epilogue lowering for the tail-folded epilogue path will be handled
+// separately.
 static EpilogueLowering
 getEpilogueLowering(Function *F, Loop *L, LoopVectorizeHints &Hints,
                     bool OptForSize, TargetTransformInfo *TTI,
@@ -7537,6 +7559,8 @@ getEpilogueLowering(Function *F, Loop *L, LoopVectorizeHints &Hints,
       return CM_EpilogueNotNeededFoldTail;
     case TailFoldingPolicyTy::MustFoldTail:
       return CM_EpilogueNotAllowedFoldTail;
+    default:
+      break;
     };
   }
 
@@ -8419,6 +8443,13 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   LoopVectorizationPlanner LVP(L, LI, DT, TLI, *TTI, &LVL, CM, Config, IAI, PSE,
                                Hints, ORE);
 
+  if (TailFoldingPolicy == TailFoldingPolicyTy::FoldEpilogueTail) {
+    // TODO: Apply tail-folding on the vectorized epilogue loop.
+    LLVM_DEBUG(dbgs() << "LV: epilogue tail-folding is not supported yet\n");
+    reportVectorizationInfo("The tail-folding policy fold-epilogue-tail is not "
+                            "supported yet, fall back to an epilogue",
+                            "UnsupportedTailFoldingPolicy", ORE, L);
+  }
   // Get user vectorization factor and interleave count.
   ElementCount UserVF = Hints.getWidth();
   unsigned UserIC = Hints.getInterleave();
