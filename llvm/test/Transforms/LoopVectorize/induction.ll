@@ -3274,12 +3274,12 @@ define void @wrappingindvars1(i8 %t, i32 %len, ptr %A) {
 ; CHECK:       vector.scevcheck:
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[T]]
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp ugt i32 [[LEN]], 255
 ; CHECK-NEXT:    [[TMP5:%.*]] = or i1 [[TMP3]], [[TMP4]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = trunc i32 [[LEN]] to i8
 ; CHECK-NEXT:    [[TMP7:%.*]] = add i8 [[T]], [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp slt i8 [[TMP7]], [[T]]
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i8 [[TMP7]], [[T]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ugt i32 [[LEN]], 255
 ; CHECK-NEXT:    [[TMP10:%.*]] = or i1 [[TMP8]], [[TMP9]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = or i1 [[TMP5]], [[TMP10]]
@@ -3340,11 +3340,11 @@ define void @wrappingindvars1(i8 %t, i32 %len, ptr %A) {
 ; IND-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_SCEVCHECK:%.*]]
 ; IND:       vector.scevcheck:
 ; IND-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
-; IND-NEXT:    [[TMP2:%.*]] = xor i8 [[T]], -1
-; IND-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[TMP1]]
+; IND-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
+; IND-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; IND-NEXT:    [[TMP4:%.*]] = trunc i32 [[LEN]] to i8
-; IND-NEXT:    [[TMP5:%.*]] = add i8 [[T]], [[TMP4]]
-; IND-NEXT:    [[TMP6:%.*]] = icmp slt i8 [[TMP5]], [[T]]
+; IND-NEXT:    [[TMP5:%.*]] = xor i8 [[T]], -1
+; IND-NEXT:    [[TMP6:%.*]] = icmp ult i8 [[TMP5]], [[TMP4]]
 ; IND-NEXT:    [[TMP7:%.*]] = icmp ugt i32 [[LEN]], 255
 ; IND-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; IND-NEXT:    [[TMP9:%.*]] = or i1 [[TMP3]], [[TMP8]]
@@ -3406,11 +3406,11 @@ define void @wrappingindvars1(i8 %t, i32 %len, ptr %A) {
 ; UNROLL-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_SCEVCHECK:%.*]]
 ; UNROLL:       vector.scevcheck:
 ; UNROLL-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
-; UNROLL-NEXT:    [[TMP2:%.*]] = xor i8 [[T]], -1
-; UNROLL-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[TMP1]]
+; UNROLL-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
+; UNROLL-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; UNROLL-NEXT:    [[TMP4:%.*]] = trunc i32 [[LEN]] to i8
-; UNROLL-NEXT:    [[TMP5:%.*]] = add i8 [[T]], [[TMP4]]
-; UNROLL-NEXT:    [[TMP6:%.*]] = icmp slt i8 [[TMP5]], [[T]]
+; UNROLL-NEXT:    [[TMP5:%.*]] = xor i8 [[T]], -1
+; UNROLL-NEXT:    [[TMP6:%.*]] = icmp ult i8 [[TMP5]], [[TMP4]]
 ; UNROLL-NEXT:    [[TMP7:%.*]] = icmp ugt i32 [[LEN]], 255
 ; UNROLL-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; UNROLL-NEXT:    [[TMP9:%.*]] = or i1 [[TMP3]], [[TMP8]]
@@ -3477,12 +3477,12 @@ define void @wrappingindvars1(i8 %t, i32 %len, ptr %A) {
 ; UNROLL-NO-IC:       vector.scevcheck:
 ; UNROLL-NO-IC-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
 ; UNROLL-NO-IC-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
-; UNROLL-NO-IC-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[T]]
+; UNROLL-NO-IC-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; UNROLL-NO-IC-NEXT:    [[TMP4:%.*]] = icmp ugt i32 [[LEN]], 255
 ; UNROLL-NO-IC-NEXT:    [[TMP5:%.*]] = or i1 [[TMP3]], [[TMP4]]
 ; UNROLL-NO-IC-NEXT:    [[TMP6:%.*]] = trunc i32 [[LEN]] to i8
 ; UNROLL-NO-IC-NEXT:    [[TMP7:%.*]] = add i8 [[T]], [[TMP6]]
-; UNROLL-NO-IC-NEXT:    [[TMP8:%.*]] = icmp slt i8 [[TMP7]], [[T]]
+; UNROLL-NO-IC-NEXT:    [[TMP8:%.*]] = icmp ult i8 [[TMP7]], [[T]]
 ; UNROLL-NO-IC-NEXT:    [[TMP9:%.*]] = icmp ugt i32 [[LEN]], 255
 ; UNROLL-NO-IC-NEXT:    [[TMP10:%.*]] = or i1 [[TMP8]], [[TMP9]]
 ; UNROLL-NO-IC-NEXT:    [[TMP11:%.*]] = or i1 [[TMP5]], [[TMP10]]
@@ -3546,11 +3546,11 @@ define void @wrappingindvars1(i8 %t, i32 %len, ptr %A) {
 ; INTERLEAVE-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_SCEVCHECK:%.*]]
 ; INTERLEAVE:       vector.scevcheck:
 ; INTERLEAVE-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
-; INTERLEAVE-NEXT:    [[TMP2:%.*]] = xor i8 [[T]], -1
-; INTERLEAVE-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[TMP1]]
+; INTERLEAVE-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
+; INTERLEAVE-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; INTERLEAVE-NEXT:    [[TMP4:%.*]] = trunc i32 [[LEN]] to i8
-; INTERLEAVE-NEXT:    [[TMP5:%.*]] = add i8 [[T]], [[TMP4]]
-; INTERLEAVE-NEXT:    [[TMP6:%.*]] = icmp slt i8 [[TMP5]], [[T]]
+; INTERLEAVE-NEXT:    [[TMP5:%.*]] = xor i8 [[T]], -1
+; INTERLEAVE-NEXT:    [[TMP6:%.*]] = icmp ult i8 [[TMP5]], [[TMP4]]
 ; INTERLEAVE-NEXT:    [[TMP7:%.*]] = icmp ugt i32 [[LEN]], 255
 ; INTERLEAVE-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; INTERLEAVE-NEXT:    [[TMP9:%.*]] = or i1 [[TMP3]], [[TMP8]]
@@ -3649,12 +3649,12 @@ define void @wrappingindvars2(i8 %t, i32 %len, ptr %A) {
 ; CHECK:       vector.scevcheck:
 ; CHECK-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
 ; CHECK-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
-; CHECK-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[T]]
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = icmp ugt i32 [[LEN]], 255
 ; CHECK-NEXT:    [[TMP5:%.*]] = or i1 [[TMP3]], [[TMP4]]
 ; CHECK-NEXT:    [[TMP6:%.*]] = trunc i32 [[LEN]] to i8
 ; CHECK-NEXT:    [[TMP7:%.*]] = add i8 [[T]], [[TMP6]]
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp slt i8 [[TMP7]], [[T]]
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp ult i8 [[TMP7]], [[T]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = icmp ugt i32 [[LEN]], 255
 ; CHECK-NEXT:    [[TMP10:%.*]] = or i1 [[TMP8]], [[TMP9]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = or i1 [[TMP5]], [[TMP10]]
@@ -3718,11 +3718,11 @@ define void @wrappingindvars2(i8 %t, i32 %len, ptr %A) {
 ; IND-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_SCEVCHECK:%.*]]
 ; IND:       vector.scevcheck:
 ; IND-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
-; IND-NEXT:    [[TMP2:%.*]] = xor i8 [[T]], -1
-; IND-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[TMP1]]
+; IND-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
+; IND-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; IND-NEXT:    [[TMP4:%.*]] = trunc i32 [[LEN]] to i8
-; IND-NEXT:    [[TMP5:%.*]] = add i8 [[T]], [[TMP4]]
-; IND-NEXT:    [[TMP6:%.*]] = icmp slt i8 [[TMP5]], [[T]]
+; IND-NEXT:    [[TMP5:%.*]] = xor i8 [[T]], -1
+; IND-NEXT:    [[TMP6:%.*]] = icmp ult i8 [[TMP5]], [[TMP4]]
 ; IND-NEXT:    [[TMP7:%.*]] = icmp ugt i32 [[LEN]], 255
 ; IND-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; IND-NEXT:    [[TMP9:%.*]] = or i1 [[TMP3]], [[TMP8]]
@@ -3787,11 +3787,11 @@ define void @wrappingindvars2(i8 %t, i32 %len, ptr %A) {
 ; UNROLL-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_SCEVCHECK:%.*]]
 ; UNROLL:       vector.scevcheck:
 ; UNROLL-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
-; UNROLL-NEXT:    [[TMP2:%.*]] = xor i8 [[T]], -1
-; UNROLL-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[TMP1]]
+; UNROLL-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
+; UNROLL-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; UNROLL-NEXT:    [[TMP4:%.*]] = trunc i32 [[LEN]] to i8
-; UNROLL-NEXT:    [[TMP5:%.*]] = add i8 [[T]], [[TMP4]]
-; UNROLL-NEXT:    [[TMP6:%.*]] = icmp slt i8 [[TMP5]], [[T]]
+; UNROLL-NEXT:    [[TMP5:%.*]] = xor i8 [[T]], -1
+; UNROLL-NEXT:    [[TMP6:%.*]] = icmp ult i8 [[TMP5]], [[TMP4]]
 ; UNROLL-NEXT:    [[TMP7:%.*]] = icmp ugt i32 [[LEN]], 255
 ; UNROLL-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; UNROLL-NEXT:    [[TMP9:%.*]] = or i1 [[TMP3]], [[TMP8]]
@@ -3861,12 +3861,12 @@ define void @wrappingindvars2(i8 %t, i32 %len, ptr %A) {
 ; UNROLL-NO-IC:       vector.scevcheck:
 ; UNROLL-NO-IC-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
 ; UNROLL-NO-IC-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
-; UNROLL-NO-IC-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[T]]
+; UNROLL-NO-IC-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; UNROLL-NO-IC-NEXT:    [[TMP4:%.*]] = icmp ugt i32 [[LEN]], 255
 ; UNROLL-NO-IC-NEXT:    [[TMP5:%.*]] = or i1 [[TMP3]], [[TMP4]]
 ; UNROLL-NO-IC-NEXT:    [[TMP6:%.*]] = trunc i32 [[LEN]] to i8
 ; UNROLL-NO-IC-NEXT:    [[TMP7:%.*]] = add i8 [[T]], [[TMP6]]
-; UNROLL-NO-IC-NEXT:    [[TMP8:%.*]] = icmp slt i8 [[TMP7]], [[T]]
+; UNROLL-NO-IC-NEXT:    [[TMP8:%.*]] = icmp ult i8 [[TMP7]], [[T]]
 ; UNROLL-NO-IC-NEXT:    [[TMP9:%.*]] = icmp ugt i32 [[LEN]], 255
 ; UNROLL-NO-IC-NEXT:    [[TMP10:%.*]] = or i1 [[TMP8]], [[TMP9]]
 ; UNROLL-NO-IC-NEXT:    [[TMP11:%.*]] = or i1 [[TMP5]], [[TMP10]]
@@ -3933,11 +3933,11 @@ define void @wrappingindvars2(i8 %t, i32 %len, ptr %A) {
 ; INTERLEAVE-NEXT:    br i1 [[MIN_ITERS_CHECK]], label [[SCALAR_PH:%.*]], label [[VECTOR_SCEVCHECK:%.*]]
 ; INTERLEAVE:       vector.scevcheck:
 ; INTERLEAVE-NEXT:    [[TMP1:%.*]] = trunc i32 [[LEN]] to i8
-; INTERLEAVE-NEXT:    [[TMP2:%.*]] = xor i8 [[T]], -1
-; INTERLEAVE-NEXT:    [[TMP3:%.*]] = icmp ult i8 [[TMP2]], [[TMP1]]
+; INTERLEAVE-NEXT:    [[TMP2:%.*]] = add i8 [[T]], [[TMP1]]
+; INTERLEAVE-NEXT:    [[TMP3:%.*]] = icmp slt i8 [[TMP2]], [[T]]
 ; INTERLEAVE-NEXT:    [[TMP4:%.*]] = trunc i32 [[LEN]] to i8
-; INTERLEAVE-NEXT:    [[TMP5:%.*]] = add i8 [[T]], [[TMP4]]
-; INTERLEAVE-NEXT:    [[TMP6:%.*]] = icmp slt i8 [[TMP5]], [[T]]
+; INTERLEAVE-NEXT:    [[TMP5:%.*]] = xor i8 [[T]], -1
+; INTERLEAVE-NEXT:    [[TMP6:%.*]] = icmp ult i8 [[TMP5]], [[TMP4]]
 ; INTERLEAVE-NEXT:    [[TMP7:%.*]] = icmp ugt i32 [[LEN]], 255
 ; INTERLEAVE-NEXT:    [[TMP8:%.*]] = or i1 [[TMP6]], [[TMP7]]
 ; INTERLEAVE-NEXT:    [[TMP9:%.*]] = or i1 [[TMP3]], [[TMP8]]
