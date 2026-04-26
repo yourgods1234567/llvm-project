@@ -99,6 +99,26 @@ struct Foo
   }
 };
 
+// Parens used as the object of a member access are not redundant.
+struct Stream {
+  Stream &operator<<(const char *);
+  const char *str() const;
+};
+struct Val {
+  int x;
+};
+struct Iter {
+  Val operator*() const;
+};
+
+void memberAccessOnParen(Stream &s, Iter it) {
+  // (s << "x").str() -- parens required for method chaining; no warning.
+  (s << "x").str();
+
+  // (*it).x -- parens required before member access; no warning.
+  auto v = (*it).x;
+}
+
 void memberExpr() {
   Foo foo{};
   if ((foo.x)) {

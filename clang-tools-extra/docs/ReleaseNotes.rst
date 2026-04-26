@@ -545,6 +545,14 @@ Changes in existing checks
   `IgnoreMacros` option to suppress warnings when the initializer involves
   macros that may expand differently in other configurations.
 
+- Improved :doc:`readability-redundant-parentheses
+  <clang-tidy/checks/readability/redundant-parentheses>` check to fix a false
+  positive where parentheses around overloaded comparison operators (e.g.
+  ``iterator !=``, ``std::string >=``) were incorrectly flagged while
+  equivalent built-in operator expressions were not. Overloaded operators
+  written in operator form are now treated consistently with built-in binary
+  operators. Functor calls via ``operator()`` continue to be flagged.
+
 - Improved :doc:`readability-redundant-preprocessor
   <clang-tidy/checks/readability/redundant-preprocessor>` check by fixing a
   false positive for nested ``#if`` directives using different builtin
