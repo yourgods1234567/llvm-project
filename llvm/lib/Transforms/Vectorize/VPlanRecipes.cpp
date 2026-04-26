@@ -317,6 +317,11 @@ bool VPRecipeBase::isScalarCast() const {
   return VPI && Instruction::isCast(VPI->getOpcode());
 }
 
+bool VPRecipeBase::isScalarGEP() const {
+  auto *VPI = dyn_cast<VPInstruction>(this);
+  return VPI && VPI->getOpcode() == Instruction::GetElementPtr;
+}
+
 void VPIRFlags::intersectFlags(const VPIRFlags &Other) {
   assert(OpType == Other.OpType && "OpType must match");
   switch (OpType) {
@@ -1291,7 +1296,7 @@ bool VPInstruction::isSingleScalar() const {
   case VPInstruction::VScale:
     return true;
   default:
-    return isScalarCast();
+    return isScalarCast() || isScalarGEP();
   }
 }
 
@@ -1583,6 +1588,16 @@ void VPInstructionWithType::execute(VPTransformState &State) {
     State.set(this, Cast, VPLane(0));
     return;
   }
+  if (isScalarGEP()) {
+    Value *Ptr = State.get(getOperand(0), true);
+    auto IdxList =
+        to_vector(map_range(drop_begin(operands()),
+                            [&](VPValue *Op) { return State.get(Op, true); }));
+    Value *GEP = State.Builder.CreateGEP(ResultTy, Ptr, IdxList, "",
+                                         getGEPNoWrapFlags());
+    State.set(this, GEP, true);
+    return;
+  }
   switch (getOpcode()) {
   case VPInstruction::StepVector: {
     Value *StepVector =
@@ -1621,6 +1636,12 @@ void VPInstructionWithType::printRecipe(raw_ostream &O, const Twine &Indent,
     break;
   case Instruction::Load:
     O << "load ";
+    printOperands(O, SlotTracker);
+    break;
+  case Instruction::GetElementPtr:
+    O << "getelementptr";
+    printFlags(O);
+    O << *ResultTy << " ";
     printOperands(O, SlotTracker);
     break;
   default:

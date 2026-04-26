@@ -556,6 +556,9 @@ public:
   /// Return true if the recipe is a scalar cast.
   bool isScalarCast() const;
 
+  /// Return true if the recipe is a scalar getelementptr.
+  bool isScalarGEP() const;
+
   /// Set the recipe's debug location to \p NewDL.
   void setDebugLoc(DebugLoc NewDL) { DL = NewDL; }
 
@@ -1517,6 +1520,10 @@ class VPInstructionWithType : public VPInstruction {
   /// Scalar result type produced by the recipe.
   Type *ResultTy;
 
+  /// The source element type, which is present when the recipe has a
+  /// getelementptr opcode.
+  Type *SourceElementTy = nullptr;
+
 public:
   VPInstructionWithType(unsigned Opcode, ArrayRef<VPValue *> Operands,
                         Type *ResultTy, const VPIRFlags &Flags = {},
@@ -1526,10 +1533,20 @@ public:
       : VPInstruction(Opcode, Operands, Flags, Metadata, DL, Name),
         ResultTy(ResultTy) {}
 
+  /// Constructor for GEPs.
+  VPInstructionWithType(Type *SourceElementTy, ArrayRef<VPValue *> Operands,
+                        Type *ResultTy, const VPIRFlags &Flags = {},
+                        const VPIRMetadata &Metadata = {},
+                        DebugLoc DL = DebugLoc::getUnknown(),
+                        const Twine &Name = "")
+      : VPInstruction(Instruction::GetElementPtr, Operands, Flags, Metadata, DL,
+                      Name),
+        ResultTy(ResultTy), SourceElementTy(SourceElementTy) {}
+
   static inline bool classof(const VPRecipeBase *R) {
     // VPInstructionWithType are VPInstructions with specific opcodes requiring
     // type information.
-    if (R->isScalarCast())
+    if (R->isScalarCast() || R->isScalarGEP())
       return true;
     auto *VPI = dyn_cast<VPInstruction>(R);
     if (!VPI)
@@ -1567,6 +1584,11 @@ public:
   }
 
   Type *getResultType() const { return ResultTy; }
+  Type *getSourceElementType() const {
+    assert(isScalarGEP() &&
+           "Source element type requested for non-getelementptr");
+    return SourceElementTy;
+  }
 
 protected:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
