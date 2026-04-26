@@ -451,6 +451,11 @@ static cl::list<unsigned> ClAddrSpaces(
       SrcAddrSpaces.insert(AddrSpace);
     }));
 
+static cl::opt<bool> ClEmitDebugInfo(
+    "asan-emit-debug-info",
+    cl::desc("Emit debug info for inserted ASan runtime function declarations"),
+    cl::Hidden, cl::init(false));
+
 // Debug flags.
 
 static cl::opt<int> ClDebug("asan-debug", cl::desc("debug"), cl::Hidden,
@@ -1288,6 +1293,124 @@ struct FunctionStackPoisoner : public InstVisitor<FunctionStackPoisoner> {
                      Instruction *ThenTerm, Value *ValueIfFalse);
 };
 
+/// Resolve an LLVM IR type to a synthetic DIType for ASan runtime callbacks.
+/// Only handles the types that actually appear in ASan callback signatures.
+static DIType *solveAsanDIType(DIBuilder &DIB, Type *Ty, const DataLayout &DL) {
+  // Functions have a void return type.
+  if (Ty->isVoidTy())
+    return nullptr;
+
+  // The mem* intrinsics and AMDGPU specific calls have pointer parameters.
+  if (Ty->isPointerTy()) {
+    return DIB.createPointerType(nullptr, DL.getPointerSizeInBits(),
+                                 DL.getABITypeAlign(Ty).value() * CHAR_BIT,
+                                 std::nullopt, "PointerType");
+  }
+
+  // All other parameters are integers, even pointers (intptr_t).
+  if (!Ty->isIntegerTy())
+    llvm_unreachable("unexpected type in ASan callback signature");
+
+  unsigned BitWidth = cast<IntegerType>(Ty)->getBitWidth();
+  SmallString<16> Name;
+  raw_svector_ostream OS(Name);
+  OS << "__int_" << BitWidth;
+
+  return DIB.createBasicType(OS.str(), BitWidth, dwarf::DW_ATE_signed,
+                             DINode::FlagArtificial);
+}
+
+// Check if the function was inserted in the code by the pass.
+static bool isAsanInjectedFunction(StringRef Name) {
+  // Each prefix covers a class of inserted functions (e.g., __asan_report_*).
+  static constexpr const char *const Prefixes[] = {
+      kAsanReportErrorTemplate,           // __asan_report_{load,store}…
+      kAsanStackMallocNameTemplate,       // __asan_stack_malloc_<N>
+      kAsanStackMallocAlwaysNameTemplate, // __asan_stack_malloc_always_<N>
+      kAsanStackFreeNameTemplate,         // __asan_stack_free_<N>
+      kAsanSetShadowPrefix,               // __asan_set_shadow_<XX>
+  };
+
+  for (const char *P : Prefixes)
+    if (Name.starts_with(P))
+      return true;
+
+  // Exact names — callbacks inserted verbatim.
+  static constexpr const char *const ExactNames[] = {
+      kAsanRegisterGlobalsName,
+      kAsanUnregisterGlobalsName,
+      kAsanRegisterImageGlobalsName,
+      kAsanUnregisterImageGlobalsName,
+      kAsanRegisterElfGlobalsName,
+      kAsanUnregisterElfGlobalsName,
+      kAsanPoisonGlobalsName,
+      kAsanUnpoisonGlobalsName,
+      kAsanHandleNoReturnName,
+      kAsanPtrCmp,
+      kAsanPtrSub,
+      kAsanPoisonStackMemoryName,
+      kAsanUnpoisonStackMemoryName,
+      kAsanAllocaPoison,
+      kAsanAllocasUnpoison,
+  };
+
+  for (const char *E : ExactNames)
+    if (Name == E)
+      return true;
+
+  // ClMemoryAccessCallbackPrefix is an overridable cl::opt that may not
+  // be matches exactly. Covers:
+  // - __asan_{load,store}{1,2,4,8,16,N}[_noabort]
+  // - __asan_{memmove,memcpy,memset}
+  if (Name.starts_with(ClMemoryAccessCallbackPrefix))
+    return true;
+
+  return false;
+}
+
+/// Emit debug info for any ASAN function calls inserted in the
+/// program. Necessary for BTF generation and by extension BPF
+/// linking.
+static void emitAsanDebugInfo(Module &M) {
+  // Attach the info to any of the CUs.
+  if (M.debug_compile_units().empty())
+    return;
+
+  DICompileUnit *CU = *M.debug_compile_units_begin();
+  DIFile *File = CU->getFile();
+  const DataLayout &DL = M.getDataLayout();
+
+  DIBuilder DIB(M, false);
+
+  for (Function &F : M) {
+    if (!F.isDeclaration())
+      continue;
+    if (!isAsanInjectedFunction(F.getName()))
+      continue;
+    if (F.use_empty())
+      continue;
+    if (F.getSubprogram())
+      continue;
+
+    FunctionType *FTy = F.getFunctionType();
+
+    SmallVector<Metadata *, 4> ParamTypes;
+    ParamTypes.push_back(solveAsanDIType(DIB, FTy->getReturnType(), DL));
+    for (Type *PT : FTy->params())
+      ParamTypes.push_back(solveAsanDIType(DIB, PT, DL));
+
+    DISubroutineType *SubTy =
+        DIB.createSubroutineType(DIB.getOrCreateTypeArray(ParamTypes));
+
+    DISubprogram *SP =
+        DIB.createFunction(File, F.getName(), F.getName(), File, 0, SubTy, 0,
+                           DINode::FlagArtificial | DINode::FlagPrototyped,
+                           DISubprogram::SPFlagZero);
+
+    F.setSubprogram(SP);
+  }
+}
+
 } // end anonymous namespace
 
 void AddressSanitizerPass::printPipeline(
@@ -1346,6 +1469,9 @@ PreservedAnalyses AddressSanitizerPass::run(Module &M,
   Modified |= ModuleSanitizer.instrumentModule();
   if (!Modified)
     return PreservedAnalyses::all();
+
+  if (ClEmitDebugInfo)
+    emitAsanDebugInfo(M);
 
   PreservedAnalyses PA = PreservedAnalyses::none();
   // GlobalsAA is considered stateless and does not get invalidated unless
