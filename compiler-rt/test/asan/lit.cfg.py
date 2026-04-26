@@ -99,6 +99,20 @@ else:
 clang_asan_cflags = clang_asan_static_cflags + asan_dynamic_flags
 clang_asan_cxxflags = clang_asan_static_cxxflags + asan_dynamic_flags
 
+# PR A can build clang_rt.profile with /MD on Windows when it merges
+# RTInterception / RTSanitizerCommon. Tests that combine ASan with -coverage
+# link that profile archive too, so give them the same CRT model override that
+# check-profile already uses.
+asan_profile_flags = []
+if platform.system() == "Windows" and target_is_msvc:
+    asan_profile_flags = [
+        "-D_MT",
+        "-D_DLL",
+        "-Wl,-nodefaultlib:libcmt,-defaultlib:msvcrt,-defaultlib:oldnames",
+    ]
+clang_asan_profile_cflags = clang_asan_cflags + asan_profile_flags
+clang_asan_profile_cxxflags = clang_asan_cxxflags + asan_profile_flags
+
 # Add win32-(static|dynamic)-asan features to mark tests as passing or failing
 # in those modes. lit doesn't support logical feature test combinations.
 if platform.system() == "Windows":
@@ -121,6 +135,12 @@ config.substitutions.append(("%clang ", build_invocation(target_cflags)))
 config.substitutions.append(("%clangxx ", build_invocation(target_cxxflags)))
 config.substitutions.append(("%clang_asan ", build_invocation(clang_asan_cflags)))
 config.substitutions.append(("%clangxx_asan ", build_invocation(clang_asan_cxxflags)))
+config.substitutions.append(
+    ("%clang_asan_with_profile ", build_invocation(clang_asan_profile_cflags))
+)
+config.substitutions.append(
+    ("%clangxx_asan_with_profile ", build_invocation(clang_asan_profile_cxxflags))
+)
 config.substitutions.append(
     ("%clang_asan_lto ", build_invocation(clang_asan_cflags, True))
 )
