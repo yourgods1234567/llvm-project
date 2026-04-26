@@ -1807,6 +1807,14 @@ void stdTieIsReinit() {
   b.size();
 }
 
+void stdTieWithIgnore() {
+  // std::ignore placeholder does not prevent reinitialization of named variables.
+  std::string a, b;
+  std::move(a);
+  std::tie(a, std::ignore) = makeStringPair("x", "y"); // no-warning: a reinitialized
+  a.size();
+}
+
 void stdTiePartialReinit() {
   // Only variables named in std::tie are reinitialized.
   std::string a, b;
