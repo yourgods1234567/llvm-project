@@ -171,3 +171,67 @@ add_header_library(
     libc.hdr.types.struct_timespec
     libc.include.sys_syscall
 )
+
+add_header_library(
+  mmap
+  HDRS
+    mmap.h
+  DEPENDS
+    libc.src.__support.OSUtil.osutil
+    libc.src.__support.common
+    libc.src.__support.error_or
+    libc.src.__support.macros.config
+    libc.hdr.types.off_t
+    libc.include.sys_syscall
+)
+
+add_header_library(
+  munmap
+  HDRS
+    munmap.h
+  DEPENDS
+    libc.src.__support.OSUtil.osutil
+    libc.src.__support.common
+    libc.src.__support.error_or
+    libc.src.__support.macros.config
+    libc.include.sys_syscall
+)
+
+add_header_library(
+  ftruncate
+  HDRS
+    ftruncate.h
+  DEPENDS
+    libc.src.__support.OSUtil.osutil
+    libc.src.__support.common
+    libc.src.__support.error_or
+    libc.src.__support.macros.config
+    libc.hdr.types.off_t
+    libc.include.sys_syscall
+)
+
+add_header_library(
+  link
+  HDRS
+    link.h
+  DEPENDS
+    libc.src.__support.OSUtil.osutil
+    libc.src.__support.common
+    libc.src.__support.error_or
+    libc.src.__support.macros.config
+    libc.hdr.fcntl_macros
+    libc.include.sys_syscall
+)
+
+add_header_library(
+  unlink
+  HDRS
+    unlink.h
+  DEPENDS
+    libc.src.__support.OSUtil.osutil
+    libc.src.__support.common
+    libc.src.__support.error_or
+    libc.src.__support.macros.config
+    libc.hdr.fcntl_macros
+    libc.include.sys_syscall
+)
