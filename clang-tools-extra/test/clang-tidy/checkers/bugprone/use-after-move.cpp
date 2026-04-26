@@ -1819,14 +1819,10 @@ void stdTiePartialReinit() {
 }
 
 void stdTieInLoop() {
-  // std::tie reinitializes a and b so subsequent uses in the same iteration
-  // and across loop iterations do not produce use-after-move warnings.
+  // std::tie on the LHS reinitializes before the next iteration.
   std::string a, b;
   while (true) {
-    std::move(a);
-    std::move(b);
-    std::tie(a, b) = makeStringPair("x", "y"); // reinitializes a and b
-    a.size(); // no-warning: reinitialized by tie above
-    b.size(); // no-warning: reinitialized by tie above
+    std::tie(a, b) = makeStringPair(std::move(a), std::move(b));
+    std::tie(a, b) = makeStringPair(std::move(a), std::move(b)); // no-warning
   }
 }
