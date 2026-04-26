@@ -30,8 +30,8 @@ TEST(LlvmLibcByteTest, bitwise) {
   ASSERT_EQ(b, byte{0b01010100});
   b >>= 1;
 
-  ASSERT_EQ((b << 1), byte{0b01010100});
-  ASSERT_EQ((b >> 1), byte{0b00010101});
+  ASSERT_EQ(static_cast<unsigned int>(b << 1), 0b01010100U);
+  ASSERT_EQ(static_cast<unsigned int>(b >> 1), 0b00010101U);
 
   b |= byte{0b11110000};
   ASSERT_EQ(b, byte{0b11111010});
