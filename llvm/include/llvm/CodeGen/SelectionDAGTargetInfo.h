@@ -19,11 +19,13 @@
 #include "llvm/CodeGen/SDNodeInfo.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/Support/CodeGen.h"
+#include <memory>
 #include <utility>
 
 namespace llvm {
 
 class CallInst;
+class SDNodeCSEMap;
 class SelectionDAG;
 
 //===----------------------------------------------------------------------===//
@@ -204,6 +206,11 @@ public:
   virtual bool disableGenericCombines(CodeGenOptLevel OptLevel) const {
     return false;
   }
+
+  /// Returns the CSE map to use for this SelectionDAG.
+  /// Called once during SelectionDAG::init().
+  LLVM_ABI virtual std::unique_ptr<SDNodeCSEMap>
+  createCSEMap(SelectionDAG &DAG) const;
 };
 
 /// Proxy class that targets should inherit from if they wish to use

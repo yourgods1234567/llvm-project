@@ -59,6 +59,8 @@ public:
 
   void verifyTargetNode(const SelectionDAG &DAG,
                         const SDNode *N) const override;
+
+  std::unique_ptr<SDNodeCSEMap> createCSEMap(SelectionDAG &DAG) const override;
 };
 
 } // namespace llvm
