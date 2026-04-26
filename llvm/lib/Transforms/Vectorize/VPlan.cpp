@@ -31,6 +31,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IRBuilder.h"
@@ -64,6 +65,19 @@ const char LLVMLoopVectorizeFollowupVectorized[] =
 const char LLVMLoopVectorizeFollowupEpilogue[] =
     "llvm.loop.vectorize.followup_epilogue";
 /// @}
+
+/// Add a boolean metadata attribute to a loop's loop-ID node.
+static void addBooleanLoopAttribute(Loop *L, StringRef Name) {
+  LLVMContext &Context = L->getHeader()->getContext();
+  MDNode *AttrMD = MDNode::get(
+      Context,
+      {MDString::get(Context, Name),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  MDNode *LoopID = L->getLoopID();
+  MDNode *NewLoopID =
+      makePostTransformationMetadata(Context, LoopID, {}, {AttrMD});
+  L->setLoopID(NewLoopID);
+}
 
 extern cl::opt<unsigned> ForceTargetInstructionCost;
 
@@ -1792,6 +1806,11 @@ void LoopVectorizationPlanner::updateLoopMetadataAndProfileInfo(
       Hints.setAlreadyVectorized();
     }
   }
+  // Tag the scalar remainder so downstream passes (e.g. the unroller and
+  // WarnMissedTransforms) can produce more informative remarks.  Only emit
+  // when remarks are enabled.
+  if (ORE->enabled() && Plan.getScalarPreheader()->hasPredecessors())
+    addBooleanLoopAttribute(OrigLoop, "llvm.loop.vectorize.epilogue");
 
   if (!VectorLoop)
     return;
@@ -1811,6 +1830,10 @@ void LoopVectorizationPlanner::updateLoopMetadataAndProfileInfo(
       Hints.setAlreadyVectorized();
     }
   }
+  // Tag the vector loop body so downstream passes can identify it.  Only
+  // emit when remarks are enabled.
+  if (ORE->enabled())
+    addBooleanLoopAttribute(VectorLoop, "llvm.loop.vectorize.body");
   TargetTransformInfo::UnrollingPreferences UP;
   TTI.getUnrollingPreferences(VectorLoop, *PSE.getSE(), UP, ORE);
   if (!UP.UnrollVectorizedLoop || VectorizingEpilogue)
