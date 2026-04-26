@@ -30,6 +30,16 @@ namespace llvm {
 
 class GCNTargetMachine;
 
+/// Module flag names controlling out-of-bounds buffer access semantics.
+/// Each flag is an i32 with Module::Max merge behaviour and tri-state values:
+///   0 = any (absent/default - backend currently treats as strict)
+///   1 = relaxed
+///   2 = strict
+namespace AMDGPUOOBMode {
+inline constexpr StringLiteral BufferFlag("amdgpu.buffer.oob.mode");
+inline constexpr StringLiteral TBufferFlag("amdgpu.tbuffer.oob.mode");
+} // namespace AMDGPUOOBMode
+
 class GCNSubtarget final : public AMDGPUGenSubtargetInfo,
                            public AMDGPUSubtarget {
 public:
@@ -73,6 +83,8 @@ protected:
   bool DynamicVGPR = false;
   bool DynamicVGPRBlockSize32 = false;
   bool ScalarizeGlobal = false;
+  bool BufferOOBRelaxed = false;
+  bool TBufferOOBRelaxed = false;
 
   /// The maximum number of instructions that may be placed within an S_CLAUSE,
   /// which is one greater than the maximum argument to S_CLAUSE. A value of 0
@@ -334,6 +346,11 @@ public:
   bool isXNACKEnabled() const { return TargetID.isXnackOnOrAny(); }
 
   bool isTgSplitEnabled() const { return EnableTgSplit; }
+
+  bool hasRelaxedBufferOOBMode() const { return BufferOOBRelaxed; }
+  bool hasRelaxedTBufferOOBMode() const { return TBufferOOBRelaxed; }
+  void setBufferOOBRelaxed(bool V) { BufferOOBRelaxed = V; }
+  void setTBufferOOBRelaxed(bool V) { TBufferOOBRelaxed = V; }
 
   bool isCuModeEnabled() const { return EnableCuMode; }
 
