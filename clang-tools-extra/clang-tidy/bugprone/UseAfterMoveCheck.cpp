@@ -136,12 +136,14 @@ makeReinitMatcher(const ValueDecl *MovedVariable,
                  // std::tie() assignment: std::tie(a, b) = expr reinitializes
                  // all variables passed to std::tie because the tuple
                  // assignment writes back through the stored references.
+                 // ignoringImplicit strips the MaterializeTemporaryExpr that
+                 // Clang inserts when calling operator= on the prvalue tuple.
                  binaryOperation(
                      hasOperatorName("="),
-                     hasLHS(
+                     hasLHS(ignoringImplicit(
                          callExpr(callee(functionDecl(hasName("::std::tie"))),
                                   hasAnyArgument(
-                                      ignoringParenImpCasts(DeclRefMatcher))))),
+                                      ignoringParenImpCasts(DeclRefMatcher)))))),
                  // Declaration. We treat this as a type of reinitialization
                  // too, so we don't need to treat it separately.
                  declStmt(hasDescendant(equalsNode(MovedVariable))),
