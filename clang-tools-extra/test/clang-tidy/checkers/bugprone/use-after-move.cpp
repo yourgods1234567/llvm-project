@@ -1815,6 +1815,14 @@ void stdTieWithIgnore() {
   a.size();
 }
 
+void stdTieIgnoreFlipped() {
+  // std::ignore in first position still reinitializes named variables.
+  std::string a, b;
+  std::move(a);
+  std::tie(std::ignore, a) = makeStringPair("x", "y"); // no-warning: a reinitialized
+  a.size();
+}
+
 void stdTiePartialReinit() {
   // Only variables named in std::tie are reinitialized.
   std::string a, b;
