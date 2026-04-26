@@ -21,16 +21,31 @@
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
+#include "SIRegisterInfo.h"
+#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/Support/BranchProbability.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "si-pre-emit-peephole"
+
+static cl::opt<bool> EnableReorderBufferLoadAndMFMA(
+    "amdgpu-enable-reorder-bufferload-and-mfma", cl::Hidden,
+    cl::desc("Enable Reorder BufferLoad and MFMA in post-RA peephole."),
+    cl::init(false));
+
+static cl::opt<bool> MFMABufferLoadRatio(
+    "amdgpu-bufferload-mfma-ratio", cl::Hidden,
+    cl::desc("Ratio of MFMA and BufferLoad Ratio to trigger reorder"),
+    cl::init(4));
 
 namespace {
 
@@ -80,6 +95,7 @@ private:
   // appropriate source modifers and operands into the unpacked instructions.
   void addOperandAndMods(MachineInstrBuilder &NewMI, unsigned SrcMods,
                          bool IsHiBits, const MachineOperand &SrcMO);
+  bool optimizeBufferLoadM0(MachineBasicBlock &MBB);
 
 public:
   bool run(MachineFunction &MF, MachineLoopInfo *MLI);
@@ -726,6 +742,118 @@ void SIPreEmitPeephole::performF32Unpacking(MachineInstr &I) {
   I.eraseFromParent();
 }
 
+static bool isVecBufferLoad(const SIInstrInfo *TII, const MachineInstr &MI) {
+  return MI.mayLoad() && (TII->isMTBUF(MI) || TII->isMUBUF(MI));
+};
+
+static MachineInstr *getPrevNonDebugInst(MachineInstr *MI) {
+  for (MachineInstr *I = MI->getPrevNode(); I; I = I->getPrevNode())
+    if (!I->isDebugInstr())
+      return I;
+  return nullptr;
+}
+
+// return true if all of three are true:
+// no flow dependency from BufferLoad to MFMA
+// no anti-flow dependency from BufferLoad to MFMA
+// no output dependency between BufferLoad and MFMA
+static bool canBeReordered(MachineInstr *BufferLoad, MachineInstr *MFMA,
+                           const SIRegisterInfo *TRI) {
+  bool HasFlowDep =
+      llvm::any_of(BufferLoad->defs(), [MFMA, TRI](const MachineOperand &def) {
+        return def.isReg() && MFMA->readsRegister(def.getReg(), TRI);
+      });
+
+  bool HasAntiDep =
+      llvm::any_of(MFMA->defs(), [BufferLoad, TRI](const MachineOperand &def) {
+        return BufferLoad->readsRegister(def.getReg(), TRI);
+      });
+
+  bool HasOutputDep =
+      llvm::any_of(MFMA->defs(), [BufferLoad, TRI](const MachineOperand &def) {
+        return BufferLoad->modifiesRegister(def.getReg(), TRI);
+      });
+
+  return !HasFlowDep && !HasAntiDep && !HasOutputDep;
+}
+
+static bool isContinuousMFMA(const SIInstrInfo *TII, MachineInstr *MFMA,
+                             unsigned NumMFMA) {
+  unsigned Num = 0;
+  for (MachineInstr *I = MFMA; I; I = I->getNextNode()) {
+    if (TII->isMFMA(I->getOpcode())) {
+      if (++Num == NumMFMA)
+        return true;
+    } else {
+      // There is no continuous MFMA, so false is returned.
+      return false;
+    }
+  }
+  return false;
+}
+
+// pattern 2: s_mov_b32 m0 --> buffer_load --> mfma --> ... -->mfma
+// swap buffer_load and the 1st mfma
+bool SIPreEmitPeephole::optimizeBufferLoadM0(MachineBasicBlock &MBB) {
+  if (MBB.empty())
+    return false;
+
+  bool Changed = false;
+  using InstrIt = MachineBasicBlock::iterator;
+  unsigned NumberMFMA = MFMABufferLoadRatio;
+  for (InstrIt I = MBB.begin(), E = MBB.end(); I != E; ++I) {
+    if (!TII->isMFMA(I->getOpcode()) || I == MBB.begin())
+      continue;
+    MachineInstr *MFMA = &*I;
+
+    // The cycles of buffer_load varies wildly and cycles of MFMA varies
+    // depending on the shape. Option amdgpu-bufferload-mfma-ratio is exposed to
+    // user to set it in perf-tuning if
+    // amdgpu-enable-reorder-bufferload-and-mfma is enabled. For example, on
+    // GFX950, if mfma is v_mfma_f32_16x16x32_f16, then ratio with 4 is best to
+    // hide latency.
+    if (!isContinuousMFMA(TII, MFMA, NumberMFMA))
+      continue;
+
+    MachineInstr *Prev = getPrevNonDebugInst(&*I);
+    if (!Prev || !isVecBufferLoad(TII, *Prev) ||
+        !Prev->readsRegister(AMDGPU::M0, TRI))
+      continue;
+
+    MachineInstr *BufferLoad = Prev;
+    Prev = getPrevNonDebugInst(Prev);
+    if (Prev == nullptr)
+      continue;
+
+    MachineInstr *MaybeNop = Prev;
+    MachineInstr *MaybeSMov = nullptr;
+    // In the current lowering pipeline, the post-RA-hazard-rec is just after
+    // this pass, so there is no s_nop. But we still do the check here in case
+    // the order of passes is changed.
+    if (MaybeNop->getOpcode() == AMDGPU::S_NOP &&
+        MaybeNop->getOperand(0).getImm() == 0) {
+      MaybeSMov = getPrevNonDebugInst(MaybeNop);
+    } else {
+      MaybeSMov = MaybeNop;
+      MaybeNop = nullptr;
+    }
+
+    if (!MaybeSMov || MaybeSMov->getOpcode() != AMDGPU::S_MOV_B32 ||
+        !MaybeSMov->modifiesRegister(AMDGPU::M0, TRI))
+      continue;
+
+    if (!canBeReordered(BufferLoad, MFMA, TRI))
+      continue;
+
+    Changed = true;
+    MBB.splice(std::next(I), &MBB, BufferLoad);
+    if (MaybeNop != nullptr)
+      MaybeNop->eraseFromParent();
+  }
+
+  return Changed;
+}
+
 MachineInstrBuilder SIPreEmitPeephole::createUnpackedMI(MachineInstr &I,
                                                         uint32_t UnpackedOpcode,
                                                         bool IsHiBits) {
@@ -859,6 +987,11 @@ bool SIPreEmitPeephole::run(MachineFunction &MF, MachineLoopInfo *LoopInfo) {
     for (MachineInstr *MI : InstrsToUnpack) {
       performF32Unpacking(*MI);
     }
+  }
+
+  if (ST.hasGFX950Insts() && EnableReorderBufferLoadAndMFMA) {
+    for (MachineBasicBlock &MBB : MF)
+      Changed |= optimizeBufferLoadM0(MBB);
   }
 
   return Changed;
