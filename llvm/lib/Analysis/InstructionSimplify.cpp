@@ -7213,6 +7213,31 @@ Value *llvm::simplifyBinaryIntrinsic(Intrinsic::ID IID, Type *ReturnType,
   case Intrinsic::aarch64_sve_umaxv:
   case Intrinsic::aarch64_sve_uminv:
     return simplifySVEIntReduction(IID, ReturnType, Op0, Op1);
+  case Intrinsic::fadd: {
+    FastMathFlags FMF =
+        Call ? cast<FPMathOperator>(Call)->getFastMathFlags() : FastMathFlags();
+    return llvm::simplifyFAddInst(Op0, Op1, FMF, Q);
+  }
+  case Intrinsic::fsub: {
+    FastMathFlags FMF =
+        Call ? cast<FPMathOperator>(Call)->getFastMathFlags() : FastMathFlags();
+    return llvm::simplifyFSubInst(Op0, Op1, FMF, Q);
+  }
+  case Intrinsic::fmul: {
+    FastMathFlags FMF =
+        Call ? cast<FPMathOperator>(Call)->getFastMathFlags() : FastMathFlags();
+    return llvm::simplifyFMulInst(Op0, Op1, FMF, Q);
+  }
+  case Intrinsic::fdiv: {
+    FastMathFlags FMF =
+        Call ? cast<FPMathOperator>(Call)->getFastMathFlags() : FastMathFlags();
+    return llvm::simplifyFDivInst(Op0, Op1, FMF, Q);
+  }
+  case Intrinsic::frem: {
+    FastMathFlags FMF =
+        Call ? cast<FPMathOperator>(Call)->getFastMathFlags() : FastMathFlags();
+    return llvm::simplifyFRemInst(Op0, Op1, FMF, Q);
+  }
   default:
     break;
   }
@@ -7294,6 +7319,14 @@ static Value *simplifyIntrinsic(CallBase *Call, Value *Callee,
     if (match(Op0, m_AllOnes()) && match(Op1, m_AllOnes()))
       return ConstantInt::getAllOnesValue(F->getReturnType());
 
+    return nullptr;
+  }
+  case Intrinsic::fcmp: {
+    FCmpInst::Predicate Pred = cast<FPCmpIntrinsic>(Call)->getPredicate();
+    if (Pred == FCmpInst::FCMP_TRUE)
+      return ConstantInt::getTrue(F->getReturnType());
+    if (Pred == FCmpInst::FCMP_FALSE)
+      return ConstantInt::getFalse(F->getReturnType());
     return nullptr;
   }
   case Intrinsic::experimental_constrained_fma: {
