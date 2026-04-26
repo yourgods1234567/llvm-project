@@ -99,10 +99,7 @@ struct ThunkInfo {
   Defined *sym = nullptr;             // private-extern symbol for active thunk
   ConcatInputSection *isec = nullptr; // input section for active thunk
 
-  // The following values are cumulative across all thunks on this function
-  uint32_t callSiteCount = 0;  // how many calls to the real function?
-  uint32_t callSitesUsed = 0;  // how many call sites processed so-far?
-  uint32_t thunkCallCount = 0; // how many call sites went to thunk?
+  // The following value is cumulative across all thunks on this function
   uint8_t sequence = 0;        // how many thunks created so-far?
 };
 
