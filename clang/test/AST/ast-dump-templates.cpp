@@ -7603,7 +7603,7 @@ namespace TestAbbreviatedTemplateDecls {
 // JSON-NEXT:           {
 // JSON-NEXT:            "kind": "TemplateArgument",
 // JSON-NEXT:            "isExpr": true,
-// JSON-NEXT:            "isCanonical": true,
+// JSON-NEXT:            "CanonicalKind": "Structural",
 // JSON-NEXT:            "inner": [
 // JSON-NEXT:             {
 // JSON-NEXT:              "id": "0x{{.*}}",
@@ -7642,7 +7642,7 @@ namespace TestAbbreviatedTemplateDecls {
 // JSON-NEXT:       {
 // JSON-NEXT:        "kind": "TemplateArgument",
 // JSON-NEXT:        "isExpr": true,
-// JSON-NEXT:        "isCanonical": true,
+// JSON-NEXT:        "CanonicalKind": "Structural",
 // JSON-NEXT:        "inner": [
 // JSON-NEXT:         {
 // JSON-NEXT:          "id": "0x{{.*}}",
@@ -7902,7 +7902,7 @@ namespace TestAbbreviatedTemplateDecls {
 // JSON-NEXT:           {
 // JSON-NEXT:            "kind": "TemplateArgument",
 // JSON-NEXT:            "isExpr": true,
-// JSON-NEXT:            "isCanonical": true,
+// JSON-NEXT:            "CanonicalKind": "Structural",
 // JSON-NEXT:            "inner": [
 // JSON-NEXT:             {
 // JSON-NEXT:              "id": "0x{{.*}}",
@@ -7941,7 +7941,7 @@ namespace TestAbbreviatedTemplateDecls {
 // JSON-NEXT:       {
 // JSON-NEXT:        "kind": "TemplateArgument",
 // JSON-NEXT:        "isExpr": true,
-// JSON-NEXT:        "isCanonical": true,
+// JSON-NEXT:        "CanonicalKind": "Structural",
 // JSON-NEXT:        "inner": [
 // JSON-NEXT:         {
 // JSON-NEXT:          "id": "0x{{.*}}",
