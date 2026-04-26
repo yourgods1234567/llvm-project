@@ -565,8 +565,16 @@ void GpuToLLVMConversionPass::runOnOperation() {
   // These aren't covered by the ConvertToLLVMPatternInterface right now.
   populateVectorToLLVMConversionPatterns(converter, patterns);
   populateFinalizeMemRefToLLVMConversionPatterns(converter, patterns);
-  populateAsyncStructuralTypeConversionsAndLegality(converter, patterns,
-                                                    target);
+  // Skip the structural async.yield pattern: we install our own
+  // ConvertAsyncYieldToGpuRuntimeCallPattern below, which handles
+  // gpu.async.token operands by recording an event on the underlying
+  // stream and yielding the event. Letting the structural pattern run
+  // would silently rewrite the yield's operands without recording an
+  // event, leaving the host await to call cuEventSynchronize on a
+  // stream pointer (a no-op that returns an error), causing a race
+  // between the host and the GPU.
+  populateAsyncStructuralTypeConversionsAndLegality(
+      converter, patterns, target, /*addStructuralYieldPattern=*/false);
   populateGpuToLLVMConversionPatterns(converter, patterns,
                                       kernelBarePtrCallConv,
                                       kernelIntersperseSizeCallConv);
@@ -834,16 +842,17 @@ static bool isGpuAsyncTokenType(Value value) {
   return isa<gpu::AsyncTokenType>(value.getType());
 }
 
-// Converts !gpu.async.token operands of `async.yield` to runtime calls. The
-// !gpu.async.token are lowered to stream within the async.execute region, but
-// are passed as events between them. For each !gpu.async.token operand, we
-// create an event and record it on the stream.
+// Converts `async.yield` to use the GPU runtime. For each !gpu.async.token
+// operand, the underlying stream is finalized: an event is created and
+// recorded on the stream, the event takes the stream's place in the yield,
+// and the stream is destroyed. Operands without !gpu.async.token type are
+// just retyped via the type converter -- this pattern is the sole rewriter
+// for `async.yield` in the gpu-to-llvm conversion (the structural pattern
+// from `populateAsyncStructuralTypeConversionsAndLegality` is intentionally
+// not registered here, see the call site in `runOnOperation`).
 LogicalResult ConvertAsyncYieldToGpuRuntimeCallPattern::matchAndRewrite(
     async::YieldOp yieldOp, OpAdaptor adaptor,
     ConversionPatternRewriter &rewriter) const {
-  if (llvm::none_of(yieldOp.getOperands(), isGpuAsyncTokenType))
-    return rewriter.notifyMatchFailure(yieldOp, "no gpu async token operand");
-
   Location loc = yieldOp.getLoc();
   SmallVector<Value, 4> newOperands(adaptor.getOperands());
   llvm::SmallDenseSet<Value> streams;

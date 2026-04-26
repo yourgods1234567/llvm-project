@@ -30,9 +30,15 @@ class RewritePatternSet;
 /// the corresponding async.yield ops need to update their types accordingly to
 /// the TypeConverter, but otherwise don't care what type conversions are
 /// happening.
+///
+/// `addStructuralYieldPattern` controls whether the structural pattern for
+/// `async.yield` is registered. Callers that install their own (more
+/// specialized) `async.yield` rewriter should pass `false` to avoid pattern
+/// competition with that rewriter. The dynamic legality marker for
+/// `async.yield` is still installed regardless.
 void populateAsyncStructuralTypeConversionsAndLegality(
     TypeConverter &typeConverter, RewritePatternSet &patterns,
-    ConversionTarget &target);
+    ConversionTarget &target, bool addStructuralYieldPattern = true);
 
 } // namespace mlir
 
