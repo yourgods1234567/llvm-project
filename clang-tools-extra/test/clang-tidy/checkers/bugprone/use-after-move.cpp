@@ -1809,7 +1809,7 @@ void stdTieIsReinit() {
 
 void stdTieWithIgnore() {
   // std::ignore placeholder does not prevent reinitialization of named variables.
-  std::string a, b;
+  std::string a;
   std::move(a);
   std::tie(a, std::ignore) = makeStringPair("x", "y"); // no-warning: a reinitialized
   a.size();
@@ -1817,7 +1817,7 @@ void stdTieWithIgnore() {
 
 void stdTieIgnoreFlipped() {
   // std::ignore in first position still reinitializes named variables.
-  std::string a, b;
+  std::string a;
   std::move(a);
   std::tie(std::ignore, a) = makeStringPair("x", "y"); // no-warning: a reinitialized
   a.size();
