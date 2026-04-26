@@ -1376,6 +1376,14 @@ let TargetPrefix = "aarch64" in {  // All intrinsics start with "llvm.aarch64.".
                  llvm_i32_ty],
                  !listconcat(Attrs, [IntrNoMem, ImmArg<ArgIndex<2>>])>;
 
+  class SVE2_LUTI_X2_Intrinsic<list<IntrinsicProperty> Attrs = []>
+    : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
+                [LLVMMatchType<0>,
+                 LLVMMatchType<0>,
+                 llvm_nxv16i8_ty,
+                 llvm_i32_ty],
+                !listconcat(Attrs, [IntrNoMem, ImmArg<ArgIndex<3>>])>;
+
   class SVE2_1VectorArg_Long_Intrinsic<list<IntrinsicProperty> Attrs = []>
     : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
                 [LLVMSubdivide2VectorType<0>,
@@ -2794,12 +2802,13 @@ def int_aarch64_sve_tbx  : AdvSIMD_SVE2_TBX_Intrinsic<[IntrSpeculatable]>;
 
 def int_aarch64_sve_luti2_lane : SVE2_LUTI_Inrinsic<[IntrSpeculatable]>;
 def int_aarch64_sve_luti4_lane : SVE2_LUTI_Inrinsic<[IntrSpeculatable]>;
-def int_aarch64_sve_luti4_lane_x2 : DefaultAttrsIntrinsic<[llvm_anyvector_ty],
-                                    [LLVMMatchType<0>,
-                                    LLVMMatchType<0>,
-                                    llvm_nxv16i8_ty,
-                                    llvm_i32_ty],
-                                    [IntrNoMem, ImmArg<ArgIndex<3>>, IntrSpeculatable]>;
+def int_aarch64_sve_luti6 : DefaultAttrsIntrinsic<[llvm_nxv16i8_ty],
+                                  [llvm_nxv16i8_ty,
+                                   llvm_nxv16i8_ty,
+                                   llvm_nxv16i8_ty],
+                                  [IntrNoMem, IntrSpeculatable]>;
+def int_aarch64_sve_luti4_lane_x2 : SVE2_LUTI_X2_Intrinsic<[IntrSpeculatable]>;
+def int_aarch64_sve_luti6_lane_x2 : SVE2_LUTI_X2_Intrinsic<[IntrSpeculatable]>;
 
 //
 // SVE2 - Optional bit permutation
@@ -3954,6 +3963,9 @@ let TargetPrefix = "aarch64" in {
   def int_aarch64_sme_luti4_lane_zt
     : DefaultAttrsIntrinsic<[llvm_anyvector_ty], [llvm_i32_ty, llvm_nxv16i8_ty, llvm_i32_ty],
                             [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<2>>, IntrInaccessibleMemOnly, IntrReadMem]>;
+  def int_aarch64_sme_luti6_zt
+    : DefaultAttrsIntrinsic<[llvm_nxv16i8_ty], [llvm_i32_ty, llvm_nxv16i8_ty],
+                            [ImmArg<ArgIndex<0>>, IntrInaccessibleMemOnly, IntrReadMem]>;
 
   // Lookup table expand two registers
   //
@@ -3975,10 +3987,19 @@ let TargetPrefix = "aarch64" in {
     : DefaultAttrsIntrinsic<[llvm_anyvector_ty, LLVMMatchType<0>, LLVMMatchType<0>, LLVMMatchType<0>],
                             [llvm_i32_ty, llvm_nxv16i8_ty, llvm_i32_ty],
                             [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<2>>, IntrInaccessibleMemOnly, IntrReadMem]>;
+  def int_aarch64_sme_luti6_lane_x4
+    : DefaultAttrsIntrinsic<[llvm_anyvector_ty, LLVMMatchType<0>, LLVMMatchType<0>, LLVMMatchType<0>],
+                            [LLVMMatchType<0>, LLVMMatchType<0>, llvm_nxv16i8_ty, llvm_nxv16i8_ty, llvm_i32_ty],
+                            [ImmArg<ArgIndex<4>>, IntrNoMem, IntrSpeculatable]>;
 
   def int_aarch64_sme_luti4_zt_x4
     : DefaultAttrsIntrinsic<[llvm_anyvector_ty, LLVMMatchType<0>, LLVMMatchType<0>, LLVMMatchType<0>],
                             [llvm_i32_ty, llvm_nxv16i8_ty, llvm_nxv16i8_ty],
+                            [ImmArg<ArgIndex<0>>, IntrInaccessibleMemOnly, IntrReadMem]>;
+  def int_aarch64_sme_luti6_zt_x4
+    : DefaultAttrsIntrinsic<[llvm_nxv16i8_ty, llvm_nxv16i8_ty,
+                             llvm_nxv16i8_ty, llvm_nxv16i8_ty],
+                            [llvm_i32_ty, llvm_nxv16i8_ty, llvm_nxv16i8_ty, llvm_nxv16i8_ty],
                             [ImmArg<ArgIndex<0>>, IntrInaccessibleMemOnly, IntrReadMem]>;
 
 
