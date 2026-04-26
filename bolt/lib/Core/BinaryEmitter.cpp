@@ -454,18 +454,105 @@ void BinaryEmitter::emitFunctionBody(BinaryFunction &BF, FunctionFragment &FF,
     BF.duplicateConstantIslands();
   }
 
+  const bool NeedBundles = BC.MIB->requiresBundleEmission();
+
+  // Hexagon packet accumulator: collects instructions until a packet-end
+  // annotation is seen, then emits them as a single BUNDLE MCInst.
+  SmallVector<MCInst, 4> HexPacket;
+
+  // Helper: flush accumulated Hexagon packet as a BUNDLE.
+  auto flushHexPacket = [&]() {
+    if (HexPacket.empty())
+      return;
+    LLVM_DEBUG({
+      dbgs() << "BOLT-DEBUG: flushing packet (" << HexPacket.size()
+             << " instrs) in " << BF.getPrintName() << "\n";
+    });
+    // Detect hardware loop end markers. In the original encoding,
+    // INST_PARSE_LOOP_END on instruction index 0 means endloop0
+    // (inner loop), on index 1 means endloop1 (outer loop).
+    bool InnerLoop = false;
+    bool OuterLoop = false;
+    for (unsigned I = 0, E = HexPacket.size(); I < E; ++I) {
+      if (BC.MIB->hasAnnotation(HexPacket[I], "HexLoopEnd")) {
+        if (I == 0)
+          InnerLoop = true;
+        else if (I == 1)
+          OuterLoop = true;
+      }
+    }
+    MCInst Bundle = BC.MIB->createBundle(Streamer.getContext(), HexPacket,
+                                         InnerLoop, OuterLoop);
+    Streamer.emitInstruction(Bundle, *BC.STI);
+    HexPacket.clear();
+  };
+
   // Track the first emitted instruction with debug info.
   bool FirstInstr = true;
+  BinaryBasicBlock *PrevBB = nullptr;
   for (BinaryBasicBlock *const BB : FF) {
     if ((opts::AlignBlocks || opts::PreserveBlocksAlignment) &&
         BB->getAlignment() > 1)
       Streamer.emitCodeAlignment(BB->getAlign(), &*BC.STI,
                                  BB->getAlignmentMaxBytes());
+
+    // On Hexagon, a VLIW packet may span BB boundaries because BOLT
+    // splits packets at branch instructions, placing post-branch
+    // instructions in the fallthrough BB. Since all instructions in a
+    // Hexagon packet execute atomically, we carry the pending packet
+    // across the BB boundary to keep them in the same bundle.
+    //
+    // When carrying across, we still emit the BB label (BOLT requires
+    // all emitted BB labels to be defined), but we do NOT flush the
+    // pending packet. The label will precede the combined bundle in
+    // the output, which is correct: on Hexagon, all instructions in
+    // the packet execute atomically, so the label points to the same
+    // execution point regardless of where it falls within the packet.
+    //
+    // Carry-across is safe when the BB is a pure fallthrough: either
+    // unreachable (pred_size == 0) or the only predecessor is the
+    // immediately preceding layout block. Branch targets (multiple
+    // predecessors, non-adjacent predecessor) must flush so the label
+    // starts a new packet.
+    //
+    // On Hexagon, entry points (including secondary entries) do not
+    // force a flush: the processor executes entire packets atomically,
+    // so a jump to a mid-packet label still runs all instructions from
+    // the packet start. This preserves .new dependencies that span an
+    // entry-point boundary within a packet.
+    if (NeedBundles && !HexPacket.empty()) {
+      bool CanCarryAcross =
+          (!BB->isEntryPoint() || BC.isHexagon()) &&
+          (BB->pred_size() == 0 ||
+           (BB->pred_size() == 1 && PrevBB && *BB->pred_begin() == PrevBB));
+      if (!CanCarryAcross || HexPacket.size() >= 4) {
+        // Before flushing, check whether the next BB starts with a
+        // .new value consumer (compare-and-jump or store). If so,
+        // keep the packet open: the producer in the current packet
+        // must stay in the same emitted packet as the consumer.
+        // Hexagon packets execute atomically, so the label pointing
+        // here runs all instructions from the packet start anyway.
+        bool NextIsNewValue = false;
+        if (BC.isHexagon() && !BB->empty()) {
+          auto First = BB->begin();
+          // Skip pseudos (CFI, etc.) to find the first real instruction.
+          while (First != BB->end() && BC.MIB->isPseudo(*First))
+            ++First;
+          if (First != BB->end())
+            NextIsNewValue = BC.MIB->isNewValueConsumer(*First);
+        }
+        if (!NextIsNewValue)
+          flushHexPacket();
+      }
+    } else if (NeedBundles) {
+      flushHexPacket();
+    }
     Streamer.emitLabel(BB->getLabel());
     if (!EmitCodeOnly) {
       if (MCSymbol *EntrySymbol = BF.getSecondaryEntryPointSymbol(*BB))
         Streamer.emitLabel(EntrySymbol);
     }
+    PrevBB = BB;
 
     SMLoc LastLocSeen;
     for (auto I = BB->begin(), E = BB->end(); I != E; ++I) {
@@ -499,8 +586,21 @@ void BinaryEmitter::emitFunctionBody(BinaryFunction &BF, FunctionFragment &FF,
           BB->getLocSyms().emplace_back(Offset, InstrLabel);
         }
 
-        if (InstrLabel)
-          Streamer.emitLabel(InstrLabel);
+        if (InstrLabel) {
+          // On Hexagon, labels cannot fall mid-packet because all
+          // instructions in a packet execute atomically. Flushing the
+          // packet here would split .new producer/consumer pairs.
+          // Only emit the label if we are not in the middle of a packet.
+          if (NeedBundles && !HexPacket.empty()) {
+            // Mid-packet addresses are not meaningful on Hexagon
+            // because packets execute atomically. Drop the label.
+            LLVM_DEBUG(dbgs() << "BOLT-DEBUG: dropping mid-packet label "
+                              << InstrLabel->getName() << " in "
+                              << BF.getPrintName() << '\n');
+          } else {
+            Streamer.emitLabel(InstrLabel);
+          }
+        }
       }
 
       // Emit sized NOPs via MCAsmBackend::writeNopData() interface on x86.
@@ -515,9 +615,45 @@ void BinaryEmitter::emitFunctionBody(BinaryFunction &BF, FunctionFragment &FF,
         }
       }
 
+      // Hexagon: accumulate instructions into packets and emit as bundles.
+      if (NeedBundles) {
+        bool IsPacketEnd = BC.MIB->hasAnnotation(Instr, "HexPacketEnd");
+        // Skip MC pseudo instructions (e.g. A2_nop) that the Hexagon code
+        // emitter cannot encode. If the pseudo is at a packet end, flush
+        // the packet without it.
+        if (BC.MIB->isPseudo(Instr)) {
+          if (IsPacketEnd)
+            flushHexPacket();
+          continue;
+        }
+        // Constant extender (immext / A4_ext) instructions must be
+        // included in the packet. The MC code emitter requires them
+        // to set State.Extended, which tells it to encode only the
+        // lower bits of the next instruction's immediate (the upper
+        // bits come from the immext word).
+        // Safety: if the packet already has 4 instructions (Hexagon max),
+        // flush before adding more. This guards against pathological
+        // carry-across scenarios.
+        if (HexPacket.size() >= 4)
+          flushHexPacket();
+        HexPacket.push_back(Instr);
+        // Flush on packet end. Instructions with HexPacketEnd annotation
+        // (from disassembly or BOLT-generated) terminate the current packet.
+        // Note: all BOLT-generated instructions get HexPacketEnd added by
+        // the Hexagon MCPlusBuilder, so they become singleton packets.
+        if (IsPacketEnd) {
+          flushHexPacket();
+        }
+        continue;
+      }
+
       Streamer.emitInstruction(Instr, *BC.STI);
     }
   }
+
+  // Flush any remaining Hexagon packet at end of function fragment.
+  if (NeedBundles)
+    flushHexPacket();
 
   if (!EmitCodeOnly)
     emitConstantIslands(BF, FF.isSplitFragment());
