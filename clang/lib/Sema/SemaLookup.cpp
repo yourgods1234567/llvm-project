@@ -1369,6 +1369,18 @@ bool Sema::CppLookupName(LookupResult &R, Scope *S) {
           // namespace scope
           SearchNamespaceScope = false;
         }
+
+        if (R.getLookupKind() == LookupOrdinaryName) {
+          DeclContext *DC = ND->getDeclContext();
+
+          if (DC->isRecord()) {
+          // Only restrict when we're in function or block scope
+            if (S->getFnParent() && !S->isClassScope()) {
+              continue;
+            }
+          }
+        }
+
         R.addDecl(ND);
       }
     }
