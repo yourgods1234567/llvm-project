@@ -204,6 +204,10 @@
 #    error "__cpp_lib_constexpr_complex should not be defined before c++20"
 #  endif
 
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
+#  endif
+
 #  ifdef __cpp_lib_constexpr_dynamic_alloc
 #    error "__cpp_lib_constexpr_dynamic_alloc should not be defined before c++20"
 #  endif
@@ -1130,6 +1134,10 @@
 
 #  ifdef __cpp_lib_constexpr_complex
 #    error "__cpp_lib_constexpr_complex should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_dynamic_alloc
@@ -2160,6 +2168,10 @@
 
 #  ifdef __cpp_lib_constexpr_complex
 #    error "__cpp_lib_constexpr_complex should not be defined before c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
 #  endif
 
 #  ifdef __cpp_lib_constexpr_dynamic_alloc
@@ -3421,6 +3433,10 @@
 #  endif
 #  if __cpp_lib_constexpr_complex != 201711L
 #    error "__cpp_lib_constexpr_complex should have the value 201711L in c++20"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_dynamic_alloc
@@ -4907,6 +4923,10 @@
 #  endif
 #  if __cpp_lib_constexpr_complex != 201711L
 #    error "__cpp_lib_constexpr_complex should have the value 201711L in c++23"
+#  endif
+
+#  ifdef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should not be defined before c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_dynamic_alloc
@@ -6609,6 +6629,13 @@
 #  endif
 #  if __cpp_lib_constexpr_complex != 201711L
 #    error "__cpp_lib_constexpr_complex should have the value 201711L in c++26"
+#  endif
+
+#  ifndef __cpp_lib_constexpr_deque
+#    error "__cpp_lib_constexpr_deque should be defined in c++26"
+#  endif
+#  if __cpp_lib_constexpr_deque != 202502L
+#    error "__cpp_lib_constexpr_deque should have the value 202502L in c++26"
 #  endif
 
 #  ifndef __cpp_lib_constexpr_dynamic_alloc
