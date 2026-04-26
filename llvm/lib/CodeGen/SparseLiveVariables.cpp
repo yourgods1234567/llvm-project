@@ -137,19 +137,57 @@ void SparseLiveVariables::analyze(MachineFunction &MF) {
   });
 }
 
+void SparseLiveVariables::addNewBlock(MachineBasicBlock *NewBB,
+                                      MachineBasicBlock *Pred,
+                                      MachineBasicBlock *Succ) {
+  unsigned SuccNum = Succ->getNumber();
+  BlockInfo BI;
+  if (SuccNum < BlockLiveness.size()) {
+    BI.LiveIn = BlockLiveness[SuccNum].LiveIn;
+    BI.LiveOut = BlockLiveness[SuccNum].LiveIn;
+  }
+  unsigned NewNum = NewBB->getNumber();
+  if (NewNum >= BlockLiveness.size())
+    BlockLiveness.resize(NewNum + 1);
+  BlockLiveness[NewNum] = BI;
+}
+
 bool SparseLiveVariables::isLiveAfter(Register Reg,
                                       const MachineInstr &MI) const {
-  const MachineBasicBlock *MBB = MI.getParent();
-  if (!hasAnalyzed(MBB))
-    return false;
+  assert(hasAnalyzed(MI.getParent()) && "Block not analyzed");
 
-  LivenessTracker Tracker(BlockLiveness[MBB->getNumber()].LiveOut, MRI);
-  for (const MachineInstr &I : llvm::reverse(*MBB)) {
-    if (&I == &MI)
-      return Tracker.isLive(Reg);
-    Tracker.stepBackward(I);
+  // If the register is live out of the block, it's live after this instruction.
+  if (BlockLiveness[MI.getParent()->getNumber()].LiveOut.test(Reg.id()))
+    return true;
+
+  // Otherwise, traverse backwards from the end of the block.
+  for (const MachineInstr &I :
+       llvm::make_range(MI.getParent()->rbegin(),
+                        MachineBasicBlock::const_reverse_iterator(&MI))) {
+    if (I.readsRegister(Reg, /*TRI=*/nullptr))
+      return true;
   }
-  return Tracker.isLive(Reg);
+
+  return false;
+}
+
+MachineInstr *
+SparseLiveVariables::findKill(Register Reg,
+                              const MachineBasicBlock &MBB) const {
+  assert(hasAnalyzed(&MBB) && "Block not analyzed");
+
+  // If the register is live out of the block, it is not killed here.
+  if (isLiveOut(Reg, MBB))
+    return nullptr;
+
+  // Otherwise, traverse backwards from the end of the block to find the last
+  // use.
+  for (const MachineInstr &MI : llvm::reverse(MBB)) {
+    if (MI.readsRegister(Reg, /*TRI=*/nullptr))
+      return const_cast<MachineInstr *>(&MI);
+  }
+
+  return nullptr;
 }
 
 bool SparseLiveVariables::isLiveAt(Register Reg, const MachineInstr &MI) const {
@@ -328,8 +366,8 @@ bool SparseLiveVariables::evaluateLiveIn(Register Reg, MachineBasicBlock *MBB,
   return false;
 }
 
-bool SparseLiveVariables::isLiveOut(Register Reg, MachineBasicBlock *MBB,
-                                    MachineInstr *IgnoreMI) const {
+bool SparseLiveVariables::evaluateLiveOut(Register Reg, MachineBasicBlock *MBB,
+                                          MachineInstr *IgnoreMI) const {
   for (MachineBasicBlock *Succ : MBB->successors()) {
     if (hasAnalyzed(Succ) &&
         BlockLiveness[Succ->getNumber()].LiveIn.test(Reg.id()))
@@ -412,7 +450,7 @@ void SparseLiveVariables::propagateShrinkage(Register Reg,
       if (!BlockLiveness[Pred->getNumber()].LiveOut.test(Reg.id()))
         continue;
 
-      if (!isLiveOut(Reg, Pred, IgnoreMI)) {
+      if (!evaluateLiveOut(Reg, Pred, IgnoreMI)) {
         BlockLiveness[Pred->getNumber()].LiveOut.reset(Reg.id());
 
         if (BlockLiveness[Pred->getNumber()].LiveIn.test(Reg.id())) {
@@ -481,7 +519,7 @@ void SparseLiveVariables::removeInstruction(MachineInstr &MI) {
       if (Pred) {
         if (hasAnalyzed(Pred) &&
             BlockLiveness[Pred->getNumber()].LiveOut.test(Reg.id())) {
-          if (!isLiveOut(Reg, Pred, &MI)) {
+          if (!evaluateLiveOut(Reg, Pred, &MI)) {
             BlockLiveness[Pred->getNumber()].LiveOut.reset(Reg.id());
             reevaluateLiveIn(Reg, Pred, &MI);
           }

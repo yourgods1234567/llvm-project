@@ -381,7 +381,8 @@ bool MachineLICMImpl::run(MachineFunction &MF) {
              : nullptr;
   LV = LegacyPass
            ? &LegacyPass->getAnalysis<SparseLiveVariablesWrapperPass>().getLV()
-           : (MFAM ? &MFAM->getResult<SparseLiveVariablesAnalysis>(MF) : nullptr);
+           : (MFAM ? &MFAM->getResult<SparseLiveVariablesAnalysis>(MF)
+                   : nullptr);
 
   Changed = FirstInLoop = false;
   const TargetSubtargetInfo &ST = MF.getSubtarget();

@@ -143,6 +143,21 @@ public:
     return BlockLiveness[MBB->getNumber()].LiveOut;
   }
 
+  /// Finds the instruction that kills the given register in the given block.
+  /// Returns nullptr if the register is not killed in the block (e.g., if it
+  /// is live out or not used).
+  MachineInstr *findKill(Register Reg, const MachineBasicBlock &MBB) const;
+
+  /// isLiveIn - Is Reg live in to MBB?
+  bool isLiveIn(Register Reg, const MachineBasicBlock &MBB) const {
+    return getLiveInSet(&MBB).test(Reg.id());
+  }
+
+  /// isLiveOut - Determine if Reg is live out from MBB.
+  bool isLiveOut(Register Reg, const MachineBasicBlock &MBB) const {
+    return getLiveOutSet(&MBB).test(Reg.id());
+  }
+
   /// Returns true if Reg is live immediately AFTER the execution of MI.
   /// Note: This performs an O(N) backward traversal from the end of the block.
   bool isLiveAfter(Register Reg, const MachineInstr &MI) const;
@@ -192,6 +207,14 @@ public:
   /// Update the live-ins of all basic blocks in MF based on computed liveness.
   void updateLiveIns(MachineFunction &MF) const;
 
+  /// Add a new basic block NewBB as an empty successor to Pred and predecessor
+  /// to Succ. The LiveIn and LiveOut sets for NewBB are initialized to Succ's
+  /// LiveIn set. If Succ is a newly added block that hasn't been analyzed yet,
+  /// NewBB will receive empty liveness sets and will need to be recomputed
+  /// later.
+  void addNewBlock(MachineBasicBlock *NewBB, MachineBasicBlock *Pred,
+                   MachineBasicBlock *Succ);
+
   void analyze(MachineFunction &MF);
 
 private:
@@ -205,8 +228,8 @@ private:
 
   bool evaluateLiveIn(Register Reg, MachineBasicBlock *MBB,
                       MachineInstr *IgnoreMI = nullptr) const;
-  bool isLiveOut(Register Reg, MachineBasicBlock *MBB,
-                 MachineInstr *IgnoreMI = nullptr) const;
+  bool evaluateLiveOut(Register Reg, MachineBasicBlock *MBB,
+                       MachineInstr *IgnoreMI = nullptr) const;
   void reevaluateLiveIn(Register Reg, MachineBasicBlock *MBB,
                         MachineInstr *IgnoreMI = nullptr);
 };
