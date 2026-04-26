@@ -23,11 +23,11 @@ define i32 @fold_srem_positive_even(i32 %x) {
 ; CHECK-LABEL: fold_srem_positive_even:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    mov w8, #36849 // =0x8ff1
+; CHECK-NEXT:    mov w9, #1060 // =0x424
 ; CHECK-NEXT:    movk w8, #15827, lsl #16
 ; CHECK-NEXT:    smull x8, w0, w8
-; CHECK-NEXT:    asr x9, x8, #40
-; CHECK-NEXT:    add x8, x9, x8, lsr #63
-; CHECK-NEXT:    mov w9, #1060 // =0x424
+; CHECK-NEXT:    asr x8, x8, #40
+; CHECK-NEXT:    sub w8, w8, w0, asr #31
 ; CHECK-NEXT:    msub w0, w8, w9, w0
 ; CHECK-NEXT:    ret
   %1 = srem i32 %x, 1060
@@ -93,13 +93,13 @@ define i64 @dont_fold_srem_i64(i64 %x) {
 ; CHECK-LABEL: dont_fold_srem_i64:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    mov x8, #58849 // =0xe5e1
+; CHECK-NEXT:    mov w9, #98 // =0x62
 ; CHECK-NEXT:    movk x8, #48148, lsl #16
 ; CHECK-NEXT:    movk x8, #33436, lsl #32
 ; CHECK-NEXT:    movk x8, #21399, lsl #48
 ; CHECK-NEXT:    smulh x8, x0, x8
-; CHECK-NEXT:    asr x9, x8, #5
-; CHECK-NEXT:    add x8, x9, x8, lsr #63
-; CHECK-NEXT:    mov w9, #98 // =0x62
+; CHECK-NEXT:    asr x8, x8, #5
+; CHECK-NEXT:    sub x8, x8, x0, asr #63
 ; CHECK-NEXT:    msub x0, x8, x9, x0
 ; CHECK-NEXT:    ret
   %1 = srem i64 %x, 98

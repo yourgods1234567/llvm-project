@@ -2200,22 +2200,22 @@ define amdgpu_kernel void @scalarize_mulhs_4xi32(ptr addrspace(1) nocapture read
 ; GCN-NEXT:    s_mov_b32 s4, s2
 ; GCN-NEXT:    s_mov_b32 s5, s3
 ; GCN-NEXT:    s_waitcnt vmcnt(0)
+; GCN-NEXT:    v_ashrrev_i32_e32 v4, 31, v0
 ; GCN-NEXT:    v_mul_hi_i32 v0, v0, s0
+; GCN-NEXT:    v_ashrrev_i32_e32 v5, 31, v1
 ; GCN-NEXT:    v_mul_hi_i32 v1, v1, s0
+; GCN-NEXT:    v_ashrrev_i32_e32 v6, 31, v2
 ; GCN-NEXT:    v_mul_hi_i32 v2, v2, s0
+; GCN-NEXT:    v_ashrrev_i32_e32 v7, 31, v3
 ; GCN-NEXT:    v_mul_hi_i32 v3, v3, s0
-; GCN-NEXT:    v_lshrrev_b32_e32 v4, 31, v0
 ; GCN-NEXT:    v_ashrrev_i32_e32 v0, 12, v0
-; GCN-NEXT:    v_lshrrev_b32_e32 v5, 31, v1
 ; GCN-NEXT:    v_ashrrev_i32_e32 v1, 12, v1
-; GCN-NEXT:    v_lshrrev_b32_e32 v6, 31, v2
 ; GCN-NEXT:    v_ashrrev_i32_e32 v2, 12, v2
-; GCN-NEXT:    v_lshrrev_b32_e32 v7, 31, v3
 ; GCN-NEXT:    v_ashrrev_i32_e32 v3, 12, v3
-; GCN-NEXT:    v_add_i32_e32 v0, vcc, v0, v4
-; GCN-NEXT:    v_add_i32_e32 v1, vcc, v1, v5
-; GCN-NEXT:    v_add_i32_e32 v2, vcc, v2, v6
-; GCN-NEXT:    v_add_i32_e32 v3, vcc, v3, v7
+; GCN-NEXT:    v_sub_i32_e32 v0, vcc, v0, v4
+; GCN-NEXT:    v_sub_i32_e32 v1, vcc, v1, v5
+; GCN-NEXT:    v_sub_i32_e32 v2, vcc, v2, v6
+; GCN-NEXT:    v_sub_i32_e32 v3, vcc, v3, v7
 ; GCN-NEXT:    buffer_store_dwordx4 v[0:3], off, s[4:7], 0
 ; GCN-NEXT:    s_endpgm
 ;
@@ -2232,22 +2232,22 @@ define amdgpu_kernel void @scalarize_mulhs_4xi32(ptr addrspace(1) nocapture read
 ; TONGA-NEXT:    s_mov_b32 s4, s2
 ; TONGA-NEXT:    s_mov_b32 s5, s3
 ; TONGA-NEXT:    s_waitcnt vmcnt(0)
+; TONGA-NEXT:    v_ashrrev_i32_e32 v4, 31, v0
 ; TONGA-NEXT:    v_mul_hi_i32 v0, v0, s0
+; TONGA-NEXT:    v_ashrrev_i32_e32 v5, 31, v1
 ; TONGA-NEXT:    v_mul_hi_i32 v1, v1, s0
+; TONGA-NEXT:    v_ashrrev_i32_e32 v6, 31, v2
 ; TONGA-NEXT:    v_mul_hi_i32 v2, v2, s0
+; TONGA-NEXT:    v_ashrrev_i32_e32 v7, 31, v3
 ; TONGA-NEXT:    v_mul_hi_i32 v3, v3, s0
-; TONGA-NEXT:    v_lshrrev_b32_e32 v4, 31, v0
 ; TONGA-NEXT:    v_ashrrev_i32_e32 v0, 12, v0
-; TONGA-NEXT:    v_lshrrev_b32_e32 v5, 31, v1
 ; TONGA-NEXT:    v_ashrrev_i32_e32 v1, 12, v1
-; TONGA-NEXT:    v_lshrrev_b32_e32 v6, 31, v2
 ; TONGA-NEXT:    v_ashrrev_i32_e32 v2, 12, v2
-; TONGA-NEXT:    v_lshrrev_b32_e32 v7, 31, v3
 ; TONGA-NEXT:    v_ashrrev_i32_e32 v3, 12, v3
-; TONGA-NEXT:    v_add_u32_e32 v0, vcc, v0, v4
-; TONGA-NEXT:    v_add_u32_e32 v1, vcc, v1, v5
-; TONGA-NEXT:    v_add_u32_e32 v2, vcc, v2, v6
-; TONGA-NEXT:    v_add_u32_e32 v3, vcc, v3, v7
+; TONGA-NEXT:    v_sub_u32_e32 v0, vcc, v0, v4
+; TONGA-NEXT:    v_sub_u32_e32 v1, vcc, v1, v5
+; TONGA-NEXT:    v_sub_u32_e32 v2, vcc, v2, v6
+; TONGA-NEXT:    v_sub_u32_e32 v3, vcc, v3, v7
 ; TONGA-NEXT:    buffer_store_dwordx4 v[0:3], off, s[4:7], 0
 ; TONGA-NEXT:    s_endpgm
 ;
@@ -2264,22 +2264,22 @@ define amdgpu_kernel void @scalarize_mulhs_4xi32(ptr addrspace(1) nocapture read
 ; GFX9-NEXT:    s_mov_b32 s4, s2
 ; GFX9-NEXT:    s_mov_b32 s5, s3
 ; GFX9-NEXT:    s_waitcnt vmcnt(0)
+; GFX9-NEXT:    v_ashrrev_i32_e32 v4, 31, v0
 ; GFX9-NEXT:    v_mul_hi_i32 v0, v0, s0
+; GFX9-NEXT:    v_ashrrev_i32_e32 v5, 31, v1
 ; GFX9-NEXT:    v_mul_hi_i32 v1, v1, s0
+; GFX9-NEXT:    v_ashrrev_i32_e32 v6, 31, v2
 ; GFX9-NEXT:    v_mul_hi_i32 v2, v2, s0
+; GFX9-NEXT:    v_ashrrev_i32_e32 v7, 31, v3
 ; GFX9-NEXT:    v_mul_hi_i32 v3, v3, s0
-; GFX9-NEXT:    v_lshrrev_b32_e32 v4, 31, v0
 ; GFX9-NEXT:    v_ashrrev_i32_e32 v0, 12, v0
-; GFX9-NEXT:    v_lshrrev_b32_e32 v5, 31, v1
 ; GFX9-NEXT:    v_ashrrev_i32_e32 v1, 12, v1
-; GFX9-NEXT:    v_lshrrev_b32_e32 v6, 31, v2
 ; GFX9-NEXT:    v_ashrrev_i32_e32 v2, 12, v2
-; GFX9-NEXT:    v_lshrrev_b32_e32 v7, 31, v3
 ; GFX9-NEXT:    v_ashrrev_i32_e32 v3, 12, v3
-; GFX9-NEXT:    v_add_u32_e32 v0, v0, v4
-; GFX9-NEXT:    v_add_u32_e32 v1, v1, v5
-; GFX9-NEXT:    v_add_u32_e32 v2, v2, v6
-; GFX9-NEXT:    v_add_u32_e32 v3, v3, v7
+; GFX9-NEXT:    v_sub_u32_e32 v0, v0, v4
+; GFX9-NEXT:    v_sub_u32_e32 v1, v1, v5
+; GFX9-NEXT:    v_sub_u32_e32 v2, v2, v6
+; GFX9-NEXT:    v_sub_u32_e32 v3, v3, v7
 ; GFX9-NEXT:    buffer_store_dwordx4 v[0:3], off, s[4:7], 0
 ; GFX9-NEXT:    s_endpgm
 ;

@@ -6675,6 +6675,10 @@ SDValue TargetLowering::BuildSDIV(SDNode *N, SelectionDAG &DAG,
 
   SmallVector<SDValue, 16> MagicFactors, Factors, Shifts, ShiftMasks;
 
+  // When every magic value M is positive, the high half of N0 * M has the same
+  // sign as N0, so the sign-correction term can be taken from the numerator.
+  bool UseInputSign = true;
+
   auto BuildSDIVPattern = [&](ConstantSDNode *C) {
     if (C->isZero())
       return false;
@@ -6698,6 +6702,10 @@ SDValue TargetLowering::BuildSDIV(SDNode *N, SelectionDAG &DAG,
       // If d < 0 and m > 0, subtract the numerator.
       NumeratorFactor = -1;
     }
+
+    // sign(MULHS(N0, M) >> sh) == sign(N0) iff M > 0 and d > 0.
+    UseInputSign &=
+        Divisor.isStrictlyPositive() && magics.Magic.isStrictlyPositive();
 
     MagicFactors.push_back(
         DAG.getConstant(magics.Magic.zext(SVTBits), dl, SVT));
@@ -6772,8 +6780,19 @@ SDValue TargetLowering::BuildSDIV(SDNode *N, SelectionDAG &DAG,
   Q = DAG.getNode(ISD::SRA, dl, VT, Q, Shift);
   Created.push_back(Q.getNode());
 
-  // Extract the sign bit, mask it and add it to the quotient.
+  // Extract the sign bit, mask it and add/subtract it from the quotient.
   SDValue SignShift = DAG.getConstant(EltBits - 1, dl, ShVT);
+
+  // SRA replicates the sign bit to fill the register width, so this works
+  // correctly for promoted types (where N0's upper bits may be set from
+  // sign-extension) without needing an extra masking AND.
+  // vector targets may have fused shift-accumulate instructions that make
+  // SRL+ADD cheaper, so gate to scalar only.
+  if (UseInputSign && !VT.isVector()) {
+    SDValue T = DAG.getNode(ISD::SRA, dl, VT, N0, SignShift);
+    Created.push_back(T.getNode());
+    return DAG.getNode(ISD::SUB, dl, VT, Q, T);
+  }
   SDValue T = DAG.getNode(ISD::SRL, dl, VT, Q, SignShift);
   Created.push_back(T.getNode());
   T = DAG.getNode(ISD::AND, dl, VT, T, ShiftMask);

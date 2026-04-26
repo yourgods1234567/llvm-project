@@ -814,9 +814,9 @@ define i32 @extractelt_sdiv_nxv4i32_splat(<vscale x 4 x i32> %x) {
 ; RV32M-NEXT:    vmv.x.s a0, v8
 ; RV32M-NEXT:    lui a1, 349525
 ; RV32M-NEXT:    addi a1, a1, 1366
-; RV32M-NEXT:    mulh a0, a0, a1
-; RV32M-NEXT:    srli a1, a0, 31
-; RV32M-NEXT:    add a0, a0, a1
+; RV32M-NEXT:    mulh a1, a0, a1
+; RV32M-NEXT:    srai a0, a0, 31
+; RV32M-NEXT:    sub a0, a1, a0
 ; RV32M-NEXT:    ret
   %bo = sdiv <vscale x 4 x i32> %x, splat (i32 3)
   %ext = extractelement <vscale x 4 x i32> %bo, i32 0
@@ -841,9 +841,9 @@ define i32 @extractelt_udiv_nxv4i32_splat(<vscale x 4 x i32> %x) {
 ; RV32M-NEXT:    vmv.x.s a0, v8
 ; RV32M-NEXT:    lui a1, 349525
 ; RV32M-NEXT:    addi a1, a1, 1366
-; RV32M-NEXT:    mulh a0, a0, a1
-; RV32M-NEXT:    srli a1, a0, 31
-; RV32M-NEXT:    add a0, a0, a1
+; RV32M-NEXT:    mulh a1, a0, a1
+; RV32M-NEXT:    srai a0, a0, 31
+; RV32M-NEXT:    sub a0, a1, a0
 ; RV32M-NEXT:    ret
   %bo = sdiv <vscale x 4 x i32> %x, splat (i32 3)
   %ext = extractelement <vscale x 4 x i32> %bo, i32 0

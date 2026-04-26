@@ -4,18 +4,25 @@
 define <2 x i32> @foo(<2 x i32> %tmp)  {
 ; CHECK-LABEL: foo:
 ; CHECK:       # %bb.0: # %entry
+; CHECK-NEXT:    pushl %esi
+; CHECK-NEXT:    .cfi_def_cfa_offset 8
+; CHECK-NEXT:    .cfi_offset %esi, -8
+; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %esi
 ; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %eax
 ; CHECK-NEXT:    leal 7(%eax), %ecx
 ; CHECK-NEXT:    testl %eax, %eax
 ; CHECK-NEXT:    cmovnsl %eax, %ecx
 ; CHECK-NEXT:    sarl $3, %ecx
-; CHECK-NEXT:    movl $1717986919, %eax # imm = 0x66666667
-; CHECK-NEXT:    imull {{[0-9]+}}(%esp)
+; CHECK-NEXT:    movl $1717986919, %edx # imm = 0x66666667
+; CHECK-NEXT:    movl %esi, %eax
+; CHECK-NEXT:    imull %edx
 ; CHECK-NEXT:    movl %edx, %eax
-; CHECK-NEXT:    shrl $31, %eax
-; CHECK-NEXT:    sarl $2, %edx
-; CHECK-NEXT:    addl %edx, %eax
+; CHECK-NEXT:    sarl $2, %eax
+; CHECK-NEXT:    sarl $31, %esi
+; CHECK-NEXT:    subl %esi, %eax
 ; CHECK-NEXT:    movl %ecx, %edx
+; CHECK-NEXT:    popl %esi
+; CHECK-NEXT:    .cfi_def_cfa_offset 4
 ; CHECK-NEXT:    retl
 entry:
   %tmp1 = sdiv <2 x i32> %tmp, <i32 10, i32 8>

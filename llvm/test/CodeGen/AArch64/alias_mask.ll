@@ -446,7 +446,7 @@ define <16 x i1> @whilewr_badimm(i64 %a, i64 %b) {
 ; CHECK-NEXT:    sub x9, x1, x0
 ; CHECK-NEXT:    movk x8, #21846
 ; CHECK-NEXT:    smulh x8, x9, x8
-; CHECK-NEXT:    add x8, x8, x8, lsr #63
+; CHECK-NEXT:    sub x8, x8, x9, asr #63
 ; CHECK-NEXT:    cmp x8, #1
 ; CHECK-NEXT:    csinv x8, x8, xzr, ge
 ; CHECK-NEXT:    whilelo p0.b, xzr, x8

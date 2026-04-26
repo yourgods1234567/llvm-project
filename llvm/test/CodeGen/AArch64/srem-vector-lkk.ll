@@ -160,15 +160,15 @@ define <4 x i64> @dont_fold_srem_i64(<4 x i64> %x) {
 ; CHECK-NEXT:    smulh x13, x11, x13
 ; CHECK-NEXT:    add x8, x8, x10
 ; CHECK-NEXT:    asr x14, x8, #4
-; CHECK-NEXT:    asr x15, x12, #11
+; CHECK-NEXT:    asr x12, x12, #11
 ; CHECK-NEXT:    add x8, x14, x8, lsr #63
 ; CHECK-NEXT:    mov w14, #23 // =0x17
-; CHECK-NEXT:    add x12, x15, x12, lsr #63
+; CHECK-NEXT:    sub x12, x12, x9, asr #63
 ; CHECK-NEXT:    msub x8, x8, x14, x10
 ; CHECK-NEXT:    asr x10, x13, #8
-; CHECK-NEXT:    mov w14, #5423 // =0x152f
-; CHECK-NEXT:    add x10, x10, x13, lsr #63
-; CHECK-NEXT:    msub x9, x12, x14, x9
+; CHECK-NEXT:    mov w13, #5423 // =0x152f
+; CHECK-NEXT:    sub x10, x10, x11, asr #63
+; CHECK-NEXT:    msub x9, x12, x13, x9
 ; CHECK-NEXT:    mov w12, #654 // =0x28e
 ; CHECK-NEXT:    msub x10, x10, x12, x11
 ; CHECK-NEXT:    fmov d1, x8
@@ -285,14 +285,14 @@ define <2 x i64> @fold_srem_v2i64(<2 x i64> %x) {
 ; CHECK-NEXT:    mov x8, #7378697629483820646 // =0x6666666666666666
 ; CHECK-NEXT:    mov x9, v0.d[1]
 ; CHECK-NEXT:    movk x8, #26215
+; CHECK-NEXT:    mov w12, #10 // =0xa
 ; CHECK-NEXT:    smulh x11, x10, x8
 ; CHECK-NEXT:    smulh x8, x9, x8
-; CHECK-NEXT:    asr x12, x11, #2
-; CHECK-NEXT:    add x11, x12, x11, lsr #63
-; CHECK-NEXT:    asr x13, x8, #2
-; CHECK-NEXT:    mov w12, #10 // =0xa
+; CHECK-NEXT:    asr x11, x11, #2
+; CHECK-NEXT:    sub x11, x11, x10, asr #63
+; CHECK-NEXT:    asr x8, x8, #2
 ; CHECK-NEXT:    msub x10, x11, x12, x10
-; CHECK-NEXT:    add x8, x13, x8, lsr #63
+; CHECK-NEXT:    sub x8, x8, x9, asr #63
 ; CHECK-NEXT:    msub x8, x8, x12, x9
 ; CHECK-NEXT:    fmov d0, x10
 ; CHECK-NEXT:    mov v0.d[1], x8
@@ -307,11 +307,11 @@ define <1 x i64> @fold_srem_v1i64(<1 x i64> %x) {
 ; CHECK-NEXT:    // kill: def $d0 killed $d0 def $q0
 ; CHECK-NEXT:    fmov x9, d0
 ; CHECK-NEXT:    mov x8, #7378697629483820646 // =0x6666666666666666
+; CHECK-NEXT:    mov w10, #10 // =0xa
 ; CHECK-NEXT:    movk x8, #26215
 ; CHECK-NEXT:    smulh x8, x9, x8
-; CHECK-NEXT:    asr x10, x8, #2
-; CHECK-NEXT:    add x8, x10, x8, lsr #63
-; CHECK-NEXT:    mov w10, #10 // =0xa
+; CHECK-NEXT:    asr x8, x8, #2
+; CHECK-NEXT:    sub x8, x8, x9, asr #63
 ; CHECK-NEXT:    msub x8, x8, x10, x9
 ; CHECK-NEXT:    fmov d0, x8
 ; CHECK-NEXT:    ret

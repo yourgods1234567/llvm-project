@@ -150,10 +150,10 @@ define signext i32 @divi32ri(i32 signext %a, i32 signext %b) {
 ; CHECK-LABEL: divi32ri:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    lea %s1, 1431655766
-; CHECK-NEXT:    muls.l %s0, %s0, %s1
-; CHECK-NEXT:    srl %s1, %s0, 63
-; CHECK-NEXT:    srl %s0, %s0, 32
-; CHECK-NEXT:    adds.w.sx %s0, %s0, %s1
+; CHECK-NEXT:    muls.l %s1, %s0, %s1
+; CHECK-NEXT:    srl %s1, %s1, 32
+; CHECK-NEXT:    sra.w.sx %s0, %s0, 31
+; CHECK-NEXT:    subs.w.sx %s0, %s1, %s0
 ; CHECK-NEXT:    adds.w.sx %s0, %s0, (0)1
 ; CHECK-NEXT:    b.l.t (, %s10)
   %r = sdiv i32 %a, 3

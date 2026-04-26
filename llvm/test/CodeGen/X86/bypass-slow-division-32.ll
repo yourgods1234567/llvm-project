@@ -108,7 +108,7 @@ define i32 @Test_use_div_and_idiv(i32 %a, i32 %b) nounwind {
 ; CHECK-NEXT:    movzbl %cl, %eax
 ; CHECK-NEXT:    divb %bl
 ; CHECK-NEXT:    movzbl %al, %eax
-; CHECK-NEXT:  .LBB3_6:
+; CHECK-NEXT:  .LBB3_6: # %.split.split
 ; CHECK-NEXT:    addl %eax, %esi
 ; CHECK-NEXT:    movl %esi, %eax
 ; CHECK-NEXT:    popl %esi
@@ -133,12 +133,14 @@ define i32 @Test_use_div_imm_imm() nounwind {
 define i32 @Test_use_div_reg_imm(i32 %a) nounwind {
 ; CHECK-LABEL: Test_use_div_reg_imm:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    movl $1041204193, %eax # imm = 0x3E0F83E1
-; CHECK-NEXT:    imull {{[0-9]+}}(%esp)
+; CHECK-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; CHECK-NEXT:    movl $1041204193, %edx # imm = 0x3E0F83E1
+; CHECK-NEXT:    movl %ecx, %eax
+; CHECK-NEXT:    imull %edx
 ; CHECK-NEXT:    movl %edx, %eax
-; CHECK-NEXT:    shrl $31, %eax
-; CHECK-NEXT:    sarl $3, %edx
-; CHECK-NEXT:    addl %edx, %eax
+; CHECK-NEXT:    sarl $3, %eax
+; CHECK-NEXT:    sarl $31, %ecx
+; CHECK-NEXT:    subl %ecx, %eax
 ; CHECK-NEXT:    retl
   %resultdiv = sdiv i32 %a, 33
   ret i32 %resultdiv
@@ -151,10 +153,10 @@ define i32 @Test_use_rem_reg_imm(i32 %a) nounwind {
 ; CHECK-NEXT:    movl $1041204193, %edx # imm = 0x3E0F83E1
 ; CHECK-NEXT:    movl %ecx, %eax
 ; CHECK-NEXT:    imull %edx
-; CHECK-NEXT:    movl %edx, %eax
-; CHECK-NEXT:    shrl $31, %eax
 ; CHECK-NEXT:    sarl $3, %edx
-; CHECK-NEXT:    addl %eax, %edx
+; CHECK-NEXT:    movl %ecx, %eax
+; CHECK-NEXT:    sarl $31, %eax
+; CHECK-NEXT:    subl %eax, %edx
 ; CHECK-NEXT:    movl %edx, %eax
 ; CHECK-NEXT:    shll $5, %eax
 ; CHECK-NEXT:    addl %edx, %eax
@@ -172,15 +174,15 @@ define i32 @Test_use_divrem_reg_imm(i32 %a) nounwind {
 ; CHECK-NEXT:    movl $1041204193, %edx # imm = 0x3E0F83E1
 ; CHECK-NEXT:    movl %ecx, %eax
 ; CHECK-NEXT:    imull %edx
-; CHECK-NEXT:    movl %edx, %eax
-; CHECK-NEXT:    shrl $31, %eax
 ; CHECK-NEXT:    sarl $3, %edx
+; CHECK-NEXT:    movl %ecx, %eax
+; CHECK-NEXT:    sarl $31, %eax
+; CHECK-NEXT:    subl %eax, %edx
+; CHECK-NEXT:    movl %edx, %eax
+; CHECK-NEXT:    shll $5, %eax
 ; CHECK-NEXT:    addl %edx, %eax
-; CHECK-NEXT:    movl %eax, %edx
-; CHECK-NEXT:    shll $5, %edx
-; CHECK-NEXT:    addl %eax, %edx
-; CHECK-NEXT:    subl %edx, %ecx
-; CHECK-NEXT:    addl %eax, %ecx
+; CHECK-NEXT:    subl %eax, %ecx
+; CHECK-NEXT:    addl %edx, %ecx
 ; CHECK-NEXT:    movl %ecx, %eax
 ; CHECK-NEXT:    retl
   %resultdiv = sdiv i32 %a, 33

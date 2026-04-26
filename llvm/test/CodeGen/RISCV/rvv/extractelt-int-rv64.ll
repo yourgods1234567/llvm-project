@@ -798,10 +798,10 @@ define i32 @extractelt_sdiv_nxv4i32_splat(<vscale x 4 x i32> %x) {
 ; RV64M-NEXT:    vmv.x.s a0, v8
 ; RV64M-NEXT:    lui a1, 349525
 ; RV64M-NEXT:    addi a1, a1, 1366
-; RV64M-NEXT:    mul a0, a0, a1
-; RV64M-NEXT:    srli a1, a0, 63
-; RV64M-NEXT:    srli a0, a0, 32
-; RV64M-NEXT:    addw a0, a0, a1
+; RV64M-NEXT:    mul a1, a0, a1
+; RV64M-NEXT:    srli a1, a1, 32
+; RV64M-NEXT:    srli a0, a0, 31
+; RV64M-NEXT:    subw a0, a1, a0
 ; RV64M-NEXT:    ret
   %bo = sdiv <vscale x 4 x i32> %x, splat (i32 3)
   %ext = extractelement <vscale x 4 x i32> %bo, i32 0
@@ -826,10 +826,10 @@ define i32 @extractelt_udiv_nxv4i32_splat(<vscale x 4 x i32> %x) {
 ; RV64M-NEXT:    vmv.x.s a0, v8
 ; RV64M-NEXT:    lui a1, 349525
 ; RV64M-NEXT:    addi a1, a1, 1366
-; RV64M-NEXT:    mul a0, a0, a1
-; RV64M-NEXT:    srli a1, a0, 63
-; RV64M-NEXT:    srli a0, a0, 32
-; RV64M-NEXT:    addw a0, a0, a1
+; RV64M-NEXT:    mul a1, a0, a1
+; RV64M-NEXT:    srli a1, a1, 32
+; RV64M-NEXT:    srli a0, a0, 31
+; RV64M-NEXT:    subw a0, a1, a0
 ; RV64M-NEXT:    ret
   %bo = sdiv <vscale x 4 x i32> %x, splat (i32 3)
   %ext = extractelement <vscale x 4 x i32> %bo, i32 0
