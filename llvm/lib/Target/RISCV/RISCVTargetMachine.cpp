@@ -109,6 +109,11 @@ static cl::opt<bool> EnableCFIInstrInserter(
     cl::desc("Enable CFI Instruction Inserter for RISC-V"), cl::init(false),
     cl::Hidden);
 
+static cl::opt<bool> EnableRISCVLiveVariables(
+    "riscv-enable-live-variables",
+    cl::desc("Enable Live Variable Analysis for RISC-V"), cl::init(false),
+    cl::Hidden);
+
 static cl::opt<bool>
     EnableSelectOpt("riscv-select-opt", cl::Hidden,
                     cl::desc("Enable select to branch optimizations"),
@@ -616,6 +621,8 @@ void RISCVPassConfig::addMachineSSAOptimization() {
 
   addPass(createRISCVVectorPeepholePass());
   addPass(createRISCVFoldMemOffsetPass());
+  if (EnableRISCVLiveVariables)
+    addPass(&SparseLiveVariablesID);
 
   TargetPassConfig::addMachineSSAOptimization();
 
@@ -649,9 +656,13 @@ void RISCVPassConfig::addFastRegAlloc() {
 
 
 void RISCVPassConfig::addPostRegAlloc() {
-  if (TM->getOptLevel() != CodeGenOptLevel::None &&
-      EnableRedundantCopyElimination)
-    addPass(createRISCVRedundantCopyEliminationPass());
+  if (TM->getOptLevel() != CodeGenOptLevel::None) {
+    if (EnableRedundantCopyElimination)
+      addPass(createRISCVRedundantCopyEliminationPass());
+
+    if (EnableRISCVLiveVariables)
+      addPass(&SparseLiveVariablesID);
+  }
 }
 
 bool RISCVPassConfig::addILPOpts() {
