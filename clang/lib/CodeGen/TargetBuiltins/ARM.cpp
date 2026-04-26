@@ -4803,7 +4803,8 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
     return CI;
   }
 
-  if (BuiltinID == clang::AArch64::BI__getReg) {
+  if (BuiltinID == clang::AArch64::BI__getReg ||
+      BuiltinID == clang::AArch64::BI__setReg) {
     Expr::EvalResult Result;
     if (!E->getArg(0)->EvaluateAsInt(Result, CGM.getContext()))
       llvm_unreachable("Sema will ensure that the parameter is constant");
@@ -4816,9 +4817,45 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
     llvm::MDNode *RegName = llvm::MDNode::get(Context, Ops);
     llvm::Value *Metadata = llvm::MetadataAsValue::get(Context, RegName);
 
-    llvm::Function *F =
-        CGM.getIntrinsic(Intrinsic::read_register, {Int64Ty});
-    return Builder.CreateCall(F, Metadata);
+    CallInst *CI;
+    if (BuiltinID == clang::AArch64::BI__getReg) {
+      llvm::Function *F = CGM.getIntrinsic(Intrinsic::read_register, {Int64Ty});
+      CI = Builder.CreateCall(F, Metadata);
+    } else {
+      llvm::Function *F =
+          CGM.getIntrinsic(Intrinsic::write_register, {Int64Ty});
+      CI = Builder.CreateCall(F, {Metadata, EmitScalarExpr(E->getArg(1))});
+    }
+    return CI;
+  }
+
+  if (BuiltinID == clang::AArch64::BI__getRegFp ||
+      BuiltinID == clang::AArch64::BI__setRegFp) {
+    Expr::EvalResult Result;
+    if (!E->getArg(0)->EvaluateAsInt(Result, CGM.getContext()))
+      llvm_unreachable("Sema will ensure that the parameter is constant");
+
+    llvm::APSInt Value = Result.Val.getInt();
+    LLVMContext &Context = CGM.getLLVMContext();
+    std::string Reg = "d" + toString(Value, 10);
+
+    llvm::Metadata *Ops[] = {llvm::MDString::get(Context, Reg)};
+    llvm::MDNode *RegName = llvm::MDNode::get(Context, Ops);
+    llvm::Value *Metadata = llvm::MetadataAsValue::get(Context, RegName);
+
+    llvm::Value *Ret;
+    if (BuiltinID == clang::AArch64::BI__getRegFp) {
+      llvm::Function *F = CGM.getIntrinsic(Intrinsic::read_register, {Int64Ty});
+      llvm::Value *Bits = Builder.CreateCall(F, Metadata);
+      Ret = Builder.CreateBitCast(Bits, llvm::Type::getDoubleTy(Context));
+    } else {
+      llvm::Value *Val = EmitScalarExpr(E->getArg(1));
+      llvm::Value *Bits = Builder.CreateBitCast(Val, Int64Ty);
+      llvm::Function *F =
+          CGM.getIntrinsic(Intrinsic::write_register, {Int64Ty});
+      Ret = Builder.CreateCall(F, {Metadata, Bits});
+    }
+    return Ret;
   }
 
   if (BuiltinID == clang::AArch64::BI__break) {
@@ -5228,6 +5265,18 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
     return Result;
   }
 
+  if (BuiltinID == AArch64::BI_CountTrailingZeros ||
+      BuiltinID == AArch64::BI_CountTrailingZeros64) {
+    Value *ArgValue = EmitScalarExpr(E->getArg(0));
+    llvm::Type *ArgType = ArgValue->getType();
+    Function *F = CGM.getIntrinsic(Intrinsic::cttz, ArgType);
+
+    Value *Result = Builder.CreateCall(F, {ArgValue, Builder.getInt1(false)});
+    if (BuiltinID == AArch64::BI_CountTrailingZeros64)
+      Result = Builder.CreateTrunc(Result, Builder.getInt32Ty());
+    return Result;
+  }
+
   if (BuiltinID == AArch64::BI__prefetch) {
     Value *Address = EmitScalarExpr(E->getArg(0));
     Value *RW = llvm::ConstantInt::get(Int32Ty, 0);
@@ -5237,6 +5286,26 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
     return Builder.CreateCall(F, {Address, RW, Locality, Data});
   }
 
+  if (BuiltinID == AArch64::BI__prefetch2) {
+    Value *Address = EmitScalarExpr(E->getArg(0));
+    llvm::APSInt PrfOp = E->getArg(1)->EvaluateKnownConstInt(CGM.getContext());
+    // Decode 5-bit PRFM encoding: bits[4:3]=type, bits[2:1]=target,
+    // bit[0]=policy
+    //   type: PLD=0(load), PLI=1(instr), PST=2(store)
+    //   target: L1=0, L2=1, L3=2
+    //   policy: KEEP=0, STRM=1
+    uint64_t Op = PrfOp.getZExtValue();
+    uint64_t Type = (Op >> 3) & 0x3;
+    uint64_t Target = (Op >> 1) & 0x3;
+    uint64_t Policy = Op & 0x1;
+    Value *RW = ConstantInt::get(Int32Ty, Type == 2 ? 1 : 0);
+    Value *Local = ConstantInt::get(Int32Ty, Target);
+    Value *Retain = ConstantInt::get(Int32Ty, Policy == 0 ? 1 : 0);
+    Value *IsData = ConstantInt::get(Int32Ty, Type == 1 ? 0 : 1);
+    Function *F = CGM.getIntrinsic(Intrinsic::aarch64_prefetch);
+    return Builder.CreateCall(F, {Address, RW, Local, Retain, IsData});
+  }
+
   if (BuiltinID == AArch64::BI__hlt) {
     Function *F = CGM.getIntrinsic(Intrinsic::aarch64_hlt);
     Builder.CreateCall(F, {EmitScalarExpr(E->getArg(0))});
@@ -5244,6 +5313,246 @@ Value *CodeGenFunction::EmitAArch64BuiltinExpr(unsigned BuiltinID,
     // Return 0 for convenience, even though MSVC returns some other undefined
     // value.
     return ConstantInt::get(Builder.getInt32Ty(), 0);
+  }
+
+  if (BuiltinID == AArch64::BI__ldar8 || BuiltinID == AArch64::BI__ldar16 ||
+      BuiltinID == AArch64::BI__ldar32 || BuiltinID == AArch64::BI__ldar64) {
+    Value *Ptr = EmitScalarExpr(E->getArg(0));
+    QualType ElTy = E->getArg(0)->getType()->getPointeeType();
+    CharUnits LoadSize = CGM.getContext().getTypeSizeInChars(ElTy);
+    llvm::Type *ITy =
+        llvm::IntegerType::get(getLLVMContext(), LoadSize.getQuantity() * 8);
+    llvm::LoadInst *Load = Builder.CreateAlignedLoad(ITy, Ptr, LoadSize);
+    // We need SeqCst instead of Acquire because with RCPC enabled the AArch64
+    // lowers Acquire loads to LDARP* instead of LDAR*.  The SeqCst has not RCPC
+    // override and always maps to LDAR*.  This is the same apprach used by
+    // __iso_volatile_load (which uses Monotonic plus volatile for plain ldr).
+    Load->setAtomic(llvm::AtomicOrdering::SequentiallyConsistent);
+    Load->setVolatile(true);
+    return Load;
+  }
+
+  if (BuiltinID == AArch64::BI__stlr8 || BuiltinID == AArch64::BI__stlr16 ||
+      BuiltinID == AArch64::BI__stlr32 || BuiltinID == AArch64::BI__stlr64) {
+    Value *Ptr = EmitScalarExpr(E->getArg(0));
+    Value *Val = EmitScalarExpr(E->getArg(1));
+    QualType ElTy = E->getArg(0)->getType()->getPointeeType();
+    CharUnits StoreSize = CGM.getContext().getTypeSizeInChars(ElTy);
+    llvm::StoreInst *Store = Builder.CreateAlignedStore(Val, Ptr, StoreSize);
+    Store->setAtomic(llvm::AtomicOrdering::Release);
+    Store->setVolatile(true);
+    return Store;
+  }
+
+  if (BuiltinID == AArch64::BI__ldapr8 || BuiltinID == AArch64::BI__ldapr16 ||
+      BuiltinID == AArch64::BI__ldapr32 || BuiltinID == AArch64::BI__ldapr64) {
+    unsigned IntrID;
+    switch (BuiltinID) {
+    case AArch64::BI__ldapr8:
+      IntrID = Intrinsic::aarch64_ldapr8;
+      break;
+    case AArch64::BI__ldapr16:
+      IntrID = Intrinsic::aarch64_ldapr16;
+      break;
+    case AArch64::BI__ldapr32:
+      IntrID = Intrinsic::aarch64_ldapr32;
+      break;
+    default:
+      IntrID = Intrinsic::aarch64_ldapr64;
+      break;
+    }
+    Value *Ptr = EmitScalarExpr(E->getArg(0));
+    Value *Result = Builder.CreateCall(CGM.getIntrinsic(IntrID), Ptr);
+    // LDAPRB/H return i32 (zero-extended); truncate to match the declared type.
+    llvm::Type *RetTy = ConvertType(E->getType());
+    if (Result->getType() != RetTy)
+      Result = Builder.CreateTrunc(Result, RetTy);
+    return Result;
+  }
+
+  if (BuiltinID == AArch64::BI__cas8 || BuiltinID == AArch64::BI__cas16 ||
+      BuiltinID == AArch64::BI__cas32 || BuiltinID == AArch64::BI__cas64 ||
+      BuiltinID == AArch64::BI__casa8 || BuiltinID == AArch64::BI__casa16 ||
+      BuiltinID == AArch64::BI__casa32 || BuiltinID == AArch64::BI__casa64 ||
+      BuiltinID == AArch64::BI__casl8 || BuiltinID == AArch64::BI__casl16 ||
+      BuiltinID == AArch64::BI__casl32 || BuiltinID == AArch64::BI__casl64 ||
+      BuiltinID == AArch64::BI__casal8 || BuiltinID == AArch64::BI__casal16 ||
+      BuiltinID == AArch64::BI__casal32 || BuiltinID == AArch64::BI__casal64) {
+    unsigned IntrID;
+    llvm::Type *IntrArgTy;
+    switch (BuiltinID) {
+    case AArch64::BI__cas8:
+      IntrID = Intrinsic::aarch64_cas8;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__cas16:
+      IntrID = Intrinsic::aarch64_cas16;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__cas32:
+      IntrID = Intrinsic::aarch64_cas32;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__cas64:
+      IntrID = Intrinsic::aarch64_cas64;
+      IntrArgTy = Builder.getInt64Ty();
+      break;
+    case AArch64::BI__casa8:
+      IntrID = Intrinsic::aarch64_casa8;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casa16:
+      IntrID = Intrinsic::aarch64_casa16;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casa32:
+      IntrID = Intrinsic::aarch64_casa32;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casa64:
+      IntrID = Intrinsic::aarch64_casa64;
+      IntrArgTy = Builder.getInt64Ty();
+      break;
+    case AArch64::BI__casl8:
+      IntrID = Intrinsic::aarch64_casl8;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casl16:
+      IntrID = Intrinsic::aarch64_casl16;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casl32:
+      IntrID = Intrinsic::aarch64_casl32;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casl64:
+      IntrID = Intrinsic::aarch64_casl64;
+      IntrArgTy = Builder.getInt64Ty();
+      break;
+    case AArch64::BI__casal8:
+      IntrID = Intrinsic::aarch64_casal8;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casal16:
+      IntrID = Intrinsic::aarch64_casal16;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casal32:
+      IntrID = Intrinsic::aarch64_casal32;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__casal64:
+      IntrID = Intrinsic::aarch64_casal64;
+      IntrArgTy = Builder.getInt64Ty();
+      break;
+    default:
+      llvm_unreachable("missing builtin ID in switch!");
+    }
+    Value *Ptr = EmitScalarExpr(E->getArg(0));
+    Value *Comp = EmitScalarExpr(E->getArg(1));
+    Value *Val = EmitScalarExpr(E->getArg(2));
+    // For 8/16-bit we need to zext to GRP size
+    if (Comp->getType() != IntrArgTy)
+      Comp = Builder.CreateZExt(Comp, IntrArgTy);
+    if (Val->getType() != IntrArgTy)
+      Val = Builder.CreateZExt(Val, IntrArgTy);
+    Value *Result =
+        Builder.CreateCall(CGM.getIntrinsic(IntrID), {Ptr, Comp, Val});
+    // CAS{B/H} return i32 (zero-extended); truncate to declared type.
+    llvm::Type *RetTy = ConvertType(E->getType());
+    if (Result->getType() != RetTy)
+      Result = Builder.CreateTrunc(Result, RetTy);
+    return Result;
+  }
+
+  if (BuiltinID == AArch64::BI__swp8 || BuiltinID == AArch64::BI__swp16 ||
+      BuiltinID == AArch64::BI__swp32 || BuiltinID == AArch64::BI__swp64 ||
+      BuiltinID == AArch64::BI__swpa8 || BuiltinID == AArch64::BI__swpa16 ||
+      BuiltinID == AArch64::BI__swpa32 || BuiltinID == AArch64::BI__swpa64 ||
+      BuiltinID == AArch64::BI__swpl8 || BuiltinID == AArch64::BI__swpl16 ||
+      BuiltinID == AArch64::BI__swpl32 || BuiltinID == AArch64::BI__swpl64 ||
+      BuiltinID == AArch64::BI__swpal8 || BuiltinID == AArch64::BI__swpal16 ||
+      BuiltinID == AArch64::BI__swpal32 || BuiltinID == AArch64::BI__swpal64) {
+    unsigned IntrID;
+    llvm::Type *IntrArgTy;
+    switch (BuiltinID) {
+    case AArch64::BI__swp8:
+      IntrID = Intrinsic::aarch64_swp8;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swp16:
+      IntrID = Intrinsic::aarch64_swp16;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swp32:
+      IntrID = Intrinsic::aarch64_swp32;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swp64:
+      IntrID = Intrinsic::aarch64_swp64;
+      IntrArgTy = Builder.getInt64Ty();
+      break;
+    case AArch64::BI__swpa8:
+      IntrID = Intrinsic::aarch64_swpa8;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpa16:
+      IntrID = Intrinsic::aarch64_swpa16;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpa32:
+      IntrID = Intrinsic::aarch64_swpa32;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpa64:
+      IntrID = Intrinsic::aarch64_swpa64;
+      IntrArgTy = Builder.getInt64Ty();
+      break;
+    case AArch64::BI__swpl8:
+      IntrID = Intrinsic::aarch64_swpl8;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpl16:
+      IntrID = Intrinsic::aarch64_swpl16;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpl32:
+      IntrID = Intrinsic::aarch64_swpl32;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpl64:
+      IntrID = Intrinsic::aarch64_swpl64;
+      IntrArgTy = Builder.getInt64Ty();
+      break;
+    case AArch64::BI__swpal8:
+      IntrID = Intrinsic::aarch64_swpal8;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpal16:
+      IntrID = Intrinsic::aarch64_swpal16;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpal32:
+      IntrID = Intrinsic::aarch64_swpal32;
+      IntrArgTy = Builder.getInt32Ty();
+      break;
+    case AArch64::BI__swpal64:
+      IntrID = Intrinsic::aarch64_swpal64;
+      IntrArgTy = Builder.getInt64Ty();
+      break;
+    default:
+      llvm_unreachable("missing builtin ID in switch!");
+    }
+    Value *Ptr = EmitScalarExpr(E->getArg(0));
+    Value *Val = EmitScalarExpr(E->getArg(1));
+    if (Val->getType() != IntrArgTy)
+      Val = Builder.CreateZExt(Val, IntrArgTy);
+    Value *Result = Builder.CreateCall(CGM.getIntrinsic(IntrID), {Ptr, Val});
+    // SWP{B/H} return i32 (zero-extended); truncate to declared type.
+    llvm::Type *RetTy = ConvertType(E->getType());
+    if (Result->getType() != RetTy)
+      Result = Builder.CreateTrunc(Result, RetTy);
+    return Result;
   }
 
   if (BuiltinID == NEON::BI__builtin_neon_vcvth_bf16_f32)
