@@ -1815,7 +1815,7 @@ void stdTiePartialReinit() {
   b.size();  // no-warning: b was reinitialized
   a.size(); // expected-warning{{'a' used after it was moved}}
   // CHECK-NOTES: [[@LINE-1]]:3: warning: 'a' used after it was moved
-  // CHECK-NOTES: [[@LINE-4]]:3: note: move occurred here
+  // CHECK-NOTES: [[@LINE-5]]:3: note: move occurred here
 }
 
 void stdTieInLoop() {
