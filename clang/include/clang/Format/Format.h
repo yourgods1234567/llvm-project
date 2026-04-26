@@ -301,6 +301,17 @@ struct FormatStyle {
   /// \endcode
   /// \version 11
   AlignConsecutiveStyle AlignConsecutiveBitFields;
+  /// Style of aligning consecutive enum assignments.
+  ///
+  /// ``Consecutive`` will align the enum assignments of consecutive lines.
+  /// This will result in formattings like:
+  /// \code
+  ///   flag_aaaa = 1,
+  ///   flag_b    = 12,
+  ///   flag_ccc  = 8,
+  /// \endcode
+  /// \version 23
+  AlignConsecutiveStyle AlignConsecutiveEnums;
   /// Style of aligning consecutive declarations.
   ///
   /// ``Consecutive`` will align the declaration names of consecutive lines.
@@ -6009,6 +6020,7 @@ struct FormatStyle {
            AlignArrayOfStructures == R.AlignArrayOfStructures &&
            AlignConsecutiveAssignments == R.AlignConsecutiveAssignments &&
            AlignConsecutiveBitFields == R.AlignConsecutiveBitFields &&
+           AlignConsecutiveEnums == R.AlignConsecutiveEnums &&
            AlignConsecutiveDeclarations == R.AlignConsecutiveDeclarations &&
            AlignConsecutiveMacros == R.AlignConsecutiveMacros &&
            AlignConsecutiveShortCaseStatements ==

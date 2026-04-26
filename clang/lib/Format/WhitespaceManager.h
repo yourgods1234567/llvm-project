@@ -235,9 +235,12 @@ private:
   /// Align consecutive bitfields over all \c Changes.
   void alignConsecutiveBitFields();
 
+  /// Align consecutive enums over all \c Changes.
+  void alignConsecutiveEnums();
+
   /// Align consecutive colon. For bitfields, TableGen DAGArgs and definitions.
   void
-  alignConsecutiveColons(const FormatStyle::AlignConsecutiveStyle &AlignStyle,
+  alignConsecutiveTokens(const FormatStyle::AlignConsecutiveStyle &AlignStyle,
                          TokenType Type);
 
   /// Align consecutive declarations over all \c Changes.
