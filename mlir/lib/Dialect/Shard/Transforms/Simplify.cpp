@@ -131,6 +131,66 @@ struct AllReduceAllSliceSimplification : OpRewritePattern<AllSliceOp> {
   }
 };
 
+// Simplify AllSliceOp(AllGatherOp) -> input when both ops share the same grid,
+// grid_axes and gather/slice axis.
+//
+// AllGather concatenates in-group slices along gather_axis and replicates the
+// concatenated result. AllSlice on the same axis then takes each device-local
+// in-group slice from that replicated tensor, i.e. exactly the original input.
+struct AllGatherAllSliceSimplification : OpRewritePattern<AllSliceOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(AllSliceOp sliceOp,
+                                PatternRewriter &rewriter) const override {
+    auto gatherOp = sliceOp.getInput().getDefiningOp<AllGatherOp>();
+    if (!gatherOp)
+      return failure();
+
+    if (gatherOp.getGrid() != sliceOp.getGrid() ||
+        gatherOp.getGridAxes() != sliceOp.getGridAxes())
+      return failure();
+
+    if (gatherOp.getGatherAxis() != sliceOp.getSliceAxis())
+      return failure();
+
+    if (gatherOp.getInput().getType() != sliceOp.getResult().getType())
+      return failure();
+
+    rewriter.replaceOp(sliceOp, gatherOp.getInput());
+    return success();
+  }
+};
+
+// Simplify AllGatherOp(ReduceScatterOp) -> AllReduceOp when both ops share the
+// same grid, grid_axes and gather/scatter axis.
+//
+// ReduceScatter computes an element-wise reduction and scatters along a tensor
+// axis. AllGather along the same axis reassembles that full reduced tensor and
+// replicates it to all participants, which is exactly AllReduce.
+struct ReduceScatterAllGatherSimplification : OpRewritePattern<AllGatherOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(AllGatherOp gatherOp,
+                                PatternRewriter &rewriter) const override {
+    auto reduceScatterOp = gatherOp.getInput().getDefiningOp<ReduceScatterOp>();
+    if (!reduceScatterOp)
+      return failure();
+
+    if (reduceScatterOp.getGrid() != gatherOp.getGrid() ||
+        reduceScatterOp.getGridAxes() != gatherOp.getGridAxes())
+      return failure();
+
+    if (reduceScatterOp.getScatterDim() != gatherOp.getGatherAxis())
+      return failure();
+
+    rewriter.replaceOpWithNewOp<AllReduceOp>(
+        gatherOp, gatherOp.getResult().getType(), gatherOp.getGridAttr(),
+        gatherOp.getGridAxesAttr(), reduceScatterOp.getInput(),
+        reduceScatterOp.getReductionAttr());
+    return success();
+  }
+};
+
 } // namespace
 
 void populateSimplifyPatterns(RewritePatternSet &patterns,
@@ -154,7 +214,8 @@ void populateSimplifyPatterns(RewritePatternSet &patterns,
   populateAllReduceEndomorphismSimplifyPatterns<arith::MaxUIOp>(
       patterns, ReductionKind::Max);
 
-  patterns.add<AllReduceAllSliceSimplification>(patterns.getContext());
+  patterns.add<AllReduceAllSliceSimplification, AllGatherAllSliceSimplification,
+               ReduceScatterAllGatherSimplification>(patterns.getContext());
 
   // TODO: add simplify patterns for all-gather and other collectives.
 

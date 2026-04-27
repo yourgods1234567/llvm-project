@@ -260,3 +260,150 @@ func.func @all_reduce_all_slice_type_promotion(
   // CHECK: return %[[RS]]
   return %1 : tensor<1x8xf64>
 }
+
+// -----
+// AllGatherOp + AllSliceOp -> input tests
+// -----
+
+// Basic inverse case: all_slice(all_gather(x)) with matching grid/axes/axis.
+// CHECK-LABEL: func.func @all_gather_all_slice_to_input
+func.func @all_gather_all_slice_to_input(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<1x8xf32>
+    %arg0: tensor<1x8xf32>) -> tensor<1x8xf32> {
+  %0 = shard.all_gather %arg0 on @grid0 grid_axes = [0] gather_axis = 0
+    : tensor<1x8xf32> -> tensor<4x8xf32>
+  %1 = shard.all_slice %0 on @grid0 grid_axes = [0] slice_axis = 0
+    : tensor<4x8xf32> -> tensor<1x8xf32>
+  // CHECK-NOT: shard.all_gather
+  // CHECK-NOT: shard.all_slice
+  // CHECK: return %[[ARG0]]
+  return %1 : tensor<1x8xf32>
+}
+
+// Do not fold if gather/slice grid axes differ.
+// CHECK-LABEL: func.func @all_gather_all_slice_different_grid_axes
+func.func @all_gather_all_slice_different_grid_axes(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<1x8xf32>
+    %arg0: tensor<1x8xf32>) -> tensor<2x8xf32> {
+  // CHECK: %[[AG:.*]] = shard.all_gather %[[ARG0]] on @grid0 grid_axes = [0] gather_axis = 0
+  %0 = shard.all_gather %arg0 on @grid0 grid_axes = [0] gather_axis = 0
+    : tensor<1x8xf32> -> tensor<4x8xf32>
+  // CHECK: %[[AS:.*]] = shard.all_slice %[[AG]] on @grid0 grid_axes = [1] slice_axis = 0
+  %1 = shard.all_slice %0 on @grid0 grid_axes = [1] slice_axis = 0
+    : tensor<4x8xf32> -> tensor<2x8xf32>
+  // CHECK: return %[[AS]]
+  return %1 : tensor<2x8xf32>
+}
+
+// Do not fold if gather/slice grids differ.
+// CHECK-LABEL: func.func @all_gather_all_slice_different_grid
+func.func @all_gather_all_slice_different_grid(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<1x8xf32>
+    %arg0: tensor<1x8xf32>) -> tensor<1x8xf32> {
+  // CHECK: %[[AG:.*]] = shard.all_gather %[[ARG0]] on @grid0 grid_axes = [0] gather_axis = 0
+  %0 = shard.all_gather %arg0 on @grid0 grid_axes = [0] gather_axis = 0
+    : tensor<1x8xf32> -> tensor<4x8xf32>
+  // CHECK: %[[AS:.*]] = shard.all_slice %[[AG]] on @grid1 grid_axes = [0] slice_axis = 0
+  %1 = shard.all_slice %0 on @grid1 grid_axes = [0] slice_axis = 0
+    : tensor<4x8xf32> -> tensor<1x8xf32>
+  // CHECK: return %[[AS]]
+  return %1 : tensor<1x8xf32>
+}
+
+// Do not fold if gather/slice tensor axes differ.
+// CHECK-LABEL: func.func @all_gather_all_slice_different_tensor_axes
+func.func @all_gather_all_slice_different_tensor_axes(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<2x2xf32>
+    %arg0: tensor<2x2xf32>) -> tensor<4x1xf32> {
+  // CHECK: %[[AG:.*]] = shard.all_gather %[[ARG0]] on @grid0 grid_axes = [1] gather_axis = 0
+  %0 = shard.all_gather %arg0 on @grid0 grid_axes = [1] gather_axis = 0
+    : tensor<2x2xf32> -> tensor<4x2xf32>
+  // CHECK: %[[AS:.*]] = shard.all_slice %[[AG]] on @grid0 grid_axes = [1] slice_axis = 1
+  %1 = shard.all_slice %0 on @grid0 grid_axes = [1] slice_axis = 1
+    : tensor<4x2xf32> -> tensor<4x1xf32>
+  // CHECK: return %[[AS]]
+  return %1 : tensor<4x1xf32>
+}
+
+// -----
+// ReduceScatterOp + AllGatherOp -> AllReduceOp tests
+// -----
+
+// Basic case: all_gather(reduce_scatter(x)) with matching grid/axes/axis folds
+// into all_reduce.
+// CHECK-LABEL: func.func @reduce_scatter_all_gather_to_all_reduce
+func.func @reduce_scatter_all_gather_to_all_reduce(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<4x8xf32>
+    %arg0: tensor<4x8xf32>) -> tensor<4x8xf32> {
+  %0 = shard.reduce_scatter %arg0 on @grid0 grid_axes = [0] scatter_dim = 0
+    : tensor<4x8xf32> -> tensor<1x8xf32>
+  %1 = shard.all_gather %0 on @grid0 grid_axes = [0] gather_axis = 0
+    : tensor<1x8xf32> -> tensor<4x8xf32>
+  // CHECK: %[[AR:.*]] = shard.all_reduce %[[ARG0]] on @grid0 grid_axes = [0]
+  // CHECK-SAME: : tensor<4x8xf32> -> tensor<4x8xf32>
+  // CHECK: return %[[AR]]
+  return %1 : tensor<4x8xf32>
+}
+
+// Verify reduction kind is preserved through the rewrite.
+// CHECK-LABEL: func.func @reduce_scatter_all_gather_preserve_reduction
+func.func @reduce_scatter_all_gather_preserve_reduction(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<4x8xf32>
+    %arg0: tensor<4x8xf32>) -> tensor<4x8xf32> {
+  %0 = shard.reduce_scatter %arg0 on @grid0 grid_axes = [0] reduction = max scatter_dim = 0
+    : tensor<4x8xf32> -> tensor<1x8xf32>
+  %1 = shard.all_gather %0 on @grid0 grid_axes = [0] gather_axis = 0
+    : tensor<1x8xf32> -> tensor<4x8xf32>
+  // CHECK: %[[AR:.*]] = shard.all_reduce %[[ARG0]] on @grid0 grid_axes = [0] reduction = max
+  // CHECK-SAME: : tensor<4x8xf32> -> tensor<4x8xf32>
+  // CHECK: return %[[AR]]
+  return %1 : tensor<4x8xf32>
+}
+
+// Do not fold if reduce-scatter/all-gather grid axes differ.
+// CHECK-LABEL: func.func @reduce_scatter_all_gather_different_grid_axes
+func.func @reduce_scatter_all_gather_different_grid_axes(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<4x8xf32>
+    %arg0: tensor<4x8xf32>) -> tensor<2x8xf32> {
+  // CHECK: %[[RS:.*]] = shard.reduce_scatter %[[ARG0]] on @grid0 grid_axes = [0] scatter_dim = 0
+  %0 = shard.reduce_scatter %arg0 on @grid0 grid_axes = [0] scatter_dim = 0
+    : tensor<4x8xf32> -> tensor<1x8xf32>
+  // CHECK: %[[AG:.*]] = shard.all_gather %[[RS]] on @grid0 grid_axes = [1] gather_axis = 0
+  %1 = shard.all_gather %0 on @grid0 grid_axes = [1] gather_axis = 0
+    : tensor<1x8xf32> -> tensor<2x8xf32>
+  // CHECK: return %[[AG]]
+  return %1 : tensor<2x8xf32>
+}
+
+// Do not fold if reduce-scatter/all-gather grids differ.
+// CHECK-LABEL: func.func @reduce_scatter_all_gather_different_grid
+func.func @reduce_scatter_all_gather_different_grid(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<4x8xf32>
+    %arg0: tensor<4x8xf32>) -> tensor<2x8xf32> {
+  // CHECK: %[[RS:.*]] = shard.reduce_scatter %[[ARG0]] on @grid1 grid_axes = [0] scatter_dim = 0
+  %0 = shard.reduce_scatter %arg0 on @grid1 grid_axes = [0] scatter_dim = 0
+    : tensor<4x8xf32> -> tensor<1x8xf32>
+  // CHECK: %[[AG:.*]] = shard.all_gather %[[RS]] on @grid0 grid_axes = [1] gather_axis = 0
+  %1 = shard.all_gather %0 on @grid0 grid_axes = [1] gather_axis = 0
+    : tensor<1x8xf32> -> tensor<2x8xf32>
+  // CHECK: return %[[AG]]
+  return %1 : tensor<2x8xf32>
+}
+
+// Do not fold if scatter/gather tensor axes differ.
+// CHECK-LABEL: func.func @reduce_scatter_all_gather_different_tensor_axes
+func.func @reduce_scatter_all_gather_different_tensor_axes(
+    // CHECK-SAME: %[[ARG0:[A-Za-z0-9_]*]]: tensor<4x8xf32>
+    %arg0: tensor<4x8xf32>) -> tensor<2x8xf32> {
+  // CHECK: %[[RS:.*]] = shard.reduce_scatter %[[ARG0]] on @grid0 grid_axes = [1] scatter_dim = 0
+  %0 = shard.reduce_scatter %arg0 on @grid0 grid_axes = [1] scatter_dim = 0
+    : tensor<4x8xf32> -> tensor<2x8xf32>
+  // CHECK: %[[AG:.*]] = shard.all_gather %[[RS]] on @grid0 grid_axes = [1] gather_axis = 1
+  %1 = shard.all_gather %0 on @grid0 grid_axes = [1] gather_axis = 1
+    : tensor<2x8xf32> -> tensor<2x16xf32>
+  // Keep function result type simple by slicing back.
+  %2 = tensor.extract_slice %1[0, 0] [2, 8] [1, 1]
+    : tensor<2x16xf32> to tensor<2x8xf32>
+  // CHECK: return %{{.*}}
+  return %2 : tensor<2x8xf32>
+}
