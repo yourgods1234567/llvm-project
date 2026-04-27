@@ -3647,11 +3647,16 @@ void mergeInheritableAttributes(ASTReader &Reader, Decl *D, Decl *Previous) {
     D->addAttr(NewAttr);
   }
 
-  const auto *AA = Previous->getAttr<AvailabilityAttr>();
-  if (AA && !D->hasAttr<AvailabilityAttr>()) {
-    NewAttr = AA->clone(Context);
-    NewAttr->setInherited(true);
-    D->addAttr(NewAttr);
+  // getAttr<AvailabilityAttr>() only returns the first match, but a
+  // declaration can carry multiple AvailabilityAttrs (one per platform,
+  // e.g. macos + ios).  Iterate over all of them so every platform's
+  // availability is propagated to the new redeclaration.
+  if (!D->hasAttr<AvailabilityAttr>()) {
+    for (const auto *AA : Previous->specific_attrs<AvailabilityAttr>()) {
+      NewAttr = AA->clone(Context);
+      NewAttr->setInherited(true);
+      D->addAttr(NewAttr);
+    }
   }
 }
 } // namespace

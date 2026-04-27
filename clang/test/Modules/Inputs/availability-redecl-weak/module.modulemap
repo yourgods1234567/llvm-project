@@ -1,0 +1,2 @@
+module InterfaceMod { header "interface.h" export * }
+module ForwardMod { header "forward.h" export * }
