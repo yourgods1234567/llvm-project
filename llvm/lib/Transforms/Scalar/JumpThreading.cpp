@@ -1982,15 +1982,32 @@ void JumpThreadingPass::updateSSA(BasicBlock *BB, BasicBlock *NewBB,
   for (Instruction &I : *BB) {
     // Scan all uses of this instruction to see if it is used outside of its
     // block, and if so, record them in UsesToRename.
+
+    SmallVector<Instruction *> LifetimeMarkers;
+    bool HasNonDominatedLifetimeMarker = false;
     for (Use &U : I.uses()) {
       Instruction *User = cast<Instruction>(U.getUser());
-      if (PHINode *UserPN = dyn_cast<PHINode>(User)) {
-        if (UserPN->getIncomingBlock(U) == BB)
+      if (isa<AllocaInst>(&I) && User->isLifetimeStartOrEnd()) {
+        // If any lifetime marker for the alloca is no longer dominated by the
+        // alloca after jump threading, we will remove all lifetime markers.
+        // This avoids inserting PHI nodes for lifetime markers, which is
+        // invalid.
+        DominatorTree &DT = DTU->getDomTree();
+        if (!DT.dominates(&I, User))
+          HasNonDominatedLifetimeMarker = true;
+        LifetimeMarkers.push_back(User);
+      } else {
+        if (PHINode *UserPN = dyn_cast<PHINode>(User)) {
+          if (UserPN->getIncomingBlock(U) == BB)
+            continue;
+        } else if (User->getParent() == BB)
           continue;
-      } else if (User->getParent() == BB)
-        continue;
-
-      UsesToRename.push_back(&U);
+        UsesToRename.push_back(&U);
+      }
+    }
+    if (HasNonDominatedLifetimeMarker) {
+      for (Instruction *User : LifetimeMarkers)
+        User->eraseFromParent();
     }
 
     // Find debug values outside of the block
