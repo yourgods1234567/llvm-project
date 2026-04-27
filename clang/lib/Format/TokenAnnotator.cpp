@@ -315,9 +315,13 @@ private:
     FormatToken *PrevNonComment = OpeningParen.getPreviousNonComment();
     OpeningParen.ParentBracket = Contexts.back().ContextKind;
     ScopedContextCreator ContextCreator(*this, tok::l_paren, 1);
+    auto &Context = Contexts.back();
+
+    if (OpeningParen.is(TT_FunctionDeclarationLParen))
+      Context.ContextType = Context::ParameterList;
 
     // FIXME: This is a bit of a hack. Do better.
-    Contexts.back().ColonIsForRangeExpr =
+    Context.ColonIsForRangeExpr =
         Contexts.size() == 2 && Contexts[0].ColonIsForRangeExpr;
 
     if (OpeningParen.Previous &&
@@ -350,17 +354,17 @@ private:
       // then the argument must be an expression.
       bool OperatorCalledAsMemberFunction =
           Prev->Previous && Prev->Previous->isOneOf(tok::period, tok::arrow);
-      Contexts.back().IsExpression = OperatorCalledAsMemberFunction;
+      Context.IsExpression = OperatorCalledAsMemberFunction;
     } else if (OpeningParen.is(TT_VerilogInstancePortLParen)) {
-      Contexts.back().IsExpression = true;
-      Contexts.back().ContextType = Context::VerilogInstancePortList;
+      Context.IsExpression = true;
+      Context.ContextType = Context::VerilogInstancePortList;
     } else if (Style.isJavaScript() &&
                (Line.startsWith(Keywords.kw_type, tok::identifier) ||
                 Line.startsWith(tok::kw_export, Keywords.kw_type,
                                 tok::identifier))) {
       // type X = (...);
       // export type X = (...);
-      Contexts.back().IsExpression = false;
+      Context.IsExpression = false;
     } else if (OpeningParen.Previous &&
                (OpeningParen.Previous->isOneOf(
                     tok::kw_noexcept, tok::kw_explicit, tok::kw_while,
@@ -368,68 +372,69 @@ private:
                     TT_BinaryOperator) ||
                 OpeningParen.Previous->isIf())) {
       // if and while usually contain expressions.
-      Contexts.back().IsExpression = true;
+      Context.IsExpression = true;
     } else if (Style.isJavaScript() && OpeningParen.Previous &&
                (OpeningParen.Previous->is(Keywords.kw_function) ||
                 (OpeningParen.Previous->endsSequence(tok::identifier,
                                                      Keywords.kw_function)))) {
       // function(...) or function f(...)
-      Contexts.back().IsExpression = false;
+      Context.IsExpression = false;
     } else if (Style.isJavaScript() && OpeningParen.Previous &&
                OpeningParen.Previous->is(TT_JsTypeColon)) {
       // let x: (SomeType);
-      Contexts.back().IsExpression = false;
+      Context.IsExpression = false;
     } else if (isLambdaParameterList(&OpeningParen)) {
       // This is a parameter list of a lambda expression.
       OpeningParen.setType(TT_LambdaDefinitionLParen);
-      Contexts.back().IsExpression = false;
+      Context.ContextType = Context::ParameterList;
+      Context.IsExpression = false;
     } else if (OpeningParen.is(TT_RequiresExpressionLParen)) {
-      Contexts.back().IsExpression = false;
+      Context.IsExpression = false;
     } else if (OpeningParen.Previous &&
                OpeningParen.Previous->is(tok::kw__Generic)) {
-      Contexts.back().ContextType = Context::C11GenericSelection;
-      Contexts.back().IsExpression = true;
+      Context.ContextType = Context::C11GenericSelection;
+      Context.IsExpression = true;
     } else if (OpeningParen.Previous &&
                OpeningParen.Previous->TokenText == "Q_PROPERTY") {
-      Contexts.back().ContextType = Context::QtProperty;
-      Contexts.back().IsExpression = false;
+      Context.ContextType = Context::QtProperty;
+      Context.IsExpression = false;
     } else if (Line.InPPDirective &&
                (!OpeningParen.Previous ||
                 OpeningParen.Previous->isNot(tok::identifier))) {
-      Contexts.back().IsExpression = true;
+      Context.IsExpression = true;
     } else if (Contexts[Contexts.size() - 2].CaretFound) {
       // This is the parameter list of an ObjC block.
-      Contexts.back().IsExpression = false;
+      Context.IsExpression = false;
     } else if (OpeningParen.Previous &&
                OpeningParen.Previous->is(TT_ForEachMacro)) {
       // The first argument to a foreach macro is a declaration.
-      Contexts.back().ContextType = Context::ForEachMacro;
-      Contexts.back().IsExpression = false;
+      Context.ContextType = Context::ForEachMacro;
+      Context.IsExpression = false;
     } else if (OpeningParen.Previous && OpeningParen.Previous->MatchingParen &&
                OpeningParen.Previous->MatchingParen->isOneOf(
                    TT_ObjCBlockLParen, TT_FunctionTypeLParen)) {
-      Contexts.back().IsExpression = false;
+      Context.IsExpression = false;
     } else if (!Line.MustBeDeclaration &&
                (!Line.InPPDirective || (Line.InMacroBody && !Scopes.empty()))) {
       bool IsForOrCatch =
           OpeningParen.Previous &&
           OpeningParen.Previous->isOneOf(tok::kw_for, tok::kw_catch);
-      Contexts.back().IsExpression = !IsForOrCatch;
+      Context.IsExpression = !IsForOrCatch;
     }
 
     if (Style.isTableGen()) {
       if (FormatToken *Prev = OpeningParen.Previous) {
         if (Prev->is(TT_TableGenCondOperator)) {
-          Contexts.back().IsTableGenCondOpe = true;
-          Contexts.back().IsExpression = true;
+          Context.IsTableGenCondOpe = true;
+          Context.IsExpression = true;
         } else if (Contexts.size() > 1 &&
                    Contexts[Contexts.size() - 2].IsTableGenBangOpe) {
           // Hack to handle bang operators. The parent context's flag
           // was set by parseTableGenSimpleValue().
           // We have to specify the context outside because the prev of "(" may
           // be ">", not the bang operator in this case.
-          Contexts.back().IsTableGenBangOpe = true;
-          Contexts.back().IsExpression = true;
+          Context.IsTableGenBangOpe = true;
+          Context.IsExpression = true;
         } else {
           // Otherwise, this paren seems DAGArg.
           if (!parseTableGenDAGArg())
@@ -452,7 +457,7 @@ private:
         OpeningParen.setType(TT_TypeDeclarationParen);
         // decltype() and typeof() usually contain expressions.
         if (PrevNonComment->isOneOf(tok::kw_decltype, tok::kw_typeof))
-          Contexts.back().IsExpression = true;
+          Context.IsExpression = true;
       }
     }
 
@@ -462,7 +467,7 @@ private:
     const bool IsStaticAssert =
         PrevNonComment && PrevNonComment->is(tok::kw_static_assert);
     if (IsStaticAssert)
-      Contexts.back().InStaticAssertFirstArgument = true;
+      Context.InStaticAssertFirstArgument = true;
 
     // MightBeFunctionType and ProbablyFunctionType are used for
     // function pointer and reference types as well as Objective-C
@@ -490,7 +495,7 @@ private:
       if (CurrentToken->is(tok::comma))
         MightBeFunctionType = false;
       if (Prev.is(TT_BinaryOperator))
-        Contexts.back().IsExpression = true;
+        Context.IsExpression = true;
       if (CurrentToken->is(tok::r_paren)) {
         if (Prev.is(TT_PointerOrReference) &&
             (PrevPrev == &OpeningParen || PrevPrev->is(tok::coloncolon))) {
@@ -523,9 +528,9 @@ private:
 
         if (StartsObjCSelector) {
           CurrentToken->setType(TT_ObjCSelector);
-          if (Contexts.back().FirstObjCSelectorName) {
-            Contexts.back().FirstObjCSelectorName->LongestObjCSelectorName =
-                Contexts.back().LongestObjCSelectorName;
+          if (Context.FirstObjCSelectorName) {
+            Context.FirstObjCSelectorName->LongestObjCSelectorName =
+                Context.LongestObjCSelectorName;
           }
         }
 
@@ -569,7 +574,7 @@ private:
            Prev.isTypeName(LangOpts)) &&
           !(CurrentToken->is(tok::l_brace) ||
             (CurrentToken->is(tok::l_paren) && !ProbablyFunctionTypeLParen))) {
-        Contexts.back().IsExpression = false;
+        Context.IsExpression = false;
       }
       if (CurrentToken->isOneOf(tok::semi, tok::colon)) {
         MightBeObjCForRangeLoop = false;
@@ -595,18 +600,18 @@ private:
       // parse the type correctly. Reset that after a comma.
       if (CurrentToken->is(tok::comma)) {
         if (IsStaticAssert)
-          Contexts.back().InStaticAssertFirstArgument = false;
+          Context.InStaticAssertFirstArgument = false;
         else
-          Contexts.back().CanBeExpression = true;
+          Context.CanBeExpression = true;
       }
 
       if (Style.isTableGen()) {
         if (CurrentToken->is(tok::comma)) {
-          if (Contexts.back().IsTableGenCondOpe)
+          if (Context.IsTableGenCondOpe)
             CurrentToken->setType(TT_TableGenCondOperatorComma);
           next();
         } else if (CurrentToken->is(tok::colon)) {
-          if (Contexts.back().IsTableGenCondOpe)
+          if (Context.IsTableGenCondOpe)
             CurrentToken->setType(TT_TableGenCondOperatorColon);
           next();
         }
@@ -2196,6 +2201,8 @@ private:
       QtProperty,
       // Like in the outer parentheses in `ffnand ff1(.q());`.
       VerilogInstancePortList,
+      // Inside a parameter list.
+      ParameterList,
     } ContextType = Unknown;
   };
 
@@ -3037,6 +3044,9 @@ private:
       return determineUnaryOperatorByUsage(Tok) ? TT_UnaryOperator
                                                 : TT_BinaryOperator;
     }
+
+    if (Contexts.back().ContextType == Context::ParameterList)
+      return TT_PointerOrReference;
 
     const FormatToken *PrevToken = Tok.getPreviousNonComment();
     if (!PrevToken)
