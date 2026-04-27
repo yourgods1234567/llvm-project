@@ -778,7 +778,6 @@ set(files
   __support/ibm/nanosleep.h
   __support/xlocale/__nop_locale_mgmt.h
   __support/xlocale/__posix_l_fallback.h
-  __support/xlocale/__strtonum_fallback.h
   __system_error/errc.h
   __system_error/error_category.h
   __system_error/error_code.h
