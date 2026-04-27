@@ -7772,6 +7772,73 @@ The ``!captures`` attribute makes no statement about other uses of ``%x``, or
 uses of the stored-to memory location after it has been overwritten with a
 different value.
 
+'``mem.cache_hint``' Metadata
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``!mem.cache_hint`` metadata may be attached to any instruction that reads
+or writes memory. It provides target-specific cache control hints for the
+memory operation. This metadata is a performance hint: dropping or ignoring it
+must not change the observable behavior of the program.
+
+The value of ``!mem.cache_hint`` is a single metadata node containing a flat
+list of ``(operand_no, hint_node)`` pairs. Each ``operand_no`` is an ``i32``
+constant that is the raw IR operand index (for regular instructions) or the
+argument index (for intrinsic calls) of a pointer-typed operand. Each
+``hint_node`` is a metadata node containing target-prefixed key/value string
+pairs.
+
+The ``!mem.cache_hint`` node must contain an even number of entries, alternating
+``i32`` operand numbers and metadata nodes. Operand numbers must be unique within
+a ``!mem.cache_hint`` node and must refer to a pointer-typed operand. Keys within
+a single hint node must also be unique.
+
+For a ``load``, the pointer is operand 0. For a ``store``, the value is
+operand 0 and the pointer is operand 1. For intrinsic calls such as
+``llvm.memcpy``, operand numbers correspond to argument positions: e.g.,
+destination is argument 0 and source is argument 1.
+
+The hint node keys are prefixed with a target identifier (e.g., ``nvvm.``) and
+their interpretation is entirely target-dependent. The IR verifier enforces only
+the structural rules above; validation of target-specific keys and values is
+performed by the corresponding backend. Unsupported properties may be silently
+ignored during code generation.
+
+The following examples use ``nvvm.`` prefixed keys for NVIDIA GPU targets.
+Other targets may define their own prefixed keys.
+
+Example: load with cache hints (NVIDIA GPU):
+
+.. code-block:: llvm
+
+    %v = load i32, ptr addrspace(1) %p, align 4, !mem.cache_hint !0
+
+    !0 = !{ i32 0, !1 }
+    !1 = !{ !"nvvm.l1_eviction", !"first",
+            !"nvvm.l2_eviction", !"first",
+            !"nvvm.l2_prefetch_size", !"128B" }
+
+Example: store with cache hints (NVIDIA GPU):
+
+.. code-block:: llvm
+
+    store i32 %v, ptr addrspace(1) %p, align 4, !mem.cache_hint !0
+
+    !0 = !{ i32 1, !1 }
+    !1 = !{ !"nvvm.l1_eviction", !"last",
+            !"nvvm.l2_eviction", !"last" }
+
+Example: memcpy with per-operand hints (NVIDIA GPU):
+
+.. code-block:: llvm
+
+    call void @llvm.memcpy.p1.p1.i64(ptr addrspace(1) %d, ptr addrspace(1) %s,
+                                      i64 16, i1 false), !mem.cache_hint !0
+
+    !0 = !{ i32 0, !1, i32 1, !2 }
+    !1 = !{ !"nvvm.l1_eviction", !"last" }
+    !2 = !{ !"nvvm.l1_eviction", !"first",
+            !"nvvm.l2_prefetch_size", !"128B" }
+
 .. _llvm.loop:
 
 '``llvm.loop``'
