@@ -21013,6 +21013,22 @@ static SDValue performSVEAndCombine(SDNode *N,
   SDValue Src = N->getOperand(0);
   unsigned Opc = Src->getOpcode();
 
+  // and(splat(1), sext(setcc_merge_zero)) -> zext(setcc_merge_zero)
+  SDLoc DL(N);
+  SDValue Op0 = N->getOperand(0);
+  SDValue Op1 = N->getOperand(1);
+  if (Op0.getOpcode() == ISD::SPLAT_VECTOR ||
+      Op1.getOpcode() == ISD::SPLAT_VECTOR) {
+    SDValue NonSplatOp = (Op0.getOpcode() == ISD::SPLAT_VECTOR ? Op1 : Op0);
+    SDValue SplatOp = (Op0.getOpcode() == ISD::SPLAT_VECTOR ? Op0 : Op1);
+    if (NonSplatOp.getOpcode() == ISD::SIGN_EXTEND) {
+      SDValue Compare = NonSplatOp.getOperand(0);
+      if (Compare.getOpcode() == AArch64ISD::SETCC_MERGE_ZERO) {
+        return DAG.getNode(ISD::ZERO_EXTEND, DL, N->getValueType(0), Compare);
+      }
+    }
+  }
+
   // Zero/any extend of an unsigned unpack
   if (Opc == AArch64ISD::UUNPKHI || Opc == AArch64ISD::UUNPKLO) {
     SDValue UnpkOp = Src->getOperand(0);
@@ -21021,7 +21037,6 @@ static SDValue performSVEAndCombine(SDNode *N,
     if (Dup.getOpcode() != ISD::SPLAT_VECTOR)
       return SDValue();
 
-    SDLoc DL(N);
     ConstantSDNode *C = dyn_cast<ConstantSDNode>(Dup->getOperand(0));
     if (!C)
       return SDValue();
@@ -24488,6 +24503,105 @@ static SDValue performExtendCombine(SDNode *N,
                                     TargetLowering::DAGCombinerInfo &DCI,
                                     SelectionDAG &DAG,
                                     const AArch64Subtarget *Subtarget) {
+  // sext(icmp slt a, b) --> asr (shsub a, b), bitwidth-1
+  // sext(icmp ult a, b) --> asr (uhsub a, b), bitwidth-1
+  // zext(icmp slt a, b) --> lsr (shsub a, b), bitwidth-1
+  // zext(icmp ult a, b) --> lsr (uhsub a, b), bitwidth-1
+  // sext(icmp sgt a, b) --> asr (shsub b, a), bitwidth-1
+  // sext(icmp ugt a, b) --> asr (uhsub b, a), bitwidth-1
+  // zext(icmp sgt a, b) --> lsr (shsub b, a), bitwidth-1
+  // zext(icmp ugt a, b) --> lsr (uhsub b, a), bitwidth-1
+  SDValue Compare = N->getOperand(0);
+  SDLoc DL(N);
+  if (Compare.getOpcode() == AArch64ISD::SETCC_MERGE_ZERO &&
+      N->getValueType(0).isScalableVector() &&
+      Compare.getOperand(1).getValueType().getScalarType().isInteger() &&
+      (Subtarget->hasSVE2() || Subtarget->isStreamingSVEAvailable())) {
+    SDValue ComparePred = Compare.getOperand(0);
+    unsigned ExtendTy = N->getOpcode(); // sext or zext
+    ISD::CondCode CC = cast<CondCodeSDNode>(Compare.getOperand(3))->get();
+    SDValue A = Compare.getOperand(1);
+    SDValue B = Compare.getOperand(2);
+    unsigned BitwidthMinusOne = N->getValueType(0).getScalarSizeInBits() - 1;
+    EVT PredVT =
+        N->getValueType(0).changeElementType(*DAG.getContext(), MVT::i1);
+    //SDValue AllTruePred = getPTrue(DAG, DL, PredVT, AArch64SVEPredPattern::all);
+    SDValue AllTruePred = ComparePred ;
+    EVT EltVT = N->getValueType(0).getVectorElementType();
+    MVT ConstantTy = EltVT.bitsGT(MVT::i32) ? MVT::i64 : MVT::i32;
+    SDValue ShiftAmt =
+        DAG.getSplatVector(N->getValueType(0), DL,
+                           DAG.getConstant(BitwidthMinusOne, DL, ConstantTy));
+    if (ExtendTy == ISD::SIGN_EXTEND) {
+      if (CC == ISD::SETLT) {
+        // sext(icmp slt a, b) --> asr (shsub a, b), bitwidth-1
+        SDValue Sub = DAG.getNode(
+            ISD::INTRINSIC_WO_CHAIN, DL, N->getValueType(0),
+            DAG.getConstant(Intrinsic::aarch64_sve_shsub_u, DL, MVT::i64),
+            AllTruePred, A, B);
+        return DAG.getNode(ISD::SRA, DL, N->getValueType(0), Sub, ShiftAmt);
+      }
+      if (CC == ISD::SETULT) {
+        // sext(icmp ult a, b) --> asr (uhsub a, b), bitwidth-1
+        SDValue Sub = DAG.getNode(
+            ISD::INTRINSIC_WO_CHAIN, DL, N->getValueType(0),
+            DAG.getConstant(Intrinsic::aarch64_sve_uhsub_u, DL, MVT::i64),
+            AllTruePred, A, B);
+        return DAG.getNode(ISD::SRA, DL, N->getValueType(0), Sub, ShiftAmt);
+      }
+      if (CC == ISD::SETGT) {
+        // sext(icmp sgt a, b) --> asr (shsub b, a), bitwidth-1
+        SDValue Sub = DAG.getNode(
+            ISD::INTRINSIC_WO_CHAIN, DL, N->getValueType(0),
+            DAG.getConstant(Intrinsic::aarch64_sve_shsub_u, DL, MVT::i64),
+            AllTruePred, B, A);
+        return DAG.getNode(ISD::SRA, DL, N->getValueType(0), Sub, ShiftAmt);
+      }
+      if (CC == ISD::SETUGT) {
+        // sext(icmp ugt a, b) --> asr (uhsub b, a), bitwidth-1
+        SDValue Sub = DAG.getNode(
+            ISD::INTRINSIC_WO_CHAIN, DL, N->getValueType(0),
+            DAG.getConstant(Intrinsic::aarch64_sve_uhsub_u, DL, MVT::i64),
+            AllTruePred, B, A);
+        return DAG.getNode(ISD::SRA, DL, N->getValueType(0), Sub, ShiftAmt);
+      }
+    }
+    if (ExtendTy == ISD::ZERO_EXTEND) {
+      if (CC == ISD::SETLT) {
+        // zext(icmp slt a, b) --> lsr (shsub a, b), bitwidth-1
+        SDValue Sub = DAG.getNode(
+            ISD::INTRINSIC_WO_CHAIN, DL, N->getValueType(0),
+            DAG.getConstant(Intrinsic::aarch64_sve_shsub_u, DL, MVT::i64),
+            AllTruePred, A, B);
+        return DAG.getNode(ISD::SRL, DL, N->getValueType(0), Sub, ShiftAmt);
+      }
+      if (CC == ISD::SETULT) {
+        // zext(icmp ult a, b) --> lsr (uhsub a, b), bitwidth-1
+        SDValue Sub = DAG.getNode(
+            ISD::INTRINSIC_WO_CHAIN, DL, N->getValueType(0),
+            DAG.getConstant(Intrinsic::aarch64_sve_uhsub_u, DL, MVT::i64),
+            AllTruePred, A, B);
+        return DAG.getNode(ISD::SRL, DL, N->getValueType(0), Sub, ShiftAmt);
+      }
+      if (CC == ISD::SETGT) {
+        // zext(icmp sgt a, b) --> lsr (shsub b, a), bitwidth-1
+        SDValue Sub = DAG.getNode(
+            ISD::INTRINSIC_WO_CHAIN, DL, N->getValueType(0),
+            DAG.getConstant(Intrinsic::aarch64_sve_shsub_u, DL, MVT::i64),
+            AllTruePred, B, A);
+        return DAG.getNode(ISD::SRL, DL, N->getValueType(0), Sub, ShiftAmt);
+      }
+      if (CC == ISD::SETUGT) {
+        // zext(icmp ugt a, b) --> lsr (uhsub b, a), bitwidth-1
+        SDValue Sub = DAG.getNode(
+            ISD::INTRINSIC_WO_CHAIN, DL, N->getValueType(0),
+            DAG.getConstant(Intrinsic::aarch64_sve_uhsub_u, DL, MVT::i64),
+            AllTruePred, B, A);
+        return DAG.getNode(ISD::SRL, DL, N->getValueType(0), Sub, ShiftAmt);
+      }
+    }
+  }
+
   // If we see something like (zext (sabd (extract_high ...), (DUP ...))) then
   // we can convert that DUP into another extract_high (of a bigger DUP), which
   // helps the backend to decide that an sabdl2 would be useful, saving a real
