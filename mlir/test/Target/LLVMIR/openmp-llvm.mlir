@@ -2559,6 +2559,95 @@ llvm.func @omp_atomic_capture_misc(
 
 // -----
 
+// CHECK-LABEL: @omp_atomic_compare
+// CHECK-SAME: (ptr %[[X:.*]], i32 %[[E:.*]], i32 %[[D:.*]], ptr %[[XF:.*]], float %[[EF:.*]], float %[[DF:.*]], ptr %[[XC:.*]], { float, float } %[[EC:.*]], { float, float } %[[DC:.*]])
+llvm.func @omp_atomic_compare(
+  %x : !llvm.ptr, %e : i32, %d : i32,
+  %xf : !llvm.ptr, %ef : f32, %df : f32,
+  %xc : !llvm.ptr, %ec : !llvm.struct<(f32, f32)>, %dc : !llvm.struct<(f32, f32)>) {
+
+  // Integer equality  →  cmpxchg
+  // CHECK: cmpxchg ptr %[[X]], i32 %[[E]], i32 %[[D]] monotonic monotonic
+  omp.atomic.compare %x : !llvm.ptr {
+  ^bb0(%xval : i32):
+    %cmp0 = llvm.icmp "eq" %xval, %e : i32
+    %sel0 = llvm.select %cmp0, %d, %xval : i1, i32
+    omp.yield(%sel0 : i32)
+  }
+
+  // Float equality  →  bitcast + cmpxchg
+  // CHECK: %[[EBC:.*]] = bitcast float %[[EF]] to i32
+  // CHECK: %[[DBC:.*]] = bitcast float %[[DF]] to i32
+  // CHECK: cmpxchg ptr %[[XF]], i32 %[[EBC]], i32 %[[DBC]] monotonic monotonic
+  omp.atomic.compare %xf : !llvm.ptr {
+  ^bb0(%xval : f32):
+    %cmp1 = llvm.fcmp "oeq" %xval, %ef : f32
+    %sel1 = llvm.select %cmp1, %df, %xval : i1, f32
+    omp.yield(%sel1 : f32)
+  }
+
+  // Complex equality  →  bitcasted integer cmpxchg with consistent alignment
+  // CHECK: %[[EALLOCA:.*]] = alloca { float, float }, align [[ALIGN:[0-9]+]]
+  // CHECK: %[[DALLOCA:.*]] = alloca { float, float }, align [[ALIGN]]
+  // CHECK: store { float, float } %[[EC]], ptr %[[EALLOCA]], align [[ALIGN]]
+  // CHECK: %[[EINT:.*]] = load i64, ptr %[[EALLOCA]], align [[ALIGN]]
+  // CHECK: store { float, float } %[[DC]], ptr %[[DALLOCA]], align [[ALIGN]]
+  // CHECK: %[[DINT:.*]] = load i64, ptr %[[DALLOCA]], align [[ALIGN]]
+  // CHECK: cmpxchg ptr %[[XC]], i64 %[[EINT]], i64 %[[DINT]] monotonic monotonic, align [[ALIGN]]
+  omp.atomic.compare %xc : !llvm.ptr {
+  ^bb0(%xval : !llvm.struct<(f32, f32)>):
+    %re_x = llvm.extractvalue %xval[0] : !llvm.struct<(f32, f32)>
+    %re_e = llvm.extractvalue %ec[0] : !llvm.struct<(f32, f32)>
+    %cmp_re = llvm.fcmp "oeq" %re_x, %re_e : f32
+    %im_x = llvm.extractvalue %xval[1] : !llvm.struct<(f32, f32)>
+    %im_e = llvm.extractvalue %ec[1] : !llvm.struct<(f32, f32)>
+    %cmp_im = llvm.fcmp "oeq" %im_x, %im_e : f32
+    %cmp = llvm.and %cmp_re, %cmp_im : i1
+    %sel = llvm.select %cmp, %dc, %xval : i1, !llvm.struct<(f32, f32)>
+    omp.yield(%sel : !llvm.struct<(f32, f32)>)
+  }
+
+  // Integer x < e  →  atomicrmw max (signed)
+  // CHECK: atomicrmw max ptr %[[X]], i32 %[[E]] monotonic
+  omp.atomic.compare %x : !llvm.ptr {
+  ^bb0(%xval : i32):
+    %cmp2 = llvm.icmp "slt" %xval, %e : i32
+    %sel2 = llvm.select %cmp2, %e, %xval : i1, i32
+    omp.yield(%sel2 : i32)
+  }
+
+  // Integer x > e  →  atomicrmw min (signed)
+  // CHECK: atomicrmw min ptr %[[X]], i32 %[[E]] monotonic
+  omp.atomic.compare %x : !llvm.ptr {
+  ^bb0(%xval : i32):
+    %cmp3 = llvm.icmp "sgt" %xval, %e : i32
+    %sel3 = llvm.select %cmp3, %e, %xval : i1, i32
+    omp.yield(%sel3 : i32)
+  }
+
+  // Float x < e  →  atomicrmw fmax (reversed)
+  // CHECK: atomicrmw fmax ptr %[[XF]], float %[[EF]] monotonic, align 4
+  omp.atomic.compare %xf : !llvm.ptr {
+  ^bb0(%xval : f32):
+    %cmp4 = llvm.fcmp "olt" %xval, %ef : f32
+    %sel4 = llvm.select %cmp4, %ef, %xval : i1, f32
+    omp.yield(%sel4 : f32)
+  }
+
+  // Float x > e  →  atomicrmw fmin (reversed)
+  // CHECK: atomicrmw fmin ptr %[[XF]], float %[[EF]] monotonic, align 4
+  omp.atomic.compare %xf : !llvm.ptr {
+  ^bb0(%xval : f32):
+    %cmp5 = llvm.fcmp "ogt" %xval, %ef : f32
+    %sel5 = llvm.select %cmp5, %ef, %xval : i1, f32
+    omp.yield(%sel5 : f32)
+  }
+
+  llvm.return
+}
+
+// -----
+
 // CHECK-LABEL: @omp_sections_empty
 llvm.func @omp_sections_empty() -> () {
   omp.sections {
