@@ -131,6 +131,29 @@ struct AllReduceAllSliceSimplification : OpRewritePattern<AllSliceOp> {
   }
 };
 
+// Simplify AllSliceOp(AllGatherOp) -> input when both ops share the same grid,
+// grid_axes and axis. all_gather replicates grouped slices along gather_axis
+// and all_slice immediately picks the per-rank slice back out on the same axis.
+struct AllGatherAllSliceSimplification : OpRewritePattern<AllSliceOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(AllSliceOp sliceOp,
+                                PatternRewriter &rewriter) const override {
+    auto gatherOp = sliceOp.getInput().getDefiningOp<AllGatherOp>();
+    if (!gatherOp)
+      return failure();
+
+    if (gatherOp.getGrid() != sliceOp.getGrid() ||
+        gatherOp.getGridAxes() != sliceOp.getGridAxes())
+      return failure();
+    if (gatherOp.getGatherAxis() != sliceOp.getSliceAxis())
+      return failure();
+
+    rewriter.replaceOp(sliceOp, gatherOp.getInput());
+    return success();
+  }
+};
+
 } // namespace
 
 void populateSimplifyPatterns(RewritePatternSet &patterns,
@@ -155,6 +178,7 @@ void populateSimplifyPatterns(RewritePatternSet &patterns,
       patterns, ReductionKind::Max);
 
   patterns.add<AllReduceAllSliceSimplification>(patterns.getContext());
+  patterns.add<AllGatherAllSliceSimplification>(patterns.getContext());
 
   // TODO: add simplify patterns for all-gather and other collectives.
 
