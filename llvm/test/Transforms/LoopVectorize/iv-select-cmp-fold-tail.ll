@@ -89,13 +89,13 @@ define i64 @select_decreasing_induction_icmp_non_const_start(ptr %a, ptr %b, i64
 ; CHECK-NEXT:    [[BROADCAST_SPLAT5:%.*]] = shufflevector <4 x i64> [[BROADCAST_SPLATINSERT4]], <4 x i64> poison, <4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[VEC_IV:%.*]] = add <4 x i64> [[BROADCAST_SPLAT5]], <i64 0, i64 1, i64 2, i64 3>
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp ule <4 x i64> [[VEC_IV]], [[BROADCAST_SPLAT]]
-; CHECK-NEXT:    [[TMP38:%.*]] = add nsw i64 [[OFFSET_IDX]], -1
-; CHECK-NEXT:    [[TMP39:%.*]] = getelementptr inbounds i64, ptr [[A]], i64 [[TMP38]]
+; CHECK-NEXT:    [[TMP4:%.*]] = add i64 [[OFFSET_IDX]], -1
+; CHECK-NEXT:    [[TMP39:%.*]] = getelementptr i64, ptr [[A]], i64 [[TMP4]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = getelementptr i64, ptr [[TMP39]], i64 -3
 ; CHECK-NEXT:    [[REVERSE:%.*]] = shufflevector <4 x i1> [[TMP2]], <4 x i1> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0(ptr align 8 [[TMP5]], <4 x i1> [[REVERSE]], <4 x i64> poison)
 ; CHECK-NEXT:    [[TMP46:%.*]] = shufflevector <4 x i64> [[WIDE_MASKED_LOAD]], <4 x i64> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i64, ptr [[B]], i64 [[TMP38]]
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i64, ptr [[B]], i64 [[TMP4]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = getelementptr i64, ptr [[TMP6]], i64 -3
 ; CHECK-NEXT:    [[WIDE_MASKED_LOAD8:%.*]] = call <4 x i64> @llvm.masked.load.v4i64.p0(ptr align 8 [[TMP7]], <4 x i1> [[REVERSE]], <4 x i64> poison)
 ; CHECK-NEXT:    [[TMP47:%.*]] = shufflevector <4 x i64> [[WIDE_MASKED_LOAD8]], <4 x i64> poison, <4 x i32> <i32 3, i32 2, i32 1, i32 0>

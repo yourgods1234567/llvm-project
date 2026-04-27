@@ -19,14 +19,14 @@ define void @reverse_load_store(i64 %startval, ptr noalias %ptr, ptr noalias %pt
 ; IF-EVL-NEXT:    [[TMP5:%.*]] = call i32 @llvm.experimental.get.vector.length.i64(i64 [[AVL]], i32 4, i1 true)
 ; IF-EVL-NEXT:    [[OFFSET_IDX:%.*]] = sub i64 [[STARTVAL:%.*]], [[EVL_BASED_IV]]
 ; IF-EVL-NEXT:    [[TMP7:%.*]] = add i64 [[OFFSET_IDX]], -1
-; IF-EVL-NEXT:    [[TMP8:%.*]] = getelementptr inbounds i32, ptr [[PTR:%.*]], i64 [[TMP7]]
+; IF-EVL-NEXT:    [[TMP8:%.*]] = getelementptr i32, ptr [[PTR:%.*]], i64 [[TMP7]]
 ; IF-EVL-NEXT:    [[TMP20:%.*]] = zext i32 [[TMP5]] to i64
 ; IF-EVL-NEXT:    [[TMP4:%.*]] = sub nuw nsw i64 [[TMP20]], 1
 ; IF-EVL-NEXT:    [[TMP6:%.*]] = sub i64 0, [[TMP4]]
 ; IF-EVL-NEXT:    [[TMP12:%.*]] = getelementptr i32, ptr [[TMP8]], i64 [[TMP6]]
 ; IF-EVL-NEXT:    [[VP_OP_LOAD:%.*]] = call <vscale x 4 x i32> @llvm.vp.load.nxv4i32.p0(ptr align 4 [[TMP12]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP5]])
 ; IF-EVL-NEXT:    [[VP_REVERSE:%.*]] = call <vscale x 4 x i32> @llvm.experimental.vp.reverse.nxv4i32(<vscale x 4 x i32> [[VP_OP_LOAD]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP5]])
-; IF-EVL-NEXT:    [[TMP13:%.*]] = getelementptr inbounds i32, ptr [[PTR2:%.*]], i64 [[TMP7]]
+; IF-EVL-NEXT:    [[TMP13:%.*]] = getelementptr i32, ptr [[PTR2:%.*]], i64 [[TMP7]]
 ; IF-EVL-NEXT:    [[TMP17:%.*]] = getelementptr i32, ptr [[TMP13]], i64 [[TMP6]]
 ; IF-EVL-NEXT:    [[VP_REVERSE3:%.*]] = call <vscale x 4 x i32> @llvm.experimental.vp.reverse.nxv4i32(<vscale x 4 x i32> [[VP_REVERSE]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP5]])
 ; IF-EVL-NEXT:    call void @llvm.vp.store.nxv4i32.p0(<vscale x 4 x i32> [[VP_REVERSE3]], ptr align 4 [[TMP17]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP5]])

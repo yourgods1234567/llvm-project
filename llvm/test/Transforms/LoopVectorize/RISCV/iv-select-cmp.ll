@@ -84,14 +84,14 @@ define i64 @select_decreasing_induction_icmp_non_const_start(ptr %a, ptr %b, i64
 ; CHECK-NEXT:    [[BROADCAST_SPLATINSERT2:%.*]] = insertelement <vscale x 4 x i64> poison, i64 [[TMP7]], i64 0
 ; CHECK-NEXT:    [[BROADCAST_SPLAT3:%.*]] = shufflevector <vscale x 4 x i64> [[BROADCAST_SPLATINSERT2]], <vscale x 4 x i64> poison, <vscale x 4 x i32> zeroinitializer
 ; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = sub i64 [[N]], [[INDEX]]
-; CHECK-NEXT:    [[TMP38:%.*]] = add nsw i64 [[OFFSET_IDX]], -1
-; CHECK-NEXT:    [[TMP39:%.*]] = getelementptr inbounds i64, ptr [[A]], i64 [[TMP38]]
+; CHECK-NEXT:    [[TMP8:%.*]] = add i64 [[OFFSET_IDX]], -1
+; CHECK-NEXT:    [[TMP39:%.*]] = getelementptr i64, ptr [[A]], i64 [[TMP8]]
 ; CHECK-NEXT:    [[TMP9:%.*]] = sub nuw nsw i64 [[TMP5]], 1
 ; CHECK-NEXT:    [[TMP10:%.*]] = sub i64 0, [[TMP9]]
 ; CHECK-NEXT:    [[TMP11:%.*]] = getelementptr i64, ptr [[TMP39]], i64 [[TMP10]]
 ; CHECK-NEXT:    [[VP_OP_LOAD:%.*]] = call <vscale x 4 x i64> @llvm.vp.load.nxv4i64.p0(ptr align 8 [[TMP11]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP4]])
 ; CHECK-NEXT:    [[TMP12:%.*]] = call <vscale x 4 x i64> @llvm.experimental.vp.reverse.nxv4i64(<vscale x 4 x i64> [[VP_OP_LOAD]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP4]])
-; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr inbounds i64, ptr [[B]], i64 [[TMP38]]
+; CHECK-NEXT:    [[TMP6:%.*]] = getelementptr i64, ptr [[B]], i64 [[TMP8]]
 ; CHECK-NEXT:    [[TMP14:%.*]] = getelementptr i64, ptr [[TMP6]], i64 [[TMP10]]
 ; CHECK-NEXT:    [[VP_OP_LOAD4:%.*]] = call <vscale x 4 x i64> @llvm.vp.load.nxv4i64.p0(ptr align 8 [[TMP14]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP4]])
 ; CHECK-NEXT:    [[TMP15:%.*]] = call <vscale x 4 x i64> @llvm.experimental.vp.reverse.nxv4i64(<vscale x 4 x i64> [[VP_OP_LOAD4]], <vscale x 4 x i1> splat (i1 true), i32 [[TMP4]])
