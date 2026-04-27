@@ -240,10 +240,11 @@ public:
 
 class VirtRegRewriterPass : public PassInfoMixin<VirtRegRewriterPass> {
   bool ClearVirtRegs = true;
+  bool ResolveDebugLocs = true;
 
 public:
-  VirtRegRewriterPass(bool ClearVirtRegs = true)
-      : ClearVirtRegs(ClearVirtRegs) {}
+  VirtRegRewriterPass(bool ClearVirtRegs = true, bool ResolveDebugLocs = true)
+      : ClearVirtRegs(ClearVirtRegs), ResolveDebugLocs(ResolveDebugLocs) {}
   LLVM_ABI PreservedAnalyses run(MachineFunction &MF,
                                  MachineFunctionAnalysisManager &MFAM);
 
