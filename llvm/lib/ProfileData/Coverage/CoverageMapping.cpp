@@ -27,6 +27,8 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/ThreadPool.h"
+#include "llvm/Support/Threading.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
@@ -878,6 +880,15 @@ Error CoverageMapping::loadFunctionRecord(
   else
     OrigFuncName = getFuncNameWithoutPrefix(OrigFuncName, Record.Filenames[0]);
 
+  // Early dedup: skip expensive counter evaluation for already-seen functions.
+  auto FilenamesHash = hash_combine_range(Record.Filenames);
+  auto FuncNameHash = hash_value(OrigFuncName);
+  {
+    auto It = RecordProvenance.find(FilenamesHash);
+    if (It != RecordProvenance.end() && It->second.count(FuncNameHash))
+      return Error::success();
+  }
+
   CounterMappingContext Ctx(Record.Expressions);
 
   std::vector<uint64_t> Counts;
@@ -944,8 +955,7 @@ Error CoverageMapping::loadFunctionRecord(
   }
 
   // Don't create records for (filenames, function) pairs we've already seen.
-  auto FilenamesHash = hash_combine_range(Record.Filenames);
-  if (!RecordProvenance[FilenamesHash].insert(hash_value(OrigFuncName)).second)
+  if (!RecordProvenance[FilenamesHash].insert(FuncNameHash).second)
     return Error::success();
 
   Functions.push_back(std::move(Function));
@@ -964,6 +974,36 @@ Error CoverageMapping::loadFunctionRecord(
   }
 
   return Error::success();
+}
+
+void CoverageMapping::mergeFrom(CoverageMapping &&Other) {
+  // Shards are produced from the same profile, so this must agree.
+  assert(!SingleByteCoverage || !Other.SingleByteCoverage ||
+         *SingleByteCoverage == *Other.SingleByteCoverage);
+  if (!SingleByteCoverage)
+    SingleByteCoverage = Other.SingleByteCoverage;
+
+  for (auto &Func : Other.Functions) {
+    auto FilenamesHash = hash_combine_range(Func.Filenames);
+    if (!RecordProvenance[FilenamesHash]
+             .insert(hash_value(StringRef(Func.Name)))
+             .second)
+      continue;
+
+    unsigned RecordIndex = Functions.size();
+    Functions.push_back(std::move(Func));
+
+    for (StringRef Filename : Functions.back().Filenames) {
+      auto &RecordIndices = FilenameHash2RecordIndices[hash_value(Filename)];
+      if (RecordIndices.empty() || RecordIndices.back() != RecordIndex)
+        RecordIndices.push_back(RecordIndex);
+    }
+  }
+
+  FuncHashMismatches.insert(
+      FuncHashMismatches.end(),
+      std::make_move_iterator(Other.FuncHashMismatches.begin()),
+      std::make_move_iterator(Other.FuncHashMismatches.end()));
 }
 
 // This function is for memory optimization by shortening the lifetimes
@@ -1079,11 +1119,78 @@ Expected<std::unique_ptr<CoverageMapping>> CoverageMapping::load(
   };
 
   SmallVector<object::BuildID> FoundBinaryIDs;
-  for (const auto &File : llvm::enumerate(ObjectFilenames)) {
-    if (Error E = loadFromFile(File.value(), GetArch(File.index()),
-                               CompilationDir, ProfileReaderRef, *Coverage,
-                               DataFound, &FoundBinaryIDs))
-      return std::move(E);
+  unsigned NumFiles = ObjectFilenames.size();
+  constexpr unsigned MaxExportThreads = 32;
+  unsigned NumThreads = std::min(
+      {hardware_concurrency(NumFiles).compute_thread_count(),
+       NumFiles, MaxExportThreads});
+
+  if (NumThreads <= 1) {
+    for (const auto &File : llvm::enumerate(ObjectFilenames)) {
+      if (Error E = loadFromFile(File.value(), GetArch(File.index()),
+                                 CompilationDir, ProfileReaderRef, *Coverage,
+                                 DataFound, &FoundBinaryIDs))
+        return std::move(E);
+    }
+  } else {
+    std::vector<std::unique_ptr<IndexedInstrProfReader>> Readers(NumThreads);
+    if (ProfileFilename) {
+      for (unsigned T = 0; T < NumThreads; ++T) {
+        auto ReaderOrErr =
+            IndexedInstrProfReader::create(ProfileFilename.value(), FS);
+        if (Error E = ReaderOrErr.takeError())
+          return createFileError(ProfileFilename.value(), std::move(E));
+        Readers[T] = std::move(ReaderOrErr.get());
+      }
+    }
+
+    struct ShardData {
+      std::unique_ptr<CoverageMapping> Cov;
+      SmallVector<object::BuildID> BIDs;
+      bool Found = false;
+      Error Err;
+      ShardData() : Err(Error::success()) {}
+      ShardData(ShardData &&) = default;
+      ShardData &operator=(ShardData &&) = default;
+    };
+
+    std::vector<ShardData> Shards(NumThreads);
+    for (auto &S : Shards)
+      S.Cov.reset(new CoverageMapping());
+
+    {
+      DefaultThreadPool Pool(hardware_concurrency(NumFiles));
+      unsigned ChunkSize = (NumFiles + NumThreads - 1) / NumThreads;
+      for (unsigned T = 0; T < NumThreads; ++T) {
+        unsigned Begin = T * ChunkSize;
+        unsigned End = std::min(Begin + ChunkSize, NumFiles);
+        Pool.async([&, T, Begin, End] {
+          auto &S = Shards[T];
+          auto ProfileReaderRef =
+              Readers[T]
+                  ? std::optional<
+                        std::reference_wrapper<IndexedInstrProfReader>>(
+                        *Readers[T])
+                  : std::nullopt;
+          for (unsigned I = Begin; I < End; ++I) {
+            if (Error E = loadFromFile(ObjectFilenames[I], GetArch(I),
+                                       CompilationDir, ProfileReaderRef,
+                                       *S.Cov, S.Found, &S.BIDs)) {
+              S.Err = std::move(E);
+              return;
+            }
+          }
+        });
+      }
+    }
+
+    for (auto &S : Shards) {
+      if (S.Err)
+        return std::move(S.Err);
+      DataFound |= S.Found;
+      FoundBinaryIDs.append(S.BIDs.begin(), S.BIDs.end());
+      Coverage->mergeFrom(std::move(*S.Cov));
+    }
   }
 
   if (BIDFetcher) {
