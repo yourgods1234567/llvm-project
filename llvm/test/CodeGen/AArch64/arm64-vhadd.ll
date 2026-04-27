@@ -631,20 +631,11 @@ define void @testLowerToSHADD4s(<4 x i32> %src1, <4 x i32> %src2, ptr nocapture 
 }
 
 define void @testLowerToURHADD8b(<8 x i8> %src1, <8 x i8> %src2, ptr nocapture writeonly %dest) {
-; CHECK-SD-LABEL: testLowerToURHADD8b:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    urhadd.8b v0, v0, v1
-; CHECK-SD-NEXT:    str d0, [x0]
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: testLowerToURHADD8b:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    movi.8h v2, #1
-; CHECK-GI-NEXT:    uaddl.8h v0, v0, v1
-; CHECK-GI-NEXT:    add.8h v0, v0, v2
-; CHECK-GI-NEXT:    shrn.8b v0, v0, #1
-; CHECK-GI-NEXT:    str d0, [x0]
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: testLowerToURHADD8b:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    urhadd.8b v0, v0, v1
+; CHECK-NEXT:    str d0, [x0]
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <8 x i8> %src1 to <8 x i16>
   %zextsrc2 = zext <8 x i8> %src2 to <8 x i16>
   %add1 = add nuw nsw <8 x i16> %zextsrc1, <i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1, i16 1>
@@ -656,20 +647,11 @@ define void @testLowerToURHADD8b(<8 x i8> %src1, <8 x i8> %src2, ptr nocapture w
 }
 
 define void @testLowerToURHADD4h(<4 x i16> %src1, <4 x i16> %src2, ptr nocapture writeonly %dest) {
-; CHECK-SD-LABEL: testLowerToURHADD4h:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    urhadd.4h v0, v0, v1
-; CHECK-SD-NEXT:    str d0, [x0]
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: testLowerToURHADD4h:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    movi.4s v2, #1
-; CHECK-GI-NEXT:    uaddl.4s v0, v0, v1
-; CHECK-GI-NEXT:    add.4s v0, v0, v2
-; CHECK-GI-NEXT:    shrn.4h v0, v0, #1
-; CHECK-GI-NEXT:    str d0, [x0]
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: testLowerToURHADD4h:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    urhadd.4h v0, v0, v1
+; CHECK-NEXT:    str d0, [x0]
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <4 x i16> %src1 to <4 x i32>
   %zextsrc2 = zext <4 x i16> %src2 to <4 x i32>
   %add1 = add nuw nsw <4 x i32> %zextsrc1, <i32 1, i32 1, i32 1, i32 1>
@@ -681,21 +663,11 @@ define void @testLowerToURHADD4h(<4 x i16> %src1, <4 x i16> %src2, ptr nocapture
 }
 
 define void @testLowerToURHADD2s(<2 x i32> %src1, <2 x i32> %src2, ptr nocapture writeonly %dest) {
-; CHECK-SD-LABEL: testLowerToURHADD2s:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    urhadd.2s v0, v0, v1
-; CHECK-SD-NEXT:    str d0, [x0]
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: testLowerToURHADD2s:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    adrp x8, .LCPI38_0
-; CHECK-GI-NEXT:    uaddl.2d v0, v0, v1
-; CHECK-GI-NEXT:    ldr q1, [x8, :lo12:.LCPI38_0]
-; CHECK-GI-NEXT:    add.2d v0, v0, v1
-; CHECK-GI-NEXT:    shrn.2s v0, v0, #1
-; CHECK-GI-NEXT:    str d0, [x0]
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: testLowerToURHADD2s:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    urhadd.2s v0, v0, v1
+; CHECK-NEXT:    str d0, [x0]
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <2 x i32> %src1 to <2 x i64>
   %zextsrc2 = zext <2 x i32> %src2 to <2 x i64>
   %add1 = add nuw nsw <2 x i64> %zextsrc1, <i64 1, i64 1>
@@ -792,18 +764,11 @@ define void @testLowerToURHADD4s(<4 x i32> %src1, <4 x i32> %src2, ptr nocapture
 }
 
 define void @testLowerToUHADD8b(<8 x i8> %src1, <8 x i8> %src2, ptr nocapture writeonly %dest) {
-; CHECK-SD-LABEL: testLowerToUHADD8b:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    uhadd.8b v0, v0, v1
-; CHECK-SD-NEXT:    str d0, [x0]
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: testLowerToUHADD8b:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    uaddl.8h v0, v0, v1
-; CHECK-GI-NEXT:    shrn.8b v0, v0, #1
-; CHECK-GI-NEXT:    str d0, [x0]
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: testLowerToUHADD8b:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    uhadd.8b v0, v0, v1
+; CHECK-NEXT:    str d0, [x0]
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <8 x i8> %src1 to <8 x i16>
   %zextsrc2 = zext <8 x i8> %src2 to <8 x i16>
   %add = add nuw nsw <8 x i16> %zextsrc1, %zextsrc2
@@ -814,18 +779,11 @@ define void @testLowerToUHADD8b(<8 x i8> %src1, <8 x i8> %src2, ptr nocapture wr
 }
 
 define void @testLowerToUHADD4h(<4 x i16> %src1, <4 x i16> %src2, ptr nocapture writeonly %dest) {
-; CHECK-SD-LABEL: testLowerToUHADD4h:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    uhadd.4h v0, v0, v1
-; CHECK-SD-NEXT:    str d0, [x0]
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: testLowerToUHADD4h:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    uaddl.4s v0, v0, v1
-; CHECK-GI-NEXT:    shrn.4h v0, v0, #1
-; CHECK-GI-NEXT:    str d0, [x0]
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: testLowerToUHADD4h:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    uhadd.4h v0, v0, v1
+; CHECK-NEXT:    str d0, [x0]
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <4 x i16> %src1 to <4 x i32>
   %zextsrc2 = zext <4 x i16> %src2 to <4 x i32>
   %add = add nuw nsw <4 x i32> %zextsrc1, %zextsrc2
@@ -836,18 +794,11 @@ define void @testLowerToUHADD4h(<4 x i16> %src1, <4 x i16> %src2, ptr nocapture 
 }
 
 define void @testLowerToUHADD2s(<2 x i32> %src1, <2 x i32> %src2, ptr nocapture writeonly %dest) {
-; CHECK-SD-LABEL: testLowerToUHADD2s:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    uhadd.2s v0, v0, v1
-; CHECK-SD-NEXT:    str d0, [x0]
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: testLowerToUHADD2s:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    uaddl.2d v0, v0, v1
-; CHECK-GI-NEXT:    shrn.2s v0, v0, #1
-; CHECK-GI-NEXT:    str d0, [x0]
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: testLowerToUHADD2s:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    uhadd.2s v0, v0, v1
+; CHECK-NEXT:    str d0, [x0]
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <2 x i32> %src1 to <2 x i64>
   %zextsrc2 = zext <2 x i32> %src2 to <2 x i64>
   %add = add nuw nsw <2 x i64> %zextsrc1, %zextsrc2
@@ -930,17 +881,11 @@ define void @testLowerToUHADD4s(<4 x i32> %src1, <4 x i32> %src2, ptr nocapture 
 }
 
 define <4 x i32> @hadd16_sext_asr(<4 x i16> %src1, <4 x i16> %src2) {
-; CHECK-SD-LABEL: hadd16_sext_asr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    shadd.4h v0, v0, v1
-; CHECK-SD-NEXT:    sshll.4s v0, v0, #0
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: hadd16_sext_asr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    saddl.4s v0, v0, v1
-; CHECK-GI-NEXT:    sshr.4s v0, v0, #1
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: hadd16_sext_asr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    shadd.4h v0, v0, v1
+; CHECK-NEXT:    sshll.4s v0, v0, #0
+; CHECK-NEXT:    ret
   %zextsrc1 = sext <4 x i16> %src1 to <4 x i32>
   %zextsrc2 = sext <4 x i16> %src2 to <4 x i32>
   %add = add nsw <4 x i32> %zextsrc1, %zextsrc2
@@ -949,17 +894,11 @@ define <4 x i32> @hadd16_sext_asr(<4 x i16> %src1, <4 x i16> %src2) {
 }
 
 define <4 x i32> @hadd16_zext_asr(<4 x i16> %src1, <4 x i16> %src2) {
-; CHECK-SD-LABEL: hadd16_zext_asr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    uhadd.4h v0, v0, v1
-; CHECK-SD-NEXT:    ushll.4s v0, v0, #0
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: hadd16_zext_asr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    uaddl.4s v0, v0, v1
-; CHECK-GI-NEXT:    ushr.4s v0, v0, #1
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: hadd16_zext_asr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    uhadd.4h v0, v0, v1
+; CHECK-NEXT:    ushll.4s v0, v0, #0
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <4 x i16> %src1 to <4 x i32>
   %zextsrc2 = zext <4 x i16> %src2 to <4 x i32>
   %add = add nuw nsw <4 x i32> %zextsrc1, %zextsrc2
@@ -981,17 +920,11 @@ define <4 x i32> @hadd16_sext_lsr(<4 x i16> %src1, <4 x i16> %src2) {
 }
 
 define <4 x i32> @hadd16_zext_lsr(<4 x i16> %src1, <4 x i16> %src2) {
-; CHECK-SD-LABEL: hadd16_zext_lsr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    uhadd.4h v0, v0, v1
-; CHECK-SD-NEXT:    ushll.4s v0, v0, #0
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: hadd16_zext_lsr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    uaddl.4s v0, v0, v1
-; CHECK-GI-NEXT:    ushr.4s v0, v0, #1
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: hadd16_zext_lsr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    uhadd.4h v0, v0, v1
+; CHECK-NEXT:    ushll.4s v0, v0, #0
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <4 x i16> %src1 to <4 x i32>
   %zextsrc2 = zext <4 x i16> %src2 to <4 x i32>
   %add = add nuw nsw <4 x i32> %zextsrc1, %zextsrc2
@@ -1100,11 +1033,7 @@ define <4 x i16> @hadd8_sext_asr(<4 x i8> %src1, <4 x i8> %src2) {
 ;
 ; CHECK-GI-LABEL: hadd8_sext_asr:
 ; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    shl.4h v1, v1, #8
-; CHECK-GI-NEXT:    shl.4h v0, v0, #8
-; CHECK-GI-NEXT:    sshr.4h v1, v1, #8
-; CHECK-GI-NEXT:    ssra.4h v1, v0, #8
-; CHECK-GI-NEXT:    sshr.4h v0, v1, #1
+; CHECK-GI-NEXT:    shadd.4h v0, v0, v1
 ; CHECK-GI-NEXT:    ret
   %zextsrc1 = sext <4 x i8> %src1 to <4 x i16>
   %zextsrc2 = sext <4 x i8> %src2 to <4 x i16>
@@ -1126,8 +1055,7 @@ define <4 x i16> @hadd8_zext_asr(<4 x i8> %src1, <4 x i8> %src2) {
 ; CHECK-GI-NEXT:    movi d2, #0xff00ff00ff00ff
 ; CHECK-GI-NEXT:    and.8b v0, v0, v2
 ; CHECK-GI-NEXT:    and.8b v1, v1, v2
-; CHECK-GI-NEXT:    add.4h v0, v0, v1
-; CHECK-GI-NEXT:    ushr.4h v0, v0, #1
+; CHECK-GI-NEXT:    uhadd.4h v0, v0, v1
 ; CHECK-GI-NEXT:    ret
   %zextsrc1 = zext <4 x i8> %src1 to <4 x i16>
   %zextsrc2 = zext <4 x i8> %src2 to <4 x i16>
@@ -1174,8 +1102,7 @@ define <4 x i16> @hadd8_zext_lsr(<4 x i8> %src1, <4 x i8> %src2) {
 ; CHECK-GI-NEXT:    movi d2, #0xff00ff00ff00ff
 ; CHECK-GI-NEXT:    and.8b v0, v0, v2
 ; CHECK-GI-NEXT:    and.8b v1, v1, v2
-; CHECK-GI-NEXT:    add.4h v0, v0, v1
-; CHECK-GI-NEXT:    ushr.4h v0, v0, #1
+; CHECK-GI-NEXT:    uhadd.4h v0, v0, v1
 ; CHECK-GI-NEXT:    ret
   %zextsrc1 = zext <4 x i8> %src1 to <4 x i16>
   %zextsrc2 = zext <4 x i8> %src2 to <4 x i16>
@@ -1185,30 +1112,14 @@ define <4 x i16> @hadd8_zext_lsr(<4 x i8> %src1, <4 x i8> %src2) {
 }
 
 define <2 x i16> @hadd8x2_sext_asr(<2 x i8> %src1, <2 x i8> %src2) {
-; CHECK-SD-LABEL: hadd8x2_sext_asr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    shl.2s v1, v1, #24
-; CHECK-SD-NEXT:    shl.2s v0, v0, #24
-; CHECK-SD-NEXT:    sshr.2s v1, v1, #24
-; CHECK-SD-NEXT:    sshr.2s v0, v0, #24
-; CHECK-SD-NEXT:    shadd.2s v0, v0, v1
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: hadd8x2_sext_asr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    shl.2s v1, v1, #24
-; CHECK-GI-NEXT:    mov w8, #1 // =0x1
-; CHECK-GI-NEXT:    shl.2s v0, v0, #24
-; CHECK-GI-NEXT:    fmov s2, w8
-; CHECK-GI-NEXT:    sshr.2s v1, v1, #24
-; CHECK-GI-NEXT:    mov.h v2[1], w8
-; CHECK-GI-NEXT:    ssra.2s v1, v0, #24
-; CHECK-GI-NEXT:    uzp1.4h v0, v1, v0
-; CHECK-GI-NEXT:    neg.4h v1, v2
-; CHECK-GI-NEXT:    sshl.4h v0, v0, v1
-; CHECK-GI-NEXT:    ushll.4s v0, v0, #0
-; CHECK-GI-NEXT:    // kill: def $d0 killed $d0 killed $q0
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: hadd8x2_sext_asr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    shl.2s v1, v1, #24
+; CHECK-NEXT:    shl.2s v0, v0, #24
+; CHECK-NEXT:    sshr.2s v1, v1, #24
+; CHECK-NEXT:    sshr.2s v0, v0, #24
+; CHECK-NEXT:    shadd.2s v0, v0, v1
+; CHECK-NEXT:    ret
   %zextsrc1 = sext <2 x i8> %src1 to <2 x i16>
   %zextsrc2 = sext <2 x i8> %src2 to <2 x i16>
   %add = add nsw <2 x i16> %zextsrc1, %zextsrc2
@@ -1217,29 +1128,13 @@ define <2 x i16> @hadd8x2_sext_asr(<2 x i8> %src1, <2 x i8> %src2) {
 }
 
 define <2 x i16> @hadd8x2_zext_asr(<2 x i8> %src1, <2 x i8> %src2) {
-; CHECK-SD-LABEL: hadd8x2_zext_asr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    movi d2, #0x0000ff000000ff
-; CHECK-SD-NEXT:    and.8b v1, v1, v2
-; CHECK-SD-NEXT:    and.8b v0, v0, v2
-; CHECK-SD-NEXT:    uhadd.2s v0, v0, v1
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: hadd8x2_zext_asr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    movi d2, #0x0000ff000000ff
-; CHECK-GI-NEXT:    mov w8, #1 // =0x1
-; CHECK-GI-NEXT:    and.8b v0, v0, v2
-; CHECK-GI-NEXT:    and.8b v1, v1, v2
-; CHECK-GI-NEXT:    fmov s2, w8
-; CHECK-GI-NEXT:    add.2s v0, v0, v1
-; CHECK-GI-NEXT:    mov.h v2[1], w8
-; CHECK-GI-NEXT:    uzp1.4h v0, v0, v0
-; CHECK-GI-NEXT:    neg.4h v1, v2
-; CHECK-GI-NEXT:    ushl.4h v0, v0, v1
-; CHECK-GI-NEXT:    ushll.4s v0, v0, #0
-; CHECK-GI-NEXT:    // kill: def $d0 killed $d0 killed $q0
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: hadd8x2_zext_asr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    movi d2, #0x0000ff000000ff
+; CHECK-NEXT:    and.8b v1, v1, v2
+; CHECK-NEXT:    and.8b v0, v0, v2
+; CHECK-NEXT:    uhadd.2s v0, v0, v1
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <2 x i8> %src1 to <2 x i16>
   %zextsrc2 = zext <2 x i8> %src2 to <2 x i16>
   %add = add nuw nsw <2 x i16> %zextsrc1, %zextsrc2
@@ -1282,29 +1177,13 @@ define <2 x i16> @hadd8x2_sext_lsr(<2 x i8> %src1, <2 x i8> %src2) {
 }
 
 define <2 x i16> @hadd8x2_zext_lsr(<2 x i8> %src1, <2 x i8> %src2) {
-; CHECK-SD-LABEL: hadd8x2_zext_lsr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    movi d2, #0x0000ff000000ff
-; CHECK-SD-NEXT:    and.8b v1, v1, v2
-; CHECK-SD-NEXT:    and.8b v0, v0, v2
-; CHECK-SD-NEXT:    uhadd.2s v0, v0, v1
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: hadd8x2_zext_lsr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    movi d2, #0x0000ff000000ff
-; CHECK-GI-NEXT:    mov w8, #1 // =0x1
-; CHECK-GI-NEXT:    and.8b v0, v0, v2
-; CHECK-GI-NEXT:    and.8b v1, v1, v2
-; CHECK-GI-NEXT:    fmov s2, w8
-; CHECK-GI-NEXT:    add.2s v0, v0, v1
-; CHECK-GI-NEXT:    mov.h v2[1], w8
-; CHECK-GI-NEXT:    uzp1.4h v0, v0, v0
-; CHECK-GI-NEXT:    neg.4h v1, v2
-; CHECK-GI-NEXT:    ushl.4h v0, v0, v1
-; CHECK-GI-NEXT:    ushll.4s v0, v0, #0
-; CHECK-GI-NEXT:    // kill: def $d0 killed $d0 killed $q0
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: hadd8x2_zext_lsr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    movi d2, #0x0000ff000000ff
+; CHECK-NEXT:    and.8b v1, v1, v2
+; CHECK-NEXT:    and.8b v0, v0, v2
+; CHECK-NEXT:    uhadd.2s v0, v0, v1
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <2 x i8> %src1 to <2 x i16>
   %zextsrc2 = zext <2 x i8> %src2 to <2 x i16>
   %add = add nuw nsw <2 x i16> %zextsrc1, %zextsrc2
@@ -1324,13 +1203,7 @@ define <4 x i16> @rhadd8_sext_asr(<4 x i8> %src1, <4 x i8> %src2) {
 ;
 ; CHECK-GI-LABEL: rhadd8_sext_asr:
 ; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    shl.4h v1, v1, #8
-; CHECK-GI-NEXT:    shl.4h v0, v0, #8
-; CHECK-GI-NEXT:    movi.4h v2, #1
-; CHECK-GI-NEXT:    sshr.4h v1, v1, #8
-; CHECK-GI-NEXT:    ssra.4h v1, v0, #8
-; CHECK-GI-NEXT:    add.4h v0, v1, v2
-; CHECK-GI-NEXT:    sshr.4h v0, v0, #1
+; CHECK-GI-NEXT:    srhadd.4h v0, v0, v1
 ; CHECK-GI-NEXT:    ret
   %zextsrc1 = sext <4 x i8> %src1 to <4 x i16>
   %zextsrc2 = sext <4 x i8> %src2 to <4 x i16>
@@ -1353,10 +1226,7 @@ define <4 x i16> @rhadd8_zext_asr(<4 x i8> %src1, <4 x i8> %src2) {
 ; CHECK-GI-NEXT:    movi d2, #0xff00ff00ff00ff
 ; CHECK-GI-NEXT:    and.8b v0, v0, v2
 ; CHECK-GI-NEXT:    and.8b v1, v1, v2
-; CHECK-GI-NEXT:    movi.4h v2, #1
-; CHECK-GI-NEXT:    add.4h v0, v0, v1
-; CHECK-GI-NEXT:    add.4h v0, v0, v2
-; CHECK-GI-NEXT:    ushr.4h v0, v0, #1
+; CHECK-GI-NEXT:    urhadd.4h v0, v0, v1
 ; CHECK-GI-NEXT:    ret
   %zextsrc1 = zext <4 x i8> %src1 to <4 x i16>
   %zextsrc2 = zext <4 x i8> %src2 to <4 x i16>
@@ -1409,10 +1279,7 @@ define <4 x i16> @rhadd8_zext_lsr(<4 x i8> %src1, <4 x i8> %src2) {
 ; CHECK-GI-NEXT:    movi d2, #0xff00ff00ff00ff
 ; CHECK-GI-NEXT:    and.8b v0, v0, v2
 ; CHECK-GI-NEXT:    and.8b v1, v1, v2
-; CHECK-GI-NEXT:    movi.4h v2, #1
-; CHECK-GI-NEXT:    add.4h v0, v0, v1
-; CHECK-GI-NEXT:    add.4h v0, v0, v2
-; CHECK-GI-NEXT:    ushr.4h v0, v0, #1
+; CHECK-GI-NEXT:    urhadd.4h v0, v0, v1
 ; CHECK-GI-NEXT:    ret
   %zextsrc1 = zext <4 x i8> %src1 to <4 x i16>
   %zextsrc2 = zext <4 x i8> %src2 to <4 x i16>
@@ -1423,32 +1290,14 @@ define <4 x i16> @rhadd8_zext_lsr(<4 x i8> %src1, <4 x i8> %src2) {
 }
 
 define <2 x i16> @rhadd8x2_sext_asr(<2 x i8> %src1, <2 x i8> %src2) {
-; CHECK-SD-LABEL: rhadd8x2_sext_asr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    shl.2s v1, v1, #24
-; CHECK-SD-NEXT:    shl.2s v0, v0, #24
-; CHECK-SD-NEXT:    sshr.2s v1, v1, #24
-; CHECK-SD-NEXT:    sshr.2s v0, v0, #24
-; CHECK-SD-NEXT:    srhadd.2s v0, v0, v1
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: rhadd8x2_sext_asr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    shl.2s v1, v1, #24
-; CHECK-GI-NEXT:    shl.2s v0, v0, #24
-; CHECK-GI-NEXT:    mov w8, #1 // =0x1
-; CHECK-GI-NEXT:    movi.2s v2, #1
-; CHECK-GI-NEXT:    sshr.2s v1, v1, #24
-; CHECK-GI-NEXT:    ssra.2s v1, v0, #24
-; CHECK-GI-NEXT:    fmov s0, w8
-; CHECK-GI-NEXT:    mov.h v0[1], w8
-; CHECK-GI-NEXT:    add.2s v1, v1, v2
-; CHECK-GI-NEXT:    uzp1.4h v1, v1, v0
-; CHECK-GI-NEXT:    neg.4h v0, v0
-; CHECK-GI-NEXT:    sshl.4h v0, v1, v0
-; CHECK-GI-NEXT:    ushll.4s v0, v0, #0
-; CHECK-GI-NEXT:    // kill: def $d0 killed $d0 killed $q0
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: rhadd8x2_sext_asr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    shl.2s v1, v1, #24
+; CHECK-NEXT:    shl.2s v0, v0, #24
+; CHECK-NEXT:    sshr.2s v1, v1, #24
+; CHECK-NEXT:    sshr.2s v0, v0, #24
+; CHECK-NEXT:    srhadd.2s v0, v0, v1
+; CHECK-NEXT:    ret
   %zextsrc1 = sext <2 x i8> %src1 to <2 x i16>
   %zextsrc2 = sext <2 x i8> %src2 to <2 x i16>
   %add = add nsw <2 x i16> %zextsrc1, %zextsrc2
@@ -1458,31 +1307,13 @@ define <2 x i16> @rhadd8x2_sext_asr(<2 x i8> %src1, <2 x i8> %src2) {
 }
 
 define <2 x i16> @rhadd8x2_zext_asr(<2 x i8> %src1, <2 x i8> %src2) {
-; CHECK-SD-LABEL: rhadd8x2_zext_asr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    movi d2, #0x0000ff000000ff
-; CHECK-SD-NEXT:    and.8b v1, v1, v2
-; CHECK-SD-NEXT:    and.8b v0, v0, v2
-; CHECK-SD-NEXT:    urhadd.2s v0, v0, v1
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: rhadd8x2_zext_asr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    movi d2, #0x0000ff000000ff
-; CHECK-GI-NEXT:    mov w8, #1 // =0x1
-; CHECK-GI-NEXT:    and.8b v0, v0, v2
-; CHECK-GI-NEXT:    and.8b v1, v1, v2
-; CHECK-GI-NEXT:    movi.2s v2, #1
-; CHECK-GI-NEXT:    add.2s v0, v0, v1
-; CHECK-GI-NEXT:    fmov s1, w8
-; CHECK-GI-NEXT:    add.2s v0, v0, v2
-; CHECK-GI-NEXT:    mov.h v1[1], w8
-; CHECK-GI-NEXT:    uzp1.4h v0, v0, v0
-; CHECK-GI-NEXT:    neg.4h v1, v1
-; CHECK-GI-NEXT:    ushl.4h v0, v0, v1
-; CHECK-GI-NEXT:    ushll.4s v0, v0, #0
-; CHECK-GI-NEXT:    // kill: def $d0 killed $d0 killed $q0
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: rhadd8x2_zext_asr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    movi d2, #0x0000ff000000ff
+; CHECK-NEXT:    and.8b v1, v1, v2
+; CHECK-NEXT:    and.8b v0, v0, v2
+; CHECK-NEXT:    urhadd.2s v0, v0, v1
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <2 x i8> %src1 to <2 x i16>
   %zextsrc2 = zext <2 x i8> %src2 to <2 x i16>
   %add = add nuw nsw <2 x i16> %zextsrc1, %zextsrc2
@@ -1531,31 +1362,13 @@ define <2 x i16> @rhadd8x2_sext_lsr(<2 x i8> %src1, <2 x i8> %src2) {
 }
 
 define <2 x i16> @rhadd8x2_zext_lsr(<2 x i8> %src1, <2 x i8> %src2) {
-; CHECK-SD-LABEL: rhadd8x2_zext_lsr:
-; CHECK-SD:       // %bb.0:
-; CHECK-SD-NEXT:    movi d2, #0x0000ff000000ff
-; CHECK-SD-NEXT:    and.8b v1, v1, v2
-; CHECK-SD-NEXT:    and.8b v0, v0, v2
-; CHECK-SD-NEXT:    urhadd.2s v0, v0, v1
-; CHECK-SD-NEXT:    ret
-;
-; CHECK-GI-LABEL: rhadd8x2_zext_lsr:
-; CHECK-GI:       // %bb.0:
-; CHECK-GI-NEXT:    movi d2, #0x0000ff000000ff
-; CHECK-GI-NEXT:    mov w8, #1 // =0x1
-; CHECK-GI-NEXT:    and.8b v0, v0, v2
-; CHECK-GI-NEXT:    and.8b v1, v1, v2
-; CHECK-GI-NEXT:    movi.2s v2, #1
-; CHECK-GI-NEXT:    add.2s v0, v0, v1
-; CHECK-GI-NEXT:    fmov s1, w8
-; CHECK-GI-NEXT:    add.2s v0, v0, v2
-; CHECK-GI-NEXT:    mov.h v1[1], w8
-; CHECK-GI-NEXT:    uzp1.4h v0, v0, v0
-; CHECK-GI-NEXT:    neg.4h v1, v1
-; CHECK-GI-NEXT:    ushl.4h v0, v0, v1
-; CHECK-GI-NEXT:    ushll.4s v0, v0, #0
-; CHECK-GI-NEXT:    // kill: def $d0 killed $d0 killed $q0
-; CHECK-GI-NEXT:    ret
+; CHECK-LABEL: rhadd8x2_zext_lsr:
+; CHECK:       // %bb.0:
+; CHECK-NEXT:    movi d2, #0x0000ff000000ff
+; CHECK-NEXT:    and.8b v1, v1, v2
+; CHECK-NEXT:    and.8b v0, v0, v2
+; CHECK-NEXT:    urhadd.2s v0, v0, v1
+; CHECK-NEXT:    ret
   %zextsrc1 = zext <2 x i8> %src1 to <2 x i16>
   %zextsrc2 = zext <2 x i8> %src2 to <2 x i16>
   %add = add nuw nsw <2 x i16> %zextsrc1, %zextsrc2
