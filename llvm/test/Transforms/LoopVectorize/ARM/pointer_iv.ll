@@ -14,8 +14,7 @@ define hidden void @pointer_phi_v4i32_add1(ptr noalias nocapture readonly %A, pt
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = shl i32 [[INDEX]], 2
 ; CHECK-NEXT:    [[NEXT_GEP:%.*]] = getelementptr i8, ptr [[A:%.*]], i32 [[OFFSET_IDX]]
-; CHECK-NEXT:    [[OFFSET_IDX4:%.*]] = shl i32 [[INDEX]], 2
-; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i8, ptr [[B:%.*]], i32 [[OFFSET_IDX4]]
+; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i8, ptr [[B:%.*]], i32 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i32>, ptr [[NEXT_GEP]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = add nsw <4 x i32> [[WIDE_LOAD]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    store <4 x i32> [[TMP0]], ptr [[NEXT_GEP5]], align 4
@@ -162,8 +161,7 @@ define hidden void @pointer_phi_v8i16_add1(ptr noalias nocapture readonly %A, pt
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = shl i32 [[INDEX]], 1
 ; CHECK-NEXT:    [[NEXT_GEP:%.*]] = getelementptr i8, ptr [[A:%.*]], i32 [[OFFSET_IDX]]
-; CHECK-NEXT:    [[OFFSET_IDX4:%.*]] = shl i32 [[INDEX]], 1
-; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i8, ptr [[B:%.*]], i32 [[OFFSET_IDX4]]
+; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i8, ptr [[B:%.*]], i32 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x i16>, ptr [[NEXT_GEP]], align 2
 ; CHECK-NEXT:    [[TMP1:%.*]] = add <8 x i16> [[WIDE_LOAD]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    store <8 x i16> [[TMP1]], ptr [[NEXT_GEP5]], align 2
@@ -447,8 +445,7 @@ define hidden void @pointer_phi_v4f32_add1(ptr noalias nocapture readonly %A, pt
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = shl i32 [[INDEX]], 2
 ; CHECK-NEXT:    [[NEXT_GEP:%.*]] = getelementptr i8, ptr [[A:%.*]], i32 [[OFFSET_IDX]]
-; CHECK-NEXT:    [[OFFSET_IDX4:%.*]] = shl i32 [[INDEX]], 2
-; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i8, ptr [[B:%.*]], i32 [[OFFSET_IDX4]]
+; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i8, ptr [[B:%.*]], i32 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x float>, ptr [[NEXT_GEP]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = fadd fast <4 x float> [[WIDE_LOAD]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    store <4 x float> [[TMP0]], ptr [[NEXT_GEP5]], align 4
@@ -594,8 +591,7 @@ define hidden void @pointer_phi_v4half_add1(ptr noalias nocapture readonly %A, p
 ; CHECK-NEXT:    [[INDEX:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[OFFSET_IDX:%.*]] = shl i32 [[INDEX]], 1
 ; CHECK-NEXT:    [[NEXT_GEP:%.*]] = getelementptr i8, ptr [[A:%.*]], i32 [[OFFSET_IDX]]
-; CHECK-NEXT:    [[OFFSET_IDX4:%.*]] = shl i32 [[INDEX]], 1
-; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i8, ptr [[B:%.*]], i32 [[OFFSET_IDX4]]
+; CHECK-NEXT:    [[NEXT_GEP5:%.*]] = getelementptr i8, ptr [[B:%.*]], i32 [[OFFSET_IDX]]
 ; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <8 x half>, ptr [[NEXT_GEP]], align 4
 ; CHECK-NEXT:    [[TMP0:%.*]] = fadd fast <8 x half> [[WIDE_LOAD]], [[BROADCAST_SPLAT]]
 ; CHECK-NEXT:    store <8 x half> [[TMP0]], ptr [[NEXT_GEP5]], align 4
