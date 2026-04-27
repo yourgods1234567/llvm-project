@@ -166,6 +166,9 @@ private:
 
   SmallSet<StringRef, 2> LTODiscardSymbols;
 
+  /// Cache IncbinFiles by file names
+  StringMap<unsigned> IncbinFileCache;
+
   /// AssemblerDialect. ~OU means unset value and use value provided by MAI.
   unsigned AssemblerDialect = ~0U;
 
@@ -860,14 +863,25 @@ bool AsmParser::processIncbinFile(const std::string &Filename, int64_t Skip,
   if (SymbolScanningMode)
     return false;
 
-  std::string IncludedFile;
-  unsigned NewBuf =
-      SrcMgr.AddIncludeFile(Filename, Lexer.getLoc(), IncludedFile);
-  if (!NewBuf)
+  unsigned BufferIdx = 0;
+  auto It = IncbinFileCache.find(Filename);
+  if (It == IncbinFileCache.end())
+  {
+    std::string IncludedFile;
+    BufferIdx =
+        SrcMgr.AddIncludeFile(Filename, Lexer.getLoc(), IncludedFile);
+    if (!BufferIdx)
+      return true;
+    IncbinFileCache.try_emplace(Filename, BufferIdx);
+  }
+  else
+    BufferIdx = It->second;
+
+  if (!BufferIdx)
     return true;
 
-  // Pick up the bytes from the file and emit them.
-  StringRef Bytes = SrcMgr.getMemoryBuffer(NewBuf)->getBuffer();
+  // Pick up the bytes from the file(cached) and emit them.
+  StringRef Bytes = SrcMgr.getMemoryBuffer(BufferIdx)->getBuffer();
   Bytes = Bytes.drop_front(Skip);
   if (Count) {
     int64_t Res;
