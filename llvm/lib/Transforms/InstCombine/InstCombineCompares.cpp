@@ -8952,6 +8952,98 @@ static Instruction *foldFCmpWithFloorAndCeil(FCmpInst &I,
   return nullptr;
 }
 
+/// Fold 'fcmp (clamp(X, Lo, Hi), C)` into a direct compare of `X` when `C`
+/// is exactly one of the clamp bounds.
+///
+/// The clamp is matched when it is expressed as nested min/max selects
+/// (either `max(min(X, Hi), Lo)` or `min(max(X, Lo), Hi)`) where both compares
+/// driving the selects are `OGT`.
+///
+/// If `C == Hi`, emit `fcmp oge X, Hi`.
+/// If `C == Lo`, emit `fcmp ule X, Lo`.
+static Instruction *foldFCmpWithClampedValue(FCmpInst &I, Instruction *LHSI,
+                                             Constant *RHSC,
+                                             InstCombinerImpl &IC) {
+  const APFloat *C;
+  FCmpInst::Predicate Pred = I.getPredicate();
+  if (!match(RHSC, m_APFloat(C)) ||
+      (Pred != FCmpInst::FCMP_OEQ && Pred != FCmpInst::FCMP_UEQ))
+    return nullptr;
+
+  // Matching the outer select, which is either min or max.
+  Value *OuterLHS, *OuterRHS;
+  SelectPatternResult OuterSPR = matchSelectPattern(LHSI, OuterLHS, OuterRHS);
+  if (!SelectPatternResult::isMinOrMax(OuterSPR.Flavor))
+    return nullptr;
+
+  auto extractInnerSelectAndBound = [&](SelectInst *&InnerSel,
+                                        ConstantFP *&Bound1) {
+    InnerSel = dyn_cast<SelectInst>(OuterLHS);
+    Bound1 = dyn_cast<ConstantFP>(OuterRHS);
+    if (!InnerSel || !Bound1) {
+      InnerSel = dyn_cast<SelectInst>(OuterRHS);
+      Bound1 = dyn_cast<ConstantFP>(OuterLHS);
+    }
+    return InnerSel && Bound1;
+  };
+
+  SelectInst *InnerSel = nullptr;
+  ConstantFP *Bound1 = nullptr;
+  if (!extractInnerSelectAndBound(InnerSel, Bound1))
+    return nullptr;
+
+  Value *InnerLHS, *InnerRHS;
+  // Matching the inner select, which is the opposite of the outer (if outer is
+  // min, inner must be max and vice versa).
+  SelectPatternResult InnerSPR =
+      matchSelectPattern(InnerSel, InnerLHS, InnerRHS);
+  if ((OuterSPR.Flavor == InnerSPR.Flavor) ||
+      !SelectPatternResult::isMinOrMax(InnerSPR.Flavor))
+    return nullptr;
+
+  FCmpInst *OuterCmp = dyn_cast<FCmpInst>(LHSI->getOperand(0));
+  FCmpInst *InnerCmp = dyn_cast<FCmpInst>(InnerSel->getOperand(0));
+  if (!OuterCmp || !InnerCmp)
+    return nullptr;
+
+  // Require the compare driving both selects to be OGT - Only handle OGT for
+  // now. Extending to other predicates require careful handling of NaN
+  // semantics.
+  if (OuterCmp->getPredicate() != FCmpInst::FCMP_OGT ||
+      InnerCmp->getPredicate() != FCmpInst::FCMP_OGT)
+    return nullptr;
+
+  // Inner is min/max(X, constant). Extract the non-constant X.
+  ConstantFP *Bound2 = dyn_cast<ConstantFP>(InnerLHS);
+  Value *X = InnerRHS;
+  if (!Bound2) {
+    Bound2 = dyn_cast<ConstantFP>(InnerRHS);
+    X = InnerLHS;
+  }
+  if (!Bound2 || isa<ConstantFP>(X))
+    return nullptr;
+
+  const APFloat &A = Bound1->getValueAPF();
+  const APFloat &B = Bound2->getValueAPF();
+  int AB = A.compare(B);
+  if (AB != APFloat::cmpLessThan && AB != APFloat::cmpGreaterThan)
+    return nullptr;
+  ConstantFP *LoConst = (AB == APFloat::cmpLessThan) ? Bound1 : Bound2;
+  ConstantFP *HiConst = (AB == APFloat::cmpLessThan) ? Bound2 : Bound1;
+
+  // Since the clamp is built from OGT compares, its NaN behavior is
+  // predictable
+  //   clamp == Hi -> OGE,  clamp == Lo -> ULE
+  FCmpInst::Predicate HiPred = FCmpInst::FCMP_OGE;
+  FCmpInst::Predicate LoPred = FCmpInst::FCMP_ULE;
+
+  if (C->compare(HiConst->getValueAPF()) == APFloat::cmpEqual)
+    return new FCmpInst(HiPred, X, HiConst, "", &I);
+  if (C->compare(LoConst->getValueAPF()) == APFloat::cmpEqual)
+    return new FCmpInst(LoPred, X, LoConst, "", &I);
+  return nullptr;
+}
+
 /// Returns true if a select that implements a min/max is redundant and
 /// select result can be replaced with its non-constant operand, e.g.,
 ///   select ( (si/ui-to-fp A) <= C ), C, (si/ui-to-fp A)
@@ -9151,6 +9243,10 @@ Instruction *InstCombinerImpl::visitFCmpInst(FCmpInst &I) {
       if (FCmpInst::isEquality(Pred) && match(RHSC, m_AnyZeroFP()) &&
           match(LHSI, m_c_Select(m_FNeg(m_Value(X)), m_Deferred(X))))
         return replaceOperand(I, 0, X);
+      // fcmp oeq/ueq clamp(X, 0, 1), 1.0 --> fcmp oge X, 1.0 (and similarly for
+      // 0.0)
+      if (Instruction *R = foldFCmpWithClampedValue(I, LHSI, RHSC, *this))
+        return R;
       if (Instruction *NV = FoldOpIntoSelect(I, cast<SelectInst>(LHSI)))
         return NV;
       break;
