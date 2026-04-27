@@ -72,18 +72,40 @@ inline StringRef internString(const Twine &T) {
 }
 
 template <typename T>
-inline llvm::ArrayRef<T> allocateArray(llvm::ArrayRef<T> V,
-                                       llvm::BumpPtrAllocator &Alloc) {
+llvm::ArrayRef<T> allocateArray(llvm::SmallVectorImpl<T> &V,
+                                llvm::BumpPtrAllocator &Alloc) {
   if (V.empty())
     return llvm::ArrayRef<T>();
-  T *Allocated = (T *)Alloc.Allocate<T>(V.size());
+  T *Allocated = static_cast<T *>(Alloc.Allocate<T>(V.size()));
   std::uninitialized_move(V.begin(), V.end(), Allocated);
+  return llvm::ArrayRef<T>(Allocated, V.size());
+}
+
+template <typename T>
+llvm::ArrayRef<T> allocateArray(llvm::ArrayRef<T> V,
+                                llvm::BumpPtrAllocator &Alloc) {
+  if (V.empty())
+    return llvm::ArrayRef<T>();
+  T *Allocated = static_cast<T *>(Alloc.Allocate<T>(V.size()));
+  std::uninitialized_move(V.begin(), V.end(), Allocated);
+  return llvm::ArrayRef<T>(Allocated, V.size());
+}
+
+template <typename T>
+llvm::ArrayRef<T> deepCopyArray(llvm::ArrayRef<T> V,
+                                llvm::BumpPtrAllocator &Alloc) {
+  if (V.empty())
+    return llvm::ArrayRef<T>();
+  T *Allocated = static_cast<T *>(Alloc.Allocate<T>(V.size()));
+  for (size_t Idx = 0; Idx < V.size(); ++Idx) {
+    new (Allocated + Idx) T(V[Idx], Alloc);
+  }
   return llvm::ArrayRef<T>(Allocated, V.size());
 }
 
 // An abstraction for owned pointers. Initially mapped to OwnedPtr,
 // to be eventually transitioned to bare pointers in an arena.
-template <typename T> using OwnedPtr = std::unique_ptr<T>;
+template <typename T> using OwnedPtr = T *;
 
 // An abstraction for vectors that are populated and read sequentially.
 // To be eventually transitioned to llvm::ArrayRef for arena storage.
@@ -91,7 +113,7 @@ template <typename T> using OwningArray = std::vector<T>;
 
 // An abstraction for lists that are dynamically managed (inserted/removed).
 // To be eventually transitioned to llvm::simple_ilist.
-template <typename T> using OwningVec = std::vector<T>;
+template <typename T> using OwningVec = llvm::simple_ilist<T>;
 
 // An abstraction for dynamic lists of owned pointers.
 // To be eventually transitioned to llvm::simple_ilist<T*> or similar.
@@ -105,9 +127,10 @@ template <typename T> using OwningPtrArray = std::vector<OwnedPtr<T>>;
 // allocation mechanism.
 template <typename T, typename... Args>
 OwnedPtr<T> allocatePtr(Args &&...args) {
-  return std::make_unique<T>(std::forward<Args>(args)...);
+  return new (TransientArena.Allocate<T>()) T(std::forward<Args>(args)...);
 }
 
+// An overload to explicitly allocate on an arena, returning a bare pointer.
 template <typename T, typename... Args>
 T *allocatePtr(llvm::BumpPtrAllocator &Alloc, Args &&...args) {
   return new (Alloc.Allocate<T>()) T(std::forward<Args>(args)...);
@@ -115,7 +138,7 @@ T *allocatePtr(llvm::BumpPtrAllocator &Alloc, Args &&...args) {
 
 // A helper function to access the underlying pointer from an owned pointer,
 // abstracting away the pointer dereferencing mechanism.
-template <typename T> T *getPtr(const OwnedPtr<T> &O) { return O.get(); }
+template <typename T> T *getPtr(const OwnedPtr<T> &O) { return O; }
 
 // SHA1'd hash of a USR.
 using SymbolID = std::array<uint8_t, 20>;
@@ -164,11 +187,21 @@ enum OutputFormatTy { md, yaml, html, json, md_mustache };
 CommentKind stringToCommentKind(llvm::StringRef KindStr);
 llvm::StringRef commentKindToString(CommentKind Kind);
 
+struct CommentInfo;
+
+struct CommentInfoNode : public llvm::ilist_node<CommentInfoNode> {
+  CommentInfoNode(CommentInfo *P) : Ptr(P) {}
+  CommentInfo *Ptr;
+
+  bool operator==(const CommentInfoNode &Other) const;
+};
+
 // A representation of a parsed comment.
-struct CommentInfo : public llvm::ilist_node<CommentInfo> {
+struct CommentInfo {
   CommentInfo() = default;
   CommentInfo(const CommentInfo &Other) = default;
   CommentInfo &operator=(const CommentInfo &Other) = default;
+  CommentInfo(const CommentInfo &Other, llvm::BumpPtrAllocator &Arena);
   CommentInfo(CommentInfo &&Other) = default;
   CommentInfo &operator=(CommentInfo &&Other) = default;
 
@@ -192,18 +225,18 @@ struct CommentInfo : public llvm::ilist_node<CommentInfo> {
   // the vector.
   bool operator<(const CommentInfo &Other) const;
 
-  llvm::ArrayRef<CommentInfo>
-      Children;              // List of child comments for this CommentInfo.
-  StringRef Direction;       // Parameter direction (for (T)ParamCommand).
-  StringRef Name;            // Name of the comment (for Verbatim and HTML).
-  StringRef ParamName;       // Parameter name (for (T)ParamCommand).
-  StringRef CloseName;       // Closing tag name (for VerbatimBlock).
-  StringRef Text;            // Text of the comment.
-  llvm::ArrayRef<StringRef> AttrKeys; // List of attribute keys (for HTML).
-  llvm::ArrayRef<StringRef>
-      AttrValues; // List of attribute values for each key (for HTML).
-  llvm::ArrayRef<StringRef>
-      Args; // List of arguments to commands (for InlineCommand).
+  llvm::ArrayRef<CommentInfo> Children =
+      {};                   // List of child comments for this CommentInfo.
+  StringRef Direction = {}; // Parameter direction (for (T)ParamCommand).
+  StringRef Name = {};      // Name of the comment (for Verbatim and HTML).
+  StringRef ParamName = {}; // Parameter name (for (T)ParamCommand).
+  StringRef CloseName = {}; // Closing tag name (for VerbatimBlock).
+  StringRef Text = {};      // Text of the comment.
+  llvm::ArrayRef<StringRef> AttrKeys = {}; // List of attribute keys (for HTML).
+  llvm::ArrayRef<StringRef> AttrValues =
+      {}; // List of attribute values for each key (for HTML).
+  llvm::ArrayRef<StringRef> Args =
+      {}; // List of arguments to commands (for InlineCommand).
   CommentKind Kind = CommentKind::
       CK_Unknown; // Kind of comment (FullComment, ParagraphComment,
                   // TextComment, InlineCommandComment, HTMLStartTagComment,
@@ -215,6 +248,12 @@ struct CommentInfo : public llvm::ilist_node<CommentInfo> {
   bool Explicit = false;    // Indicates if the direction of a param is explicit
                             // (for (T)ParamCommand).
 };
+
+inline bool CommentInfoNode::operator==(const CommentInfoNode &Other) const {
+  if (!Ptr || !Other.Ptr)
+    return Ptr == Other.Ptr;
+  return *Ptr == *Other.Ptr;
+}
 
 struct Reference : public llvm::ilist_node<Reference> {
   // This variant (that takes no qualified name parameter) uses the Name as the
@@ -260,17 +299,17 @@ struct Reference : public llvm::ilist_node<Reference> {
   // Name of type (possibly unresolved). Not including namespaces or template
   // parameters (so for a std::vector<int> this would be "vector"). See also
   // QualName.
-  StringRef Name;
+  StringRef Name = {};
 
   // Full qualified name of this type, including namespaces and template
   // parameter (for example this could be "std::vector<int>"). Contrast to
   // Name.
-  StringRef QualName;
+  StringRef QualName = {};
 
   // Path of directory where the clang-doc generated file will be saved
   // (possibly unresolved)
-  StringRef Path;
-  StringRef DocumentationFileName;
+  StringRef Path = {};
+  StringRef DocumentationFileName = {};
 };
 
 // A Context is a reference that holds a relative path from a certain Info's
@@ -280,7 +319,7 @@ struct Context : public Reference {
           StringRef Path, StringRef DocumentationFileName)
       : Reference(USR, Name, IT, QualName, Path, DocumentationFileName) {}
   explicit Context(const Info &I);
-  StringRef RelativePath;
+  StringRef RelativePath = {};
 };
 
 // Holds the children of a record or namespace.
@@ -292,7 +331,7 @@ struct ScopeChildren {
   //
   // Namespaces are not syntactically valid as children of records, but making
   // this general for all possible container types reduces code complexity.
-  llvm::simple_ilist<Reference> Namespaces;
+  OwningVec<Reference> Namespaces;
   OwningVec<Reference> Records;
   OwningVec<FunctionInfo> Functions;
   OwningVec<EnumInfo> Enums;
@@ -334,7 +373,7 @@ struct TemplateParamInfo {
   // The literal contents of the code for that specifies this template parameter
   // for this declaration. Typical values will be "class T" and
   // "typename T = int".
-  StringRef Contents;
+  StringRef Contents = {};
 };
 
 struct TemplateSpecializationInfo {
@@ -342,7 +381,7 @@ struct TemplateSpecializationInfo {
   SymbolID SpecializationOf;
 
   // Template parameters applying to the specialized record/function.
-  OwningVec<TemplateParamInfo> Params;
+  llvm::ArrayRef<TemplateParamInfo> Params = {};
 };
 
 struct ConstraintInfo {
@@ -351,18 +390,18 @@ struct ConstraintInfo {
       : ConceptRef(USR, Name, InfoType::IT_concept) {}
   Reference ConceptRef;
 
-  StringRef ConstraintExpr;
+  StringRef ConstraintExpr = {};
 };
 
 // Records the template information for a struct or function that is a template
 // or an explicit template specialization.
 struct TemplateInfo {
   // May be empty for non-partial specializations.
-  OwningVec<TemplateParamInfo> Params;
+  llvm::ArrayRef<TemplateParamInfo> Params = {};
 
   // Set when this is a specialization of another record/function.
   std::optional<TemplateSpecializationInfo> Specialization;
-  OwningVec<ConstraintInfo> Constraints;
+  llvm::ArrayRef<ConstraintInfo> Constraints = {};
 };
 
 // Info for field types.
@@ -378,11 +417,11 @@ struct FieldTypeInfo : public TypeInfo {
            std::tie(Other.Type, Other.Name, Other.DefaultValue);
   }
 
-  StringRef Name; // Name associated with this info.
+  StringRef Name = {}; // Name associated with this info.
 
   // When used for function parameters, contains the string representing the
   // expression of the default value, if any.
-  StringRef DefaultValue;
+  StringRef DefaultValue = {};
 };
 
 // Info for member types.
@@ -393,12 +432,14 @@ struct MemberTypeInfo : public FieldTypeInfo {
       : FieldTypeInfo(TI, Name), Access(Access), IsStatic(IsStatic) {}
 
   bool operator==(const MemberTypeInfo &Other) const {
-    return std::tie(Type, Name, Access, IsStatic, Description) ==
-           std::tie(Other.Type, Other.Name, Other.Access, Other.IsStatic,
-                    Other.Description);
+    if (std::tie(Type, Name, Access, IsStatic) !=
+        std::tie(Other.Type, Other.Name, Other.Access, Other.IsStatic))
+      return false;
+    return std::equal(Description.begin(), Description.end(),
+                      Other.Description.begin(), Other.Description.end());
   }
 
-  OwningVec<CommentInfo> Description;
+  OwningVec<CommentInfoNode> Description;
 
   // Access level associated with this info (public, protected, private, none).
   // AS_public is set as default because the bitcode writer requires the enum
@@ -430,7 +471,7 @@ struct Location : public llvm::ilist_node<Location> {
            std::tie(Other.StartLineNumber, Other.EndLineNumber, Other.Filename);
   }
 
-  StringRef Filename;
+  StringRef Filename = {};
   int StartLineNumber = 0;
   int EndLineNumber = 0;
   bool IsFileInRootDir = false;
@@ -444,7 +485,6 @@ struct Info {
 
   Info(const Info &Other) = delete;
   Info(Info &&Other) = default;
-  virtual ~Info() = default;
 
   Info &operator=(Info &&Other) = default;
 
@@ -460,18 +500,18 @@ struct Info {
   StringRef getFileBaseName() const;
 
   // Path of directory where the clang-doc generated file will be saved.
-  StringRef Path;
+  StringRef Path = {};
 
   // Unqualified name of the decl.
-  StringRef Name;
+  StringRef Name = {};
 
   // The name used for the file that this info is documented in.
   // In the JSON generator, infos are documented in files with mangled names.
   // Thus, we keep track of the physical filename for linking purposes.
-  StringRef DocumentationFileName;
+  StringRef DocumentationFileName = {};
 
   // List of parent namespaces for this decl.
-  llvm::SmallVector<Reference, 4> Namespace;
+  llvm::ArrayRef<Reference> Namespace;
 
   // Unique identifier for the decl described by this Info.
   SymbolID USR = SymbolID();
@@ -483,9 +523,7 @@ struct Info {
   InfoType IT = InfoType::IT_default;
 
   // Comment description of this decl.
-  OwningVec<CommentInfo> Description;
-
-  SmallVector<Context, 4> Contexts;
+  OwningVec<CommentInfoNode> Description;
 };
 
 inline Context::Context(const Info &I)
@@ -514,8 +552,8 @@ struct SymbolInfo : public Info {
     // generated in the order of the source code.
     // If the declaration location is the same, or not present
     // we sort by defined location otherwise fallback to the extracted name
-    if (Loc.size() > 0 && Other.Loc.size() > 0 && Loc[0] != Other.Loc[0])
-      return Loc[0] < Other.Loc[0];
+    if (!Loc.empty() && !Other.Loc.empty() && Loc.front() != Other.Loc.front())
+      return Loc.front() < Other.Loc.front();
 
     if (DefLoc && Other.DefLoc && *DefLoc != *Other.DefLoc)
       return *DefLoc < *Other.DefLoc;
@@ -524,8 +562,8 @@ struct SymbolInfo : public Info {
   }
 
   std::optional<Location> DefLoc;     // Location where this decl is defined.
-  llvm::SmallVector<Location, 2> Loc; // Locations where this decl is declared.
-  StringRef MangledName;
+  OwningVec<Location> Loc;            // Locations where this decl is declared.
+  StringRef MangledName = {};
   bool IsStatic = false;
 };
 
@@ -541,7 +579,7 @@ struct FriendInfo : public SymbolInfo, public llvm::ilist_node<FriendInfo> {
   Reference Ref;
   std::optional<TemplateInfo> Template;
   std::optional<TypeInfo> ReturnType;
-  llvm::ArrayRef<FieldTypeInfo> Params;
+  llvm::ArrayRef<FieldTypeInfo> Params = {};
   bool IsClass = false;
 };
 
@@ -564,8 +602,8 @@ struct FunctionInfo : public SymbolInfo, public llvm::ilist_node<FunctionInfo> {
 
   Reference Parent;
   TypeInfo ReturnType;
-  llvm::SmallVector<FieldTypeInfo, 4> Params;
-  StringRef Prototype;
+  llvm::ArrayRef<FieldTypeInfo> Params = {};
+  StringRef Prototype = {};
 
   // When present, this function is a template or specialization.
   std::optional<TemplateInfo> Template;
@@ -600,18 +638,18 @@ struct RecordInfo : public SymbolInfo {
   // When present, this record is a template or specialization.
   std::optional<TemplateInfo> Template;
 
-  llvm::SmallVector<MemberTypeInfo, 4>
-      Members;                             // List of info about record members.
-  llvm::SmallVector<Reference, 4> Parents; // List of base/parent records
-                                           // (does not include virtual
-                                           // parents).
-  llvm::SmallVector<Reference, 4>
-      VirtualParents; // List of virtual base/parent records.
+  llvm::ArrayRef<MemberTypeInfo> Members =
+      {}; // List of info about record members.
+  llvm::ArrayRef<Reference> Parents =
+      {}; // List of base/parent records (does not include virtual parents).
+  llvm::ArrayRef<Reference> VirtualParents =
+      {}; // List of virtual base/parent records.
 
-  OwningVec<BaseRecordInfo> Bases; // List of base/parent records; this includes
-                                   // inherited methods and attributes
+  llvm::ArrayRef<BaseRecordInfo> Bases =
+      {}; // List of base/parent records; this includes inherited methods and
+          // attributes
 
-  OwningVec<FriendInfo> Friends;
+  llvm::ArrayRef<FriendInfo> Friends = {};
 
   ScopeChildren Children;
 };
@@ -629,7 +667,7 @@ struct TypedefInfo : public SymbolInfo, public llvm::ilist_node<TypedefInfo> {
   std::optional<TemplateInfo> Template;
 
   // Underlying type declaration
-  StringRef TypeDeclaration;
+  StringRef TypeDeclaration = {};
 
   // Indicates if this is a new C++ "using"-style typedef:
   //   using MyVector = std::vector<int>
@@ -638,7 +676,8 @@ struct TypedefInfo : public SymbolInfo, public llvm::ilist_node<TypedefInfo> {
   bool IsUsing = false;
 };
 
-struct BaseRecordInfo : public RecordInfo {
+struct BaseRecordInfo : public RecordInfo,
+                        public llvm::ilist_node<BaseRecordInfo> {
   BaseRecordInfo();
   BaseRecordInfo(SymbolID USR, StringRef Name, StringRef Path, bool IsVirtual,
                  AccessSpecifier Access, bool IsParent);
@@ -664,19 +703,19 @@ struct EnumValueInfo {
            std::tie(Other.Name, Other.Value, Other.ValueExpr);
   }
 
-  StringRef Name;
+  StringRef Name = {};
 
   // The computed value of the enumeration constant. This could be the result of
   // evaluating the ValueExpr, or it could be automatically generated according
   // to C rules.
-  StringRef Value;
+  StringRef Value = {};
 
   // Stores the user-supplied initialization expression for this enumeration
   // constant. This will be empty for implicit enumeration values.
-  StringRef ValueExpr;
+  StringRef ValueExpr = {};
 
   /// Comment description of this field.
-  OwningVec<CommentInfo> Description;
+  OwningVec<CommentInfoNode> Description;
 };
 
 // TODO: Expand to allow for documenting templating.
@@ -695,7 +734,7 @@ struct EnumInfo : public SymbolInfo, public llvm::ilist_node<EnumInfo> {
   // this will be "short".
   std::optional<TypeInfo> BaseType;
 
-  llvm::SmallVector<EnumValueInfo, 4> Members; // List of enum members.
+  llvm::ArrayRef<EnumValueInfo> Members = {}; // List of enum members.
 };
 
 struct ConceptInfo : public SymbolInfo, public llvm::ilist_node<ConceptInfo> {
@@ -704,9 +743,9 @@ struct ConceptInfo : public SymbolInfo, public llvm::ilist_node<ConceptInfo> {
 
   void merge(ConceptInfo &&I);
 
-  bool IsType;
+  bool IsType = false;
   TemplateInfo Template;
-  StringRef ConstraintExpression;
+  StringRef ConstraintExpression = {};
 };
 
 struct Index : public Reference {
@@ -723,7 +762,7 @@ struct Index : public Reference {
   std::optional<StringRef> JumpToSection;
   llvm::StringMap<Index> Children;
 
-  OwningVec<const Index *> getSortedChildren() const;
+  std::vector<const Index *> getSortedChildren() const;
   void sort();
 };
 
@@ -773,28 +812,26 @@ struct ClangDocContext {
 // Ensure arena allocated types remain safe to allocate in the arena.
 // Only trivially destructible types are safe, so enforce that at compile-time.
 static_assert(std::is_trivially_destructible_v<CommentInfo>);
+static_assert(std::is_trivially_destructible_v<ConceptInfo>);
 static_assert(std::is_trivially_destructible_v<ConstraintInfo>);
+static_assert(std::is_trivially_destructible_v<EnumInfo>);
 static_assert(std::is_trivially_destructible_v<FieldTypeInfo>);
+static_assert(std::is_trivially_destructible_v<FriendInfo>);
+static_assert(std::is_trivially_destructible_v<FunctionInfo>);
+static_assert(std::is_trivially_destructible_v<Info>);
 static_assert(std::is_trivially_destructible_v<Location>);
+static_assert(std::is_trivially_destructible_v<MemberTypeInfo>);
+static_assert(std::is_trivially_destructible_v<NamespaceInfo>);
+static_assert(std::is_trivially_destructible_v<RecordInfo>);
 static_assert(std::is_trivially_destructible_v<Reference>);
+static_assert(std::is_trivially_destructible_v<ScopeChildren>);
+static_assert(std::is_trivially_destructible_v<SymbolInfo>);
+static_assert(std::is_trivially_destructible_v<TemplateInfo>);
 static_assert(std::is_trivially_destructible_v<TemplateParamInfo>);
+static_assert(std::is_trivially_destructible_v<TemplateSpecializationInfo>);
 static_assert(std::is_trivially_destructible_v<TypeInfo>);
-
-// FIXME: These types need to be trivially destructible for arena allocation.
-static_assert(!std::is_trivially_destructible_v<ConceptInfo>);
-static_assert(!std::is_trivially_destructible_v<EnumInfo>);
-static_assert(!std::is_trivially_destructible_v<FriendInfo>);
-static_assert(!std::is_trivially_destructible_v<FunctionInfo>);
-static_assert(!std::is_trivially_destructible_v<Info>);
-static_assert(!std::is_trivially_destructible_v<MemberTypeInfo>);
-static_assert(!std::is_trivially_destructible_v<NamespaceInfo>);
-static_assert(!std::is_trivially_destructible_v<RecordInfo>);
-static_assert(!std::is_trivially_destructible_v<ScopeChildren>);
-static_assert(!std::is_trivially_destructible_v<SymbolInfo>);
-static_assert(!std::is_trivially_destructible_v<TemplateInfo>);
-static_assert(!std::is_trivially_destructible_v<TemplateSpecializationInfo>);
-static_assert(!std::is_trivially_destructible_v<TypedefInfo>);
-static_assert(!std::is_trivially_destructible_v<VarInfo>);
+static_assert(std::is_trivially_destructible_v<TypedefInfo>);
+static_assert(std::is_trivially_destructible_v<VarInfo>);
 
 } // namespace doc
 } // namespace clang

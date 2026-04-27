@@ -31,8 +31,7 @@ static std::string genEmphasis(const Twine &Text) {
   return "**" + Text.str() + "**";
 }
 
-static std::string
-genReferenceList(const llvm::SmallVectorImpl<Reference> &Refs) {
+static std::string genReferenceList(llvm::ArrayRef<Reference> Refs) {
   std::string Buffer;
   llvm::raw_string_ostream Stream(Buffer);
   for (const auto &R : Refs) {
@@ -82,9 +81,9 @@ class TableCommentWriter {
 public:
   explicit TableCommentWriter(llvm::raw_ostream &OS) : OS(OS) {}
 
-  void write(llvm::ArrayRef<CommentInfo> Comments) {
+  void write(const OwningVec<CommentInfoNode> &Comments) {
     for (const auto &C : Comments)
-      writeTableSafeComment(C);
+      writeTableSafeComment(*C.Ptr);
 
     if (!Started)
       OS << "--";
@@ -272,7 +271,7 @@ static void genMarkdown(const ClangDocContext &CDCtx, const EnumInfo &I,
   maybeWriteSourceFileRef(OS, CDCtx, I.DefLoc);
 
   for (const auto &C : I.Description)
-    writeDescription(C, OS);
+    writeDescription(*C.Ptr, OS);
 }
 
 static void genMarkdown(const ClangDocContext &CDCtx, const FunctionInfo &I,
@@ -297,7 +296,7 @@ static void genMarkdown(const ClangDocContext &CDCtx, const FunctionInfo &I,
   maybeWriteSourceFileRef(OS, CDCtx, I.DefLoc);
 
   for (const auto &C : I.Description)
-    writeDescription(C, OS);
+    writeDescription(*C.Ptr, OS);
 }
 
 static void genMarkdown(const ClangDocContext &CDCtx, const NamespaceInfo &I,
@@ -310,7 +309,7 @@ static void genMarkdown(const ClangDocContext &CDCtx, const NamespaceInfo &I,
 
   if (!I.Description.empty()) {
     for (const auto &C : I.Description)
-      writeDescription(C, OS);
+      writeDescription(*C.Ptr, OS);
     writeNewLine(OS);
   }
 
@@ -358,7 +357,7 @@ static void genMarkdown(const ClangDocContext &CDCtx, const RecordInfo &I,
 
   if (!I.Description.empty()) {
     for (const auto &C : I.Description)
-      writeDescription(C, OS);
+      writeDescription(*C.Ptr, OS);
     writeNewLine(OS);
   }
 
@@ -436,7 +435,7 @@ static llvm::Error serializeIndex(ClangDocContext &CDCtx) {
     OS << " for " << CDCtx.ProjectName;
   OS << "\n\n";
 
-  OwningVec<const Index *> Children = CDCtx.Idx.getSortedChildren();
+  std::vector<const Index *> Children = CDCtx.Idx.getSortedChildren();
   for (const auto *C : Children)
     serializeReference(OS, *C, 0);
 
@@ -455,7 +454,7 @@ static llvm::Error genIndex(ClangDocContext &CDCtx) {
                                        FileErr.message());
   CDCtx.Idx.sort();
   OS << "# " << CDCtx.ProjectName << " C/C++ Reference\n\n";
-  OwningVec<const Index *> Children = CDCtx.Idx.getSortedChildren();
+  std::vector<const Index *> Children = CDCtx.Idx.getSortedChildren();
   for (const auto *C : Children) {
     if (!C->Children.empty()) {
       const char *Type;
