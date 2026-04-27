@@ -70,13 +70,6 @@ set(OPENMP_TEST_CXX_COMPILER "${OPENMP_TEST_CXX_COMPILER_default}" CACHE STRING
 set(OPENMP_TEST_Fortran_COMPILER "${OPENMP_TEST_Fortran_COMPILER_default}" CACHE STRING
   "Fortran compiler to use for testing OpenMP runtime libraries.")
 
-# Set fortran test compiler if flang is found
-if (EXISTS "${OPENMP_TEST_Fortran_COMPILER}")
-  message("Using local flang build at ${OPENMP_TEST_Fortran_COMPILER}")
-else()
-  unset(OPENMP_TEST_Fortran_COMPILER)
-endif()
-
 # If not standalone, set CMAKE_CXX_STANDARD but don't set the global cache value,
 # only set it locally for OpenMP.
 set(CMAKE_CXX_STANDARD 17)
@@ -106,8 +99,8 @@ math(EXPR LIBOMP_VERSION_BUILD_MONTH_DAY "${LIBOMP_VERSION_BUILD}%10000")
 set(LIBOMP_BUILD_DATE "No_Timestamp")
 
 
-set(LIBOMP_FORTRAN_MODULES FALSE CACHE BOOL
-  "Create Fortran module files? (requires fortran compiler)")
+set(LIBOMP_FORTRAN_MODULES "${RUNTIMES_ENABLE_FORTRAN}" CACHE BOOL
+  "Create Fortran module files? (requires Fortran compiler)")
 
 # Set up testing infrastructure.
 include(OpenMPTesting)
@@ -116,6 +109,8 @@ set(OPENMP_TEST_FLAGS "" CACHE STRING
   "Extra compiler flags to send to the test compiler.")
 set(OPENMP_TEST_OPENMP_FLAGS ${OPENMP_TEST_COMPILER_OPENMP_FLAGS} CACHE STRING
   "OpenMP compiler flag to use for testing OpenMP runtime libraries.")
+set(OPENMP_TEST_Fortran_FLAGS "${CMAKE_Fortran_FLAGS}" CACHE STRING
+  "Additional compiler flags to use for testing Fortran programs (e.g. additional module search paths via -fintrinsic-modules-path )")
 
 set(ENABLE_LIBOMPTARGET ON)
 # Currently libomptarget cannot be compiled on Windows or MacOS X.
@@ -139,13 +134,20 @@ else()
   get_clang_resource_dir(LIBOMP_HEADERS_INSTALL_PATH SUBDIR include)
 endif()
 
+if(LIBOMP_FORTRAN_MODULES)
+  add_subdirectory(module)
+else()
+  message(STATUS "Building omp_lib.mod disabled by LIBOMP_FORTRAN_MODULES='${LIBOMP_FORTRAN_MODULES}'; libomp-mod does nothing")
+  add_custom_target(libomp-mod
+    COMMAND ${CMAKE_COMMAND} -E echo "Building omp_lib.mod disabled by LIBOMP_FORTRAN_MODULES=${LIBOMP_FORTRAN_MODULES}"
+  )
+endif()
+
 # Use the current compiler target to determine the appropriate runtime to build.
 if("${LLVM_DEFAULT_TARGET_TRIPLE}" MATCHES "^amdgcn|^nvptx|^spirv64" OR
    "${CMAKE_CXX_COMPILER_TARGET}" MATCHES "^amdgcn|^nvptx|^spirv64")
   add_subdirectory(device)
 else()
-  add_subdirectory(module)
-
   # Build host runtime library, after LIBOMPTARGET variables are set since they
   # are needed to enable time profiling support in the OpenMP runtime.
   add_subdirectory(runtime)
