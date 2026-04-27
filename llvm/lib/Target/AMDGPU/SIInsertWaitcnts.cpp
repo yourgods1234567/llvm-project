@@ -3025,8 +3025,11 @@ bool WaitcntBrackets::mergeAsyncMarks(ArrayRef<MergeInfo> MergeInfos,
   bool StrictDom = false;
 
   LLVM_DEBUG(dbgs() << "Merging async marks ...");
-  // Early exit: both empty
-  if (AsyncMarks.empty() && OtherMarks.empty()) {
+  // Early exit: nothing to merge when either side is empty.
+  // If OtherMarks is empty the join point has no async marks from that
+  // predecessor, so our existing marks are already the conservative result.
+  // If both are empty there is simply nothing to do.
+  if (AsyncMarks.empty() || OtherMarks.empty()) {
     LLVM_DEBUG(dbgs() << " nothing to merge\n");
     return false;
   }
