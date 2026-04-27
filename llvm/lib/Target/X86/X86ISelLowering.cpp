@@ -39022,6 +39022,55 @@ void X86TargetLowering::computeKnownBitsForTargetNode(const SDValue Op,
   Known.resetAll();
   switch (Opc) {
   default: break;
+  case X86ISD::GF2P8AFFINEQB: {
+    SDValue Input = Op.getOperand(0);
+    SDValue Matrix = Op.getOperand(1);
+    SDValue Imm = Op.getOperand(2);
+
+    auto *ImmN = dyn_cast<ConstantSDNode>(Imm);
+    if (!ImmN)
+      break;
+
+    uint8_t Imm8 = ImmN->getZExtValue();
+    unsigned NumElts = DemandedElts.getBitWidth();
+
+    KnownBits Res(BitWidth);
+    Res.resetAll();
+
+    KnownBits InputKnown = DAG.computeKnownBits(Input, DemandedElts, Depth + 1);
+
+    APInt KnownMask = InputKnown.Zero | InputKnown.One;
+
+    for (unsigned OutBit = 0; OutBit != 8; ++OutBit) {
+      unsigned RowIdx = 7 - OutBit;
+
+      APInt RowDemandedElts = APInt::getSplat(NumElts, APInt(8, 1u << RowIdx));
+
+      KnownBits RowKnown =
+          DAG.computeKnownBits(Matrix, RowDemandedElts, Depth + 1);
+
+      if (!RowKnown.isConstant())
+        continue;
+
+      uint8_t Row = RowKnown.getConstant().getZExtValue();
+      APInt RowMask(BitWidth, Row);
+
+      if (!(RowMask & ~KnownMask).isZero())
+        continue;
+
+      uint8_t Bits = (InputKnown.One & RowMask).getZExtValue();
+      bool Parity = llvm::popcount(Bits) & 1;
+      bool FinalBit = Parity ^ ((Imm8 >> OutBit) & 1);
+
+      if (FinalBit)
+        Res.One.setBit(OutBit);
+      else
+        Res.Zero.setBit(OutBit);
+    }
+
+    Known = Res;
+    break;
+  }
   case X86ISD::MUL_IMM: {
     KnownBits Known2;
     Known = DAG.computeKnownBits(Op.getOperand(1), DemandedElts, Depth + 1);
