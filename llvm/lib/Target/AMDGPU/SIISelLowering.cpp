@@ -1768,6 +1768,7 @@ void SITargetLowering::getTgtMemIntrinsic(SmallVectorImpl<IntrinsicInfo> &Infos,
     return;
   }
   case Intrinsic::amdgcn_s_prefetch_data:
+  case Intrinsic::amdgcn_s_prefetch_inst:
   case Intrinsic::amdgcn_flat_prefetch:
   case Intrinsic::amdgcn_global_prefetch: {
     Info.opc = ISD::INTRINSIC_VOID;
@@ -12397,7 +12398,8 @@ SDValue SITargetLowering::LowerINTRINSIC_VOID(SDValue Op,
     auto *NewMI = DAG.getMachineNode(Opc, DL, Op->getVTList(), Ops);
     return SDValue(NewMI, 0);
   }
-  case Intrinsic::amdgcn_s_prefetch_data: {
+  case Intrinsic::amdgcn_s_prefetch_data:
+  case Intrinsic::amdgcn_s_prefetch_inst: {
     // For non-global address space preserve the chain and remove the call.
     if (!AMDGPU::isFlatGlobalAddrSpace(cast<MemSDNode>(Op)->getAddressSpace()))
       return Op.getOperand(0);
