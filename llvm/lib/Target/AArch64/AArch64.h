@@ -28,6 +28,7 @@
 
 struct AArch64O0PreLegalizerCombinerImplRuleConfig;
 struct AArch64PreLegalizerCombinerImplRuleConfig;
+struct AArch64PostLegalizerCombinerImplRuleConfig;
 struct AArch64PostLegalizerLoweringImplRuleConfig;
 
 namespace llvm {
@@ -104,6 +105,19 @@ public:
                         MachineFunctionAnalysisManager &MFAM);
 };
 
+class AArch64PostLegalizerCombinerPass
+    : public PassInfoMixin<AArch64PostLegalizerCombinerPass> {
+  std::unique_ptr<AArch64PostLegalizerCombinerImplRuleConfig> RuleConfig;
+
+public:
+  AArch64PostLegalizerCombinerPass();
+  AArch64PostLegalizerCombinerPass(AArch64PostLegalizerCombinerPass &&);
+  ~AArch64PostLegalizerCombinerPass();
+
+  PreservedAnalyses run(MachineFunction &MF,
+                        MachineFunctionAnalysisManager &MFAM);
+};
+
 class AArch64PostSelectOptimizePass
     : public PassInfoMixin<AArch64PostSelectOptimizePass> {
 public:
@@ -158,7 +172,7 @@ void initializeAArch64LowerHomogeneousPrologEpilogPass(PassRegistry &);
 void initializeAArch64MIPeepholeOptLegacyPass(PassRegistry &);
 void initializeAArch64O0PreLegalizerCombinerLegacyPass(PassRegistry &);
 void initializeAArch64PostCoalescerLegacyPass(PassRegistry &);
-void initializeAArch64PostLegalizerCombinerPass(PassRegistry &);
+void initializeAArch64PostLegalizerCombinerLegacyPass(PassRegistry &);
 void initializeAArch64PostSelectOptimizeLegacyPass(PassRegistry &);
 void initializeAArch64PostLegalizerLoweringLegacyPass(PassRegistry &);
 void initializeAArch64PreLegalizerCombinerLegacyPass(PassRegistry &);
