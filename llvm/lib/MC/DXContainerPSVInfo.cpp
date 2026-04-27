@@ -164,7 +164,8 @@ void PSVRuntimeInfo::finalize(Triple::EnvironmentType Stage) {
   ProcessElementList(DXConStrTabBuilder, IndexBuffer, SignatureElements,
                      SemanticNames, PatchOrPrimElements);
 
-  DXConStrTabBuilder.add(EntryName);
+  if (EntryName)
+    DXConStrTabBuilder.add(*EntryName);
 
   DXConStrTabBuilder.finalize();
   for (auto ElAndName : zip(SignatureElements, SemanticNames)) {
@@ -175,8 +176,9 @@ void PSVRuntimeInfo::finalize(Triple::EnvironmentType Stage) {
       El.swapBytes();
   }
 
-  BaseData.EntryNameOffset =
-      static_cast<uint32_t>(DXConStrTabBuilder.getOffset(EntryName));
+  if (EntryName)
+    BaseData.EntryNameOffset =
+        static_cast<uint32_t>(DXConStrTabBuilder.getOffset(*EntryName));
 
   if (!sys::IsBigEndianHost)
     return;
