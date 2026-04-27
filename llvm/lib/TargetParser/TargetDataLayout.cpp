@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/TargetParser/ARMTargetParser.h"
 #include "llvm/TargetParser/Triple.h"
@@ -297,12 +298,19 @@ static std::string computeRISCVDataLayout(const Triple &TT, StringRef ABIName) {
   Ret += "-m:e";
 
   // Pointer and integer sizes.
+  auto IsCheriPureCapabilityABI =
+      StringSwitch<bool>(ABIName)
+          .Cases({"cheriot", "cheriot-baremetal"}, true)
+          .Default(false);
+  bool HasCheriCapabilities = IsCheriPureCapabilityABI;
   if (TT.isRISCV64()) {
     Ret += "-p:64:64-i64:64-i128:128";
     Ret += "-n32:64";
   } else {
     assert(TT.isRISCV32() && "only RV32 and RV64 are currently supported");
     Ret += "-p:32:32-i64:64";
+    if (HasCheriCapabilities)
+      Ret += "-pe200:64:64:64:32";
     Ret += "-n32";
   }
 
@@ -314,6 +322,10 @@ static std::string computeRISCVDataLayout(const Triple &TT, StringRef ABIName) {
     Ret += "-S64";
   else
     Ret += "-S128";
+
+  // Default address space based on ABI.
+  if (IsCheriPureCapabilityABI)
+    Ret += "-A200-P200-G200";
 
   return Ret;
 }
