@@ -53,6 +53,11 @@ def HasFP16 :
 def HasGC : Predicate<"Subtarget->hasGC()">,
             AssemblerPredicate<(all_of FeatureGC), "gc">;
 
+def HasLibcallThreadContext :
+    Predicate<"Subtarget->hasLibcallThreadContext()">,
+    AssemblerPredicate<(all_of FeatureLibcallThreadContext),
+                       "libcall-thread-context">;
+
 def HasMultiMemory :
     Predicate<"Subtarget->hasMultiMemory()">,
     AssemblerPredicate<(all_of FeatureMultiMemory), "multimemory">;
