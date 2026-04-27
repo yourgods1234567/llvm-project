@@ -963,6 +963,86 @@ static BinaryOperator *convertOrWithNoCommonBitsToAdd(Instruction *Or) {
   return New;
 }
 
+/// Return true if Mul is of the form (X+Y)*C or (X-Y)*C where C is a
+/// constant, and there exists a sibling instruction of the form X*C' or Y*C'
+/// in the same expression — indicating that distribution followed by
+/// factoring will reduce the instruction count.
+static bool ShouldBreakUpDistribution(Instruction *Mul) {
+  int ConstSide = isa<Constant>(Mul->getOperand(0)) ? 0 : 1;
+  Value *MulConst   = Mul->getOperand(ConstSide);
+  Value *AddSubVal  = Mul->getOperand(1 - ConstSide);
+
+  if (!isa<Constant>(MulConst))
+    return false;
+
+  // Only handle integer mul — FMul requires FastMathFlags handling
+  if (isa<FPMathOperator>(Mul))
+    return false;
+
+  BinaryOperator *AddSubInst =
+      isReassociableOp(AddSubVal, Instruction::Add, Instruction::FAdd);
+  if (!AddSubInst)
+    AddSubInst =
+        isReassociableOp(AddSubVal, Instruction::Sub, Instruction::FSub);
+  if (!AddSubInst)
+    return false;
+
+  // Collect non-constant operands of the add/sub (at most 2).
+  SmallPtrSet<Value *, 2> AddOps;
+  for (Value *Op : AddSubInst->operands())
+    if (!isa<Constant>(Op))
+      AddOps.insert(Op);
+  if (AddOps.empty())
+    return false;
+
+  for (User *MulUser : Mul->users()) {
+    auto *Parent = dyn_cast<Instruction>(MulUser);
+    if (!Parent)
+      continue;
+    for (Value *Sibling : Parent->operands()) {
+      if (Sibling == Mul)
+        continue;
+      auto *SibMul = dyn_cast<BinaryOperator>(Sibling);
+      if (!SibMul || SibMul->getOpcode() != Instruction::Mul ||
+          SibMul->use_empty())
+        continue;
+      // Sibling must be NonConst * C'.
+      int SibCS    = isa<Constant>(SibMul->getOperand(0)) ? 0 : 1;
+      Value *SibC  = SibMul->getOperand(SibCS);
+      Value *SibNC = SibMul->getOperand(1 - SibCS);
+      if (!isa<Constant>(SibC))
+        continue;
+      if (AddOps.count(SibNC))
+        return true;
+    }
+  }
+  return false;
+}
+
+/// Distribute Mul of the form (X+Y)*C into X*C + Y*C.
+/// For the sub case (X-Y)*C, the second term uses -C to avoid
+/// introducing a negation instruction.
+static BinaryOperator *BreakUpDistribute(Instruction *Mul,
+                                       ReassociatePass::OrderedSet &ToRedo) {
+
+  int ConstSide = isa<Constant>(Mul->getOperand(0)) ? 0 : 1;
+  Instruction *AddSub = cast<Instruction>(Mul->getOperand(1-ConstSide));
+  Constant *C = cast<Constant>(Mul->getOperand(ConstSide));
+  Constant *C2 = (AddSub->getOpcode() == Instruction::Sub)
+                    ? cast<Constant>(ConstantExpr::getNeg(C))
+                    : C;
+
+  BinaryOperator *M1 = CreateMul(AddSub->getOperand(0), C, "Mul1", Mul->getIterator(), Mul);
+  BinaryOperator *M2 = CreateMul(AddSub->getOperand(1), C2, "Mul2", Mul->getIterator(), Mul);
+  BinaryOperator *Result;
+  Result = CreateAdd(M1, M2, "DistAdd", Mul->getIterator(), Mul);
+
+  Mul->replaceAllUsesWith(Result);
+  Result->setDebugLoc(Mul->getDebugLoc());
+
+  return Result;
+}
+
 /// Return true if we should break up this subtract of X-Y into (X + -Y).
 static bool ShouldBreakUpSubtract(Instruction *Sub) {
   // If this is a negation, we can't split it up!
@@ -1603,7 +1683,10 @@ Value *ReassociatePass::OptimizeAdd(Instruction *I,
         continue;
 
       unsigned Occ = ++FactorOccurrences[Factor];
-      if (Occ > MaxOcc) {
+      if (Occ > MaxOcc ||
+          (Occ == MaxOcc &&
+           (isa<Instruction>(Factor) || isa<Argument>(Factor)) &&
+           isa<Constant>(MaxOccVal) && !isa<UndefValue>(MaxOccVal))) {
         MaxOcc = Occ;
         MaxOccVal = Factor;
       }
@@ -1617,7 +1700,10 @@ Value *ReassociatePass::OptimizeAdd(Instruction *I,
           if (!Duplicates.insert(Factor).second)
             continue;
           unsigned Occ = ++FactorOccurrences[Factor];
-          if (Occ > MaxOcc) {
+          if (Occ > MaxOcc ||
+              (Occ == MaxOcc &&
+               (isa<Instruction>(Factor) || isa<Argument>(Factor)) &&
+               isa<Constant>(MaxOccVal) && !isa<UndefValue>(MaxOccVal))) {
             MaxOcc = Occ;
             MaxOccVal = Factor;
           }
@@ -1630,7 +1716,10 @@ Value *ReassociatePass::OptimizeAdd(Instruction *I,
           if (!Duplicates.insert(Factor).second)
             continue;
           unsigned Occ = ++FactorOccurrences[Factor];
-          if (Occ > MaxOcc) {
+          if (Occ > MaxOcc ||
+              (Occ == MaxOcc &&
+               (isa<Instruction>(Factor) || isa<Argument>(Factor)) &&
+               isa<Constant>(MaxOccVal) && !isa<UndefValue>(MaxOccVal))) {
             MaxOcc = Occ;
             MaxOccVal = Factor;
           }
@@ -2195,6 +2284,16 @@ void ReassociatePass::OptimizeInst(Instruction *I) {
     RedoInsts.insert(I);
     MadeChange = true;
     I = NI;
+  }
+
+  if(I->getOpcode() == Instruction::Mul && 
+      ShouldBreakUpDistribution(I)){
+    BinaryOperator *Result = BreakUpDistribute(I, RedoInsts);
+    RedoInsts.insert(I);
+    RedoInsts.insert(Result);
+    MadeChange = true;
+    I = Result;
+    return;
   }
 
   // If this is a subtract instruction which is not already in negate form,
