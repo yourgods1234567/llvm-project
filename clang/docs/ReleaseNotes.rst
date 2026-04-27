@@ -155,6 +155,9 @@ C++17 Feature Support
 Resolutions to C++ Defect Reports
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+- Clang now uses non-reference types for structured bindings whose initializer
+  returns a prvalue. This resolves CWG3135.
+
 C Language Changes
 ------------------
 
