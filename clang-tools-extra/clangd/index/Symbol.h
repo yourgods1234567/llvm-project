@@ -9,6 +9,7 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_INDEX_SYMBOL_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_INDEX_SYMBOL_H
 
+#include "Protocol.h"
 #include "index/SymbolID.h"
 #include "index/SymbolLocation.h"
 #include "index/SymbolOrigin.h"
@@ -16,11 +17,108 @@
 #include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/StringSaver.h"
+#include <limits>
+#include <type_traits>
 
 namespace clang {
 namespace clangd {
 
 LLVM_ENABLE_BITMASK_ENUMS_IN_NAMESPACE();
+
+/// Type-safe bitset for SymbolTag values.
+///
+/// - The storage type adapts to SymbolTag's underlying type.
+/// - Bits outside the supported [FirstTag..LastTag] range are dropped.
+class SymbolTags {
+public:
+  using Storage = std::make_unsigned_t<std::underlying_type_t<SymbolTag>>;
+
+  constexpr SymbolTags() = default;
+
+  static constexpr SymbolTags fromRaw(Storage Raw) {
+    SymbolTags Result;
+    Result.Bits = Raw & validMask();
+    return Result;
+  }
+
+  static constexpr SymbolTags fromTag(SymbolTag Tag) {
+    SymbolTags Result;
+    Result.set(Tag);
+    return Result;
+  }
+
+  constexpr Storage raw() const { return Bits; }
+  constexpr bool empty() const { return Bits == 0; }
+  constexpr explicit operator bool() const { return !empty(); }
+
+  constexpr bool contains(SymbolTag Tag) const {
+    return (Bits & bitMask(Tag)) != 0;
+  }
+
+  constexpr void set(SymbolTag Tag) { Bits |= bitMask(Tag); }
+  constexpr void reset(SymbolTag Tag) { Bits &= ~bitMask(Tag); }
+
+  constexpr SymbolTags &operator|=(SymbolTags Other) {
+    Bits = (Bits | Other.Bits) & validMask();
+    return *this;
+  }
+
+  constexpr SymbolTags &operator&=(SymbolTags Other) {
+    Bits &= Other.Bits;
+    return *this;
+  }
+
+  friend constexpr SymbolTags operator|(SymbolTags L, SymbolTags R) {
+    L |= R;
+    return L;
+  }
+
+  friend constexpr SymbolTags operator&(SymbolTags L, SymbolTags R) {
+    L &= R;
+    return L;
+  }
+
+  friend constexpr SymbolTags operator~(SymbolTags V) {
+    return fromRaw(static_cast<Storage>(~V.Bits));
+  }
+
+  friend constexpr bool operator==(SymbolTags L, SymbolTags R) {
+    return L.Bits == R.Bits;
+  }
+
+private:
+  static constexpr unsigned firstTag() {
+    return static_cast<unsigned>(SymbolTag::FirstTag);
+  }
+
+  static constexpr unsigned lastTag() {
+    return static_cast<unsigned>(SymbolTag::LastTag);
+  }
+
+  static constexpr Storage validMask() {
+    constexpr auto Digits = std::numeric_limits<Storage>::digits;
+    const Storage Lower =
+        (firstTag() == 0) ? Storage{0} : ((Storage{1} << firstTag()) - 1);
+    const Storage Upper = (lastTag() + 1 == Digits)
+                              ? ~Storage{0}
+                              : ((Storage{1} << (lastTag() + 1)) - 1);
+    return Upper & ~Lower;
+  }
+
+  static constexpr Storage bitMask(SymbolTag Tag) {
+    const auto Ordinal = static_cast<unsigned>(Tag);
+    return Storage{1} << Ordinal;
+  }
+
+  Storage Bits = 0;
+};
+
+static_assert(static_cast<unsigned>(SymbolTag::FirstTag) <=
+                  static_cast<unsigned>(SymbolTag::LastTag),
+              "SymbolTag::FirstTag must not exceed SymbolTag::LastTag");
+static_assert(static_cast<unsigned>(SymbolTag::LastTag) <
+                  std::numeric_limits<SymbolTags::Storage>::digits,
+              "Too many SymbolTag values for SymbolTags::Storage");
 
 /// The class presents a C++ symbol, e.g. class, function.
 ///
@@ -41,6 +139,8 @@ struct Symbol {
   SymbolID ID;
   /// The symbol information, like symbol kind.
   index::SymbolInfo SymInfo = index::SymbolInfo();
+  /// Where this symbol came from. Usually an index provides a constant value.
+  SymbolOrigin Origin = SymbolOrigin::Unknown;
   /// The unqualified name of the symbol, e.g. "bar" (for ns::bar).
   llvm::StringRef Name;
   /// The containing namespace. e.g. "" (global), "ns::" (top-level namespace).
@@ -60,8 +160,10 @@ struct Symbol {
   /// The number of translation units that reference this symbol from their main
   /// file. This number is only meaningful if aggregated in an index.
   unsigned References = 0;
-  /// Where this symbol came from. Usually an index provides a constant value.
-  SymbolOrigin Origin = SymbolOrigin::Unknown;
+  /// Symbol tags for LSP protocol (Deprecated, Static, Virtual, Abstract,
+  /// Final, ReadOnly, Public, Protected, Private, Declaration, Definition).
+  /// This is a bitmask where each bit represents a SymbolTag.
+  SymbolTags Tags;
   /// A brief description of the symbol that can be appended in the completion
   /// candidate list. For example, "(X x, Y y) const" is a function signature.
   /// Only set when the symbol is indexed for completion.

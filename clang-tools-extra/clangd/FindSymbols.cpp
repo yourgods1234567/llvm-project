@@ -13,7 +13,10 @@
 #include "Quality.h"
 #include "SourceCode.h"
 #include "index/Index.h"
+#include "index/Symbol.h"
+#include "index/SymbolLocation.h"
 #include "support/Logger.h"
+#include "clang/AST/Decl.h"
 #include "clang/AST/DeclFriend.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Index/IndexSymbol.h"
@@ -135,6 +138,42 @@ bool isFinal(const Decl *D) {
   return false;
 }
 
+// A method "overrides" if:
+// 1. It overrides at least one method
+// 2. At least one of the overridden methods is virtual (but NOT pure
+// virtual)
+bool isOverrides(const NamedDecl *ND) {
+  if (const auto *MD = llvm::dyn_cast<CXXMethodDecl>(ND)) {
+    if (MD->size_overridden_methods() == 0)
+      return false;
+
+    for (const auto *Overridden : MD->overridden_methods()) {
+      // Check if the overridden method is virtual but not pure virtual
+      if (Overridden->isVirtual() && !Overridden->isPureVirtual())
+        return true;
+    }
+  }
+  return false;
+}
+
+// A method "implements" pure virtual methods from base classes if:
+// 1. It overrides at least one method
+// 2. It is NOT itself pure virtual (i.e., it has a concrete implementation)
+// 3. ALL overridden methods are pure virtual
+bool isImplements(const NamedDecl *ND) {
+  if (const auto *MD = llvm::dyn_cast<CXXMethodDecl>(ND)) {
+    if (MD->size_overridden_methods() == 0 || MD->isPureVirtual())
+      return false;
+
+    for (const auto *Overridden : MD->overridden_methods()) {
+      if (!Overridden->isPureVirtual())
+        return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 // Indicates whether declaration D is a unique definition (as opposed to a
 // declaration).
 bool isUniqueDefinition(const NamedDecl *Decl) {
@@ -153,53 +192,103 @@ bool isUniqueDefinition(const NamedDecl *Decl) {
          isa<TemplateTemplateParmDecl>(Decl) || isa<ObjCCategoryDecl>(Decl) ||
          isa<ObjCImplDecl>(Decl);
 }
-} // namespace
 
-SymbolTags toSymbolTagBitmask(const SymbolTag ST) {
-  return (1 << static_cast<unsigned>(ST));
+// Filter symbol tags based on the presence of other tags and the kind of
+// symbol. This is needed to avoid redundant tags, e.g. Overrides implies
+// Virtual and Implements implies Overrides/Virtual.
+SymbolTags filterSymbolTags(SymbolTags ST) {
+  const SymbolTags VirtualMask = SymbolTags::fromTag(SymbolTag::Virtual);
+  const SymbolTags OverridesMask = SymbolTags::fromTag(SymbolTag::Overrides);
+  const SymbolTags ImplementsMask = SymbolTags::fromTag(SymbolTag::Implements);
+  const SymbolTags AbstractMask = SymbolTags::fromTag(SymbolTag::Abstract);
+  const SymbolTags FinalMask = SymbolTags::fromTag(SymbolTag::Final);
+
+  // Implements implies Overrides + Virtual.
+  if (ST & ImplementsMask)
+    ST &= ~(OverridesMask | VirtualMask);
+
+  // Overrides implies Virtual.
+  if (ST & OverridesMask)
+    ST &= ~VirtualMask;
+
+  // Abstract implies Virtual.
+  if (ST & AbstractMask)
+    ST &= ~VirtualMask;
+
+  // Final implies Virtual; Overrides is also redundant as Final overrides are
+  // still overrides.
+  if (ST & FinalMask)
+    ST &= ~(VirtualMask | OverridesMask);
+
+  return ST;
 }
 
+bool isCXXClassMethod(const clang::clangd::Symbol &S) {
+  using clang::index::SymbolKind;
+  using clang::index::SymbolLanguage;
+
+  if (S.SymInfo.Lang != SymbolLanguage::CXX)
+    return false;
+
+  return llvm::is_contained({SymbolKind::InstanceMethod,
+                             SymbolKind::StaticMethod, SymbolKind::Constructor,
+                             SymbolKind::Destructor,
+                             SymbolKind::ConversionFunction},
+                            S.SymInfo.Kind);
+}
+
+template <typename E> constexpr E enumIncrement(E Value) {
+  return static_cast<E>(static_cast<std::underlying_type_t<E>>(Value) + 1);
+}
+} // namespace
+
 SymbolTags computeSymbolTags(const NamedDecl &ND) {
-  SymbolTags Result = 0;
+  SymbolTags Result;
   const auto IsDef = isUniqueDefinition(&ND);
 
   if (ND.isDeprecated())
-    Result |= toSymbolTagBitmask(SymbolTag::Deprecated);
+    Result |= SymbolTags::fromTag(SymbolTag::Deprecated);
 
   if (isConst(&ND))
-    Result |= toSymbolTagBitmask(SymbolTag::ReadOnly);
+    Result |= SymbolTags::fromTag(SymbolTag::ReadOnly);
 
   if (isStatic(&ND))
-    Result |= toSymbolTagBitmask(SymbolTag::Static);
+    Result |= SymbolTags::fromTag(SymbolTag::Static);
 
   if (isVirtual(&ND))
-    Result |= toSymbolTagBitmask(SymbolTag::Virtual);
+    Result |= SymbolTags::fromTag(SymbolTag::Virtual);
 
   if (isAbstract(&ND))
-    Result |= toSymbolTagBitmask(SymbolTag::Abstract);
+    Result |= SymbolTags::fromTag(SymbolTag::Abstract);
+
+  if (isOverrides(&ND))
+    Result |= SymbolTags::fromTag(SymbolTag::Overrides);
 
   if (isFinal(&ND))
-    Result |= toSymbolTagBitmask(SymbolTag::Final);
+    Result |= SymbolTags::fromTag(SymbolTag::Final);
+
+  if (isImplements(&ND))
+    Result |= SymbolTags::fromTag(SymbolTag::Implements);
 
   if (not isa<UnresolvedUsingValueDecl>(ND)) {
     // Do not treat an UnresolvedUsingValueDecl as a declaration.
     // It's more common to think of it as a reference to the
     // underlying declaration.
-    Result |= toSymbolTagBitmask(SymbolTag::Declaration);
+    Result |= SymbolTags::fromTag(SymbolTag::Declaration);
 
     if (IsDef)
-      Result |= toSymbolTagBitmask(SymbolTag::Definition);
+      Result |= SymbolTags::fromTag(SymbolTag::Definition);
   }
 
   switch (ND.getAccess()) {
   case AS_public:
-    Result |= toSymbolTagBitmask(SymbolTag::Public);
+    Result |= SymbolTags::fromTag(SymbolTag::Public);
     break;
   case AS_protected:
-    Result |= toSymbolTagBitmask(SymbolTag::Protected);
+    Result |= SymbolTags::fromTag(SymbolTag::Protected);
     break;
   case AS_private:
-    Result |= toSymbolTagBitmask(SymbolTag::Private);
+    Result |= SymbolTags::fromTag(SymbolTag::Private);
     break;
   default:
     break;
@@ -208,22 +297,54 @@ SymbolTags computeSymbolTags(const NamedDecl &ND) {
   return Result;
 }
 
-std::vector<SymbolTag> getSymbolTags(const NamedDecl &ND) {
-  const auto symbolTags = computeSymbolTags(ND);
+std::vector<SymbolTag> expandTagBitmask(const SymbolTags STGS) {
   std::vector<SymbolTag> Tags;
 
-  if (symbolTags == 0)
+  if (STGS.empty())
     return Tags;
+
+  // No filtering required since this function is only used for Symbols from the
+  // index, which have already been filtered in getSymbolTags(const NamedDecl
+  // &ND).
 
   // Iterate through SymbolTag enum values and collect any that are present in
   // the bitmask. SymbolTag values are in the numeric range
   // [FirstTag .. LastTag].
-  constexpr unsigned MinTag = static_cast<unsigned>(SymbolTag::FirstTag);
-  constexpr unsigned MaxTag = static_cast<unsigned>(SymbolTag::LastTag);
-  for (unsigned I = MinTag; I <= MaxTag; ++I) {
+  constexpr uint32_t MinTag = static_cast<uint32_t>(SymbolTag::FirstTag);
+  constexpr uint32_t MaxTag = static_cast<uint32_t>(SymbolTag::LastTag);
+  for (uint32_t I = MinTag; I <= MaxTag; ++I) {
     auto ST = static_cast<SymbolTag>(I);
-    if (symbolTags & toSymbolTagBitmask(ST))
+    if (STGS & SymbolTags::fromTag(ST))
       Tags.push_back(ST);
+  }
+  return Tags;
+}
+
+std::vector<SymbolTag> getSymbolTags(const Symbol &S) {
+  const SymbolTags Tags =
+      isCXXClassMethod(S) ? filterSymbolTags(S.Tags) : S.Tags;
+  return expandTagBitmask(Tags);
+}
+
+std::vector<SymbolTag> getSymbolTags(const NamedDecl &ND) {
+  const auto STGS = computeSymbolTags(ND);
+  SymbolTags FilteredTags = STGS;
+  std::vector<SymbolTag> Tags;
+
+  if (STGS.empty())
+    return Tags;
+
+  // Apply specific filter to the symbol tags only on CXX class methods.
+  if (isa<CXXMethodDecl>(ND))
+    FilteredTags = filterSymbolTags(STGS);
+
+  // Iterate through SymbolTag enum values and collect any that are present in
+  // the bitmask. SymbolTag values are in the numeric range
+  // [FirstTag .. LastTag].
+  for (SymbolTag Tag = SymbolTag::FirstTag; Tag <= SymbolTag::LastTag;
+       Tag = enumIncrement(Tag)) {
+    if (FilteredTags & SymbolTags::fromTag(Tag))
+      Tags.push_back(Tag);
   }
   return Tags;
 }
@@ -359,6 +480,7 @@ getWorkspaceSymbols(llvm::StringRef Query, int Limit,
     Info.score = Relevance.NameMatch > std::numeric_limits<float>::epsilon()
                      ? Score / Relevance.NameMatch
                      : QualScore;
+    Info.tags = getSymbolTags(Sym);
     Top.push({Score, std::move(Info)});
   });
   for (auto &R : std::move(Top).items())
