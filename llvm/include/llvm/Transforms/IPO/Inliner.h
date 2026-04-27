@@ -16,6 +16,7 @@
 #include "llvm/Analysis/Utils/ImportedFunctionsInliningStatistics.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Transforms/Utils/ExtraPassManager.h"
 
 namespace llvm {
 
