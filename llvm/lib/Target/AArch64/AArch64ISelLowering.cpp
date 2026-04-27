@@ -16564,6 +16564,15 @@ SDValue AArch64TargetLowering::LowerINSERT_VECTOR_ELT(SDValue Op,
   SDValue Elt = Op.getOperand(1);
   SDValue Idx = Op.getOperand(2);
 
+  if (VT.getScalarType() == MVT::i1 && VT.getVectorMinNumElements() == 1) {
+    auto *CI = dyn_cast<ConstantSDNode>(Op.getOperand(2));
+    if (!CI || CI->getZExtValue() != 0)
+      return SDValue();
+
+    SDLoc DL(Op);
+    return DAG.getSplatVector(VT, DL, Op.getOperand(1));
+  }
+
   if (VT.getScalarType() == MVT::i1) {
     SDLoc DL(Op);
 
