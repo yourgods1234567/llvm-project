@@ -13,7 +13,7 @@ void IsActOnFinishFullExprCalled() {
   // Do not add other test cases to this function.
   // Make sure `ActOnFinishFullExpr` is called and creates `ExprWithCleanups`
   // to avoid assertion failure.
-  [[assume(B{})]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} // ext-warning {{C++23 extension}}
+  [[assume(B{})]]; // ext-warning {{C++23 extension}}
 }
 
 template <bool cond>
@@ -38,7 +38,7 @@ bool f2();
 
 template <typename T>
 constexpr void f3() {
-  [[assume(T{})]]; // expected-error {{not contextually convertible to 'bool'}} expected-warning {{assumption is ignored because it contains (potential) side-effects}} ext-warning {{C++23 extension}}
+  [[assume(T{})]]; // expected-error {{not contextually convertible to 'bool'}} ext-warning {{C++23 extension}}
 }
 
 void g(int x) {
@@ -53,12 +53,12 @@ void g(int x) {
   [[assume((x = 3))]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} // ext-warning {{C++23 extension}}
   [[assume(x++)]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} // ext-warning {{C++23 extension}}
   [[assume(++x)]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} // ext-warning {{C++23 extension}}
-  [[assume([]{ return true; }())]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} // ext-warning {{C++23 extension}}
-  [[assume(B{})]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} // ext-warning {{C++23 extension}}
+  [[assume([]{ return true; }())]]; // ext-warning {{C++23 extension}}
+  [[assume(B{})]]; // ext-warning {{C++23 extension}}
   [[assume((1, 2))]]; // expected-warning {{has no effect}} // ext-warning {{C++23 extension}}
 
   f3<A>(); // expected-note {{in instantiation of}}
-  f3<B>(); // expected-note {{in instantiation of}}
+  f3<B>();
   [[assume]]; // expected-error {{takes one argument}}
   [[assume(z)]]; // expected-error {{undeclared identifier}}
   [[assume(A{})]]; // expected-error {{not contextually convertible to 'bool'}}
@@ -101,13 +101,13 @@ static_assert(S<false>{}.g<A>()); // expected-error {{not an integral constant e
 
 template <typename T>
 constexpr bool f4() {
-  [[assume(!T{})]]; // expected-error {{invalid argument type 'D'}} // expected-warning 2 {{assumption is ignored because it contains (potential) side-effects}} ext-warning {{C++23 extension}}
+  [[assume(!T{})]]; // expected-error {{invalid argument type 'D'}} ext-warning {{C++23 extension}}
   return sizeof(T) == sizeof(int);
 }
 
 template <typename T>
-concept C = f4<T>(); // expected-note 3 {{in instantiation of}}
-                     // expected-note@-1 3 {{while substituting}}
+concept C = f4<T>(); // expected-note {{in instantiation of}}
+                     // expected-note@-1 {{while substituting}}
                      // expected-error@-2 {{resulted in a non-constant expression}}
                      // expected-note@-3 {{because substituted constraint expression is ill-formed: substitution into constraint expression resulted in a non-constant expression}}
 
@@ -131,8 +131,8 @@ constexpr int f5() requires C<T> { return 1; } // expected-note {{while checking
                                                // expected-note@-1 {{candidate template ignored}}
 
 template <typename T>
-constexpr int f5() requires (!C<T>) { return 2; } // expected-note 3 {{while checking the satisfaction}} \
-                                                  // expected-note 3 {{while substituting template arguments}} \
+constexpr int f5() requires (!C<T>) { return 2; } // expected-note {{while checking the satisfaction}} \
+                                                  // expected-note {{while substituting template arguments}} \
                                                   // expected-note {{candidate template ignored}}
 
 static_assert(f5<int>() == 1);
@@ -141,8 +141,8 @@ static_assert(f5<D>() == 1); // expected-note 2 {{while checking constraint sati
                              // expected-error@-2 {{no matching function for call}}
 
 static_assert(f5<double>() == 2);
-static_assert(f5<E>() == 1); // expected-note {{while checking constraint satisfaction}} expected-note {{while substituting deduced template arguments}}
-static_assert(f5<F>() == 2); // expected-note {{while checking constraint satisfaction}} expected-note {{while substituting deduced template arguments}}
+static_assert(f5<E>() == 1);
+static_assert(f5<F>() == 2);
 
 // Do not validate assumptions whose evaluation would have side-effects.
 constexpr int foo() {
@@ -177,6 +177,43 @@ int foo () {
     __attribute__((assume (a < b)));
 }
 }
+
+namespace assume_side_effect_analysis {
+bool no_side_effects() { return true; }
+
+bool nested_no_side_effects() { return no_side_effects(); }
+
+bool side_effects(int &x) { return ++x; }
+
+bool nested_side_effects(int &x) { return side_effects(x); }
+
+bool declared_pure() __attribute__((pure));
+bool declared_const() __attribute__((const));
+
+bool recursive_b();
+bool recursive_a() { return recursive_b(); }
+bool recursive_b() { return recursive_a(); }
+
+struct V {
+  virtual bool f() { return true; }
+};
+
+void test() {
+  int x = 0;
+  V v;
+  V &vr = v;
+  bool (*fp)() = no_side_effects;
+
+  [[assume(no_side_effects())]]; // ext-warning {{C++23 extension}}
+  [[assume(nested_no_side_effects())]]; // ext-warning {{C++23 extension}}
+  [[assume(nested_side_effects(x))]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} ext-warning {{C++23 extension}}
+  [[assume(declared_pure())]]; // ext-warning {{C++23 extension}}
+  [[assume(declared_const())]]; // ext-warning {{C++23 extension}}
+  [[assume(fp())]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} ext-warning {{C++23 extension}}
+  [[assume(recursive_a())]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} ext-warning {{C++23 extension}}
+  [[assume(vr.f())]]; // expected-warning {{assumption is ignored because it contains (potential) side-effects}} ext-warning {{C++23 extension}}
+}
+} // namespace assume_side_effect_analysis
 
 namespace GH114787 {
 
