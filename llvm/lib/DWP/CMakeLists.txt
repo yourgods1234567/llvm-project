@@ -9,8 +9,8 @@ add_llvm_component_library(LLVMDWP
   intrinsics_gen
 
   LINK_COMPONENTS
+  BinaryFormat
   DebugInfoDWARF
-  MC
   Object
   Support
   )
