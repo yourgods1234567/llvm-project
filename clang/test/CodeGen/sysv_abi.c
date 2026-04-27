@@ -53,3 +53,23 @@ void use_vectors(void) {
 // NOAVX: call {{(x86_64_sysvcc )?}}void @take_m256(ptr noundef byval(<8 x float>) align 32 %{{.*}})
 // NOAVX: call {{(x86_64_sysvcc )?}}<16 x float> @get_m512()
 // NOAVX: call {{(x86_64_sysvcc )?}}void @take_m512(ptr noundef byval(<16 x float>) align 64 %{{.*}})
+
+// Added test to explicitly cover the case when __attribute__((target("avx"))) is used 
+// with __attribute__((sysv_abi))
+
+__attribute__((target("avx"))) my_m256 SYSV_CC get_avx_m256(void);
+__attribute__((target("avx"))) void SYSV_CC take_avx_m256(my_m256);
+
+__attribute__((target("avx")))
+void use_target_attr_vectors(void) {
+  my_m256 v = get_avx_m256();
+  take_avx_m256(v);
+}
+
+// CHECK: define {{(dso_local )?}}void @use_target_attr_vectors()
+// AVX512: call {{(x86_64_sysvcc )?}}<8 x float> @get_avx_m256()
+// AVX512: call {{(x86_64_sysvcc )?}}void @take_avx_m256(<8 x float> noundef %{{.*}})
+// AVX2: call {{(x86_64_sysvcc )?}}<8 x float> @get_avx_m256()
+// AVX2: call {{(x86_64_sysvcc )?}}void @take_avx_m256(<8 x float> noundef %{{.*}})
+// NOAVX: call {{(x86_64_sysvcc )?}}<8 x float> @get_avx_m256()
+// NOAVX: call {{(x86_64_sysvcc )?}}void @take_avx_m256(<8 x float> noundef %{{.*}})
