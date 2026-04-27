@@ -60,6 +60,7 @@ KERNEL_TEST(Byte, byte)
 KERNEL_TEST(LocalMem, localmem)
 KERNEL_TEST(LocalMemReduction, localmem_reduction)
 KERNEL_TEST(LocalMemStatic, localmem_static)
+KERNEL_TEST(SingleCounterSyncEvent, single_counter)
 KERNEL_TEST(GlobalCtor, global_ctor)
 KERNEL_TEST(GlobalDtor, global_dtor)
 
@@ -238,6 +239,45 @@ TEST_P(olLaunchKernelLocalMemStaticTest, Success) {
     ASSERT_EQ(Data[i], 2 * LaunchArgs.GroupSize.x);
 
   ASSERT_SUCCESS(olMemFree(Mem));
+}
+
+// The test intends to verify the correctness of the current implementation of
+// the event synchronisation.
+TEST_P(olLaunchKernelSingleCounterSyncEventTest, Success) {
+  LaunchArgs.NumGroups.x = 1;
+  LaunchArgs.DynSharedMemory = 0;
+
+  void *ResNum;
+  ASSERT_SUCCESS(
+      olMemAlloc(Device, OL_ALLOC_TYPE_MANAGED, sizeof(uint32_t), &ResNum));
+
+  // The execution time of the provided kernel should be high enough to ensure
+  // that the read value of the final result is not correct without explicit
+  // synchronization: explicit waiting for the event following the submitted
+  // operation. LoopRange is arbitrarily set with the goal of prolonging the
+  // kernel execution through a high number of loop iterations. In each
+  // iteration, NumberToAdd is added to the final sum, which is stored in
+  // ResNum.
+  int32_t LoopRange = 1000000;
+  int32_t NumberToAdd = 2;
+
+  struct {
+    int32_t InitLoop;
+    int32_t Addend;
+    void *Out;
+  } Args{LoopRange, NumberToAdd, ResNum};
+
+  ASSERT_SUCCESS(
+      olLaunchKernel(Queue, Device, Kernel, &Args, sizeof(Args), &LaunchArgs));
+
+  ol_event_handle_t Event = nullptr;
+  ASSERT_SUCCESS(olCreateEvent(Queue, &Event));
+  ASSERT_SUCCESS(olSyncEvent(Event));
+
+  uint32_t FinalResVal = *(uint32_t *)ResNum;
+
+  ASSERT_EQ(FinalResVal, NumberToAdd * LoopRange);
+  ASSERT_SUCCESS(olMemFree(ResNum));
 }
 
 TEST_P(olLaunchKernelGlobalTest, Success) {
