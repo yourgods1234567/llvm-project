@@ -144,6 +144,7 @@
 #include "llvm/Transforms/Utils/ExtraPassManager.h"
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/Transforms/Utils/LibCallsShrinkWrap.h"
+#include "llvm/Transforms/Utils/LowerCommentStringPass.h"
 #include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/MoveAutoInit.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
@@ -1704,6 +1705,13 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
           InlineContext{ThinOrFullLTOPhase::None, InlinePass::CGSCCInliner}));
     }
   }
+
+  // Lower !comment_string.loadtime metadata to a concrete TU-local string
+  // global and attach !implicit.ref to all defined functions. Running late
+  // ensures compiler-generated functions (e.g. from inlining, coroutines)
+  // are also anchored to the copyright string via .ref directives.
+  MPM.addPass(LowerCommentStringPass());
+
   return MPM;
 }
 
@@ -1875,6 +1883,12 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level) {
   addRequiredLTOPreLinkPasses(MPM);
 
   instructionCountersPass(MPM, /*IsPreOptimization=*/false);
+
+  // Lower !comment_string.loadtime metadata. Must run at the end of prelink
+  // so all compiler-generated functions are present before !implicit.ref
+  // is attached. !implicit.ref metadata will travel with any function
+  // imported by ThinLTO postlink.
+  MPM.addPass(LowerCommentStringPass());
 
   return MPM;
 }
@@ -2456,6 +2470,11 @@ PassBuilder::buildO0DefaultPipeline(OptimizationLevel Level,
   addAnnotationRemarksPass(MPM);
 
   instructionCountersPass(MPM, /*IsPreOptimization=*/false);
+
+  // Lower !comment_string.loadtime metadata to a concrete TU-local string
+  // global. Running at the end of the O0 pipeline ensures all functions
+  // including AlwaysInliner-generated ones are captured.
+  MPM.addPass(LowerCommentStringPass());
 
   return MPM;
 }
