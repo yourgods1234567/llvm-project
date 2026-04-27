@@ -31,12 +31,13 @@ loop:
 define void @test2(i1 %cond, ptr %ptr) {
 ; CHECK-LABEL: @test2(
 ; CHECK-NEXT:  entry:
+; CHECK-NEXT:    store i32 0, ptr [[PTR:%.*]], align 4
+; CHECK-NEXT:    call void (i1, ...) @llvm.experimental.guard(i1 [[COND:%.*]]) [ "deopt"(i32 0) ]
+; CHECK-NEXT:    [[VAL:%.*]] = load i32, ptr [[PTR]], align 4
 ; CHECK-NEXT:    br label [[LOOP:%.*]]
 ; CHECK:       loop:
 ; CHECK-NEXT:    [[X:%.*]] = phi i32 [ 0, [[ENTRY:%.*]] ], [ [[X_INC:%.*]], [[LOOP]] ]
-; CHECK-NEXT:    store i32 0, ptr [[PTR:%.*]], align 4
-; CHECK-NEXT:    call void (i1, ...) @llvm.experimental.guard(i1 [[COND:%.*]]) [ "deopt"(i32 0) ]
-; CHECK-NEXT:    [[X_INC]] = add i32 [[X]], 0
+; CHECK-NEXT:    [[X_INC]] = add i32 [[X]], [[VAL]]
 ; CHECK-NEXT:    br label [[LOOP]]
 ;
 
