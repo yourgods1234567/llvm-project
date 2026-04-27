@@ -155,15 +155,9 @@ static void test_valid_values_month() {
         file_seconds(2'000'000'000s)); // 03:33:20 UTC on Wednesday, 18 May 2033
 
   // Use the global locale (fr_FR)
-#if defined(__APPLE__)
-  check(SV("%b='jan'\t%h='jan'\t%B='janvier'\t%m='01'\t%Om='01'\n"),
-        lfmt,
-        file_seconds(0s)); // 00:00:00 UTC Thursday, 1 January 1970
-#else
   check(SV("%b='janv.'\t%h='janv.'\t%B='janvier'\t%m='01'\t%Om='01'\n"),
         lfmt,
         file_seconds(0s)); // 00:00:00 UTC Thursday, 1 January 1970
-#endif
 
   check(SV("%b='mai'\t%h='mai'\t%B='mai'\t%m='05'\t%Om='05'\n"),
         lfmt,
@@ -180,7 +174,7 @@ static void test_valid_values_month() {
         SV("%b='5'\t%h='5'\t%B='5月'\t%m='05'\t%Om='05'\n"),
         lfmt,
         file_seconds(2'000'000'000s)); // 03:33:20 UTC on Wednesday, 18 May 2033
-#elif defined(_AIX)                    // _WIN32
+#elif defined(_AIX)
   check(loc,
         SV("%b='1月'\t%h='1月'\t%B='1月'\t%m='01'\t%Om='01'\n"),
         lfmt,
@@ -190,17 +184,7 @@ static void test_valid_values_month() {
         SV("%b='5月'\t%h='5月'\t%B='5月'\t%m='05'\t%Om='05'\n"),
         lfmt,
         file_seconds(2'000'000'000s)); // 03:33:20 UTC on Wednesday, 18 May 2033
-#elif defined(__APPLE__)               // _WIN32
-  check(loc,
-        SV("%b=' 1'\t%h=' 1'\t%B='1月'\t%m='01'\t%Om='01'\n"),
-        lfmt,
-        file_seconds(0s)); // 00:00:00 UTC Thursday, 1 January 1970
-
-  check(loc,
-        SV("%b=' 5'\t%h=' 5'\t%B='5月'\t%m='05'\t%Om='05'\n"),
-        lfmt,
-        file_seconds(2'000'000'000s)); // 03:33:20 UTC on Wednesday, 18 May 2033
-#elif defined(__FreeBSD__)             // _WIN32
+#elif defined(__FreeBSD__) || defined(__APPLE__) // _WIN32
   check(loc,
         SV("%b=' 1月'\t%h=' 1月'\t%B='1月'\t%m='01'\t%Om='01'\n"),
         lfmt,

@@ -114,50 +114,6 @@ static void test() {
                  std::chrono::month{255}, std::chrono::weekday_last{std::chrono::weekday{8}}}),
              SV("255 is not a valid month/8 is not a valid weekday[last]"));
 
-#if defined(__APPLE__)
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{0}, std::chrono::weekday_last{std::chrono::weekday{0}}}),
-             SV("0 is not a valid month/Dim[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{1}, std::chrono::weekday_last{std::chrono::weekday{0}}}),
-             SV("jan/Dim[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{2}, std::chrono::weekday_last{std::chrono::weekday{1}}}),
-             SV("fév/Lun[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{3}, std::chrono::weekday_last{std::chrono::weekday{2}}}),
-             SV("mar/Mar[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{4}, std::chrono::weekday_last{std::chrono::weekday{3}}}),
-             SV("avr/Mer[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{5}, std::chrono::weekday_last{std::chrono::weekday{4}}}),
-             SV("mai/Jeu[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{6}, std::chrono::weekday_last{std::chrono::weekday{5}}}),
-             SV("jui/Ven[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{7}, std::chrono::weekday_last{std::chrono::weekday{6}}}),
-             SV("jul/Sam[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{8}, std::chrono::weekday_last{std::chrono::weekday{7}}}),
-             SV("aoû/Dim[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{9}, std::chrono::weekday_last{std::chrono::weekday{8}}}),
-             SV("sep/8 is not a valid weekday[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{10}, std::chrono::weekday_last{std::chrono::weekday{0}}}),
-             SV("oct/Dim[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{11}, std::chrono::weekday_last{std::chrono::weekday{0}}}),
-             SV("nov/Dim[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{12}, std::chrono::weekday_last{std::chrono::weekday{0}}}),
-             SV("déc/Dim[last]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
-                 std::chrono::month{13}, std::chrono::weekday_last{std::chrono::weekday{0}}}),
-             SV("13 is not a valid month/Dim[last]"));
-#else //  defined(__APPLE__)
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
                  std::chrono::month{0}, std::chrono::weekday_last{std::chrono::weekday{0}}}),
              SV("0 is not a valid month/dim.[last]"));
@@ -170,15 +126,15 @@ static void test() {
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
                  std::chrono::month{3}, std::chrono::weekday_last{std::chrono::weekday{2}}}),
              SV("mars/mar.[last]"));
-#  if defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
+#if defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__) || defined(__APPLE__)
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
                  std::chrono::month{4}, std::chrono::weekday_last{std::chrono::weekday{3}}}),
              SV("avr./mer.[last]"));
-#  else  // defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
+#else  // defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
                  std::chrono::month{4}, std::chrono::weekday_last{std::chrono::weekday{3}}}),
              SV("avril/mer.[last]"));
-#  endif // defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
+#endif // defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
                  std::chrono::month{5}, std::chrono::weekday_last{std::chrono::weekday{4}}}),
              SV("mai/jeu.[last]"));
@@ -206,7 +162,6 @@ static void test() {
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
                  std::chrono::month{13}, std::chrono::weekday_last{std::chrono::weekday{0}}}),
              SV("13 is not a valid month/dim.[last]"));
-#endif   //  defined(__APPLE__)
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday_last{
                  std::chrono::month{255}, std::chrono::weekday_last{std::chrono::weekday{8}}}),
              SV("255 is not a valid month/8 is not a valid weekday[last]"));

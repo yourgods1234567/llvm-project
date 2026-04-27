@@ -114,53 +114,6 @@ static void test() {
                  std::chrono::month{255}, std::chrono::weekday_indexed{std::chrono::weekday{8}, 0}}),
              SV("255 is not a valid month/8 is not a valid weekday[0 is not a valid index]"));
 
-#if defined(__APPLE__)
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{0}, std::chrono::weekday_indexed{std::chrono::weekday{0}, 1}}),
-             SV("0 is not a valid month/Dim[1]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{1}, std::chrono::weekday_indexed{std::chrono::weekday{1}, 1}}),
-             SV("jan/Lun[1]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{2}, std::chrono::weekday_indexed{std::chrono::weekday{2}, 2}}),
-             SV("fév/Mar[2]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{3}, std::chrono::weekday_indexed{std::chrono::weekday{3}, 3}}),
-             SV("mar/Mer[3]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{4}, std::chrono::weekday_indexed{std::chrono::weekday{4}, 4}}),
-             SV("avr/Jeu[4]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{5}, std::chrono::weekday_indexed{std::chrono::weekday{5}, 5}}),
-             SV("mai/Ven[5]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{6}, std::chrono::weekday_indexed{std::chrono::weekday{6}, 6}}),
-             SV("jui/Sam[6 is not a valid index]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{7}, std::chrono::weekday_indexed{std::chrono::weekday{7}, 7}}),
-             SV("jul/Dim[7 is not a valid index]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{8}, std::chrono::weekday_indexed{std::chrono::weekday{8}, 0}}),
-             SV("aoû/8 is not a valid weekday[0 is not a valid index]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{9}, std::chrono::weekday_indexed{std::chrono::weekday{0}, 1}}),
-             SV("sep/Dim[1]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{10}, std::chrono::weekday_indexed{std::chrono::weekday{0}, 1}}),
-             SV("oct/Dim[1]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{11}, std::chrono::weekday_indexed{std::chrono::weekday{0}, 1}}),
-             SV("nov/Dim[1]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{12}, std::chrono::weekday_indexed{std::chrono::weekday{0}, 1}}),
-             SV("déc/Dim[1]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{13}, std::chrono::weekday_indexed{std::chrono::weekday{0}, 1}}),
-             SV("13 is not a valid month/Dim[1]"));
-  TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
-                 std::chrono::month{255}, std::chrono::weekday_indexed{std::chrono::weekday{8}, 0}}),
-             SV("255 is not a valid month/8 is not a valid weekday[0 is not a valid index]"));
-#else //  defined(__APPLE__)
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
                  std::chrono::month{0}, std::chrono::weekday_indexed{std::chrono::weekday{0}, 1}}),
              SV("0 is not a valid month/dim.[1]"));
@@ -173,15 +126,15 @@ static void test() {
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
                  std::chrono::month{3}, std::chrono::weekday_indexed{std::chrono::weekday{3}, 3}}),
              SV("mars/mer.[3]"));
-#  if defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__)
+#if defined(_WIN32) || defined(_AIX) || defined(__FreeBSD__) || defined(__APPLE__)
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
                  std::chrono::month{4}, std::chrono::weekday_indexed{std::chrono::weekday{4}, 4}}),
              SV("avr./jeu.[4]"));
-#  else
+#else
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
                  std::chrono::month{4}, std::chrono::weekday_indexed{std::chrono::weekday{4}, 4}}),
              SV("avril/jeu.[4]"));
-#  endif
+#endif
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
                  std::chrono::month{5}, std::chrono::weekday_indexed{std::chrono::weekday{5}, 5}}),
              SV("mai/ven.[5]"));
@@ -212,7 +165,6 @@ static void test() {
   TEST_EQUAL(stream_fr_FR_locale<CharT>(std::chrono::month_weekday{
                  std::chrono::month{255}, std::chrono::weekday_indexed{std::chrono::weekday{8}, 0}}),
              SV("255 is not a valid month/8 is not a valid weekday[0 is not a valid index]"));
-#endif //  defined(__APPLE__)
 
   TEST_EQUAL(stream_ja_JP_locale<CharT>(std::chrono::month_weekday{
                  std::chrono::month{0}, std::chrono::weekday_indexed{std::chrono::weekday{0}, 1}}),
