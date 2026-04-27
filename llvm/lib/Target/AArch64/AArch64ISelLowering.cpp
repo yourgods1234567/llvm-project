@@ -6835,18 +6835,38 @@ SDValue AArch64TargetLowering::LowerINTRINSIC_WO_CHAIN(SDValue Op,
     return DAG.getNode(AArch64ISD::BITREVERSE_MERGE_PASSTHRU, DL,
                        Op.getValueType(), Op.getOperand(2), Op.getOperand(3),
                        Op.getOperand(1));
-  case Intrinsic::aarch64_sve_revb:
+  case Intrinsic::aarch64_sve_revb: {
+    if (isAllActivePredicate(DAG, Op.getOperand(2)))
+      return DAG.getNode(AArch64ISD::BSWAP_MERGE_PASSTHRU, DL,
+                         Op.getValueType(), Op.getOperand(2), Op.getOperand(3),
+                         DAG.getUNDEF(Op.getValueType()));
     return DAG.getNode(AArch64ISD::BSWAP_MERGE_PASSTHRU, DL, Op.getValueType(),
                        Op.getOperand(2), Op.getOperand(3), Op.getOperand(1));
-  case Intrinsic::aarch64_sve_revh:
+  }
+  case Intrinsic::aarch64_sve_revh: {
+    if (isAllActivePredicate(DAG, Op.getOperand(2)))
+      return DAG.getNode(AArch64ISD::REVH_MERGE_PASSTHRU, DL, Op.getValueType(),
+                         Op.getOperand(2), Op.getOperand(3),
+                         DAG.getUNDEF(Op.getValueType()));
     return DAG.getNode(AArch64ISD::REVH_MERGE_PASSTHRU, DL, Op.getValueType(),
                        Op.getOperand(2), Op.getOperand(3), Op.getOperand(1));
-  case Intrinsic::aarch64_sve_revw:
+  }
+  case Intrinsic::aarch64_sve_revw: {
+    if (isAllActivePredicate(DAG, Op.getOperand(2)))
+      return DAG.getNode(AArch64ISD::REVW_MERGE_PASSTHRU, DL, Op.getValueType(),
+                         Op.getOperand(2), Op.getOperand(3),
+                         DAG.getUNDEF(Op.getValueType()));
     return DAG.getNode(AArch64ISD::REVW_MERGE_PASSTHRU, DL, Op.getValueType(),
                        Op.getOperand(2), Op.getOperand(3), Op.getOperand(1));
-  case Intrinsic::aarch64_sve_revd:
+  }
+  case Intrinsic::aarch64_sve_revd: {
+    if (isAllActivePredicate(DAG, Op.getOperand(2)))
+      return DAG.getNode(AArch64ISD::REVD_MERGE_PASSTHRU, DL, Op.getValueType(),
+                         Op.getOperand(2), Op.getOperand(3),
+                         DAG.getUNDEF(Op.getValueType()));
     return DAG.getNode(AArch64ISD::REVD_MERGE_PASSTHRU, DL, Op.getValueType(),
                        Op.getOperand(2), Op.getOperand(3), Op.getOperand(1));
+  }
   case Intrinsic::aarch64_sve_sxtb:
     return DAG.getNode(
         AArch64ISD::SIGN_EXTEND_INREG_MERGE_PASSTHRU, DL, Op.getValueType(),
