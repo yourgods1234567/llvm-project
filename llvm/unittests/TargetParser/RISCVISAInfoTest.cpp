@@ -1387,6 +1387,7 @@ Experimental extensions
     zvzip                0.1
     smpmpmt              0.6
     svukte               0.3
+    xetestmatrix         0.6
     xrivosvizip          0.1
     xsfmclic             0.1
     xsfsclic             0.1
