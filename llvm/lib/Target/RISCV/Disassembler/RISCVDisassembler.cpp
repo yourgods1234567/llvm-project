@@ -253,6 +253,44 @@ static DecodeStatus DecodeTRM4RegisterClass(MCInst &Inst, uint32_t RegNo,
   return MCDisassembler::Success;
 }
 
+static DecodeStatus DecodeMatrixTRRegisterClass(MCInst &Inst, uint32_t RegNo,
+                                                uint64_t Address,
+                                                const MCDisassembler *Decoder) {
+  if (RegNo > 3)
+    return MCDisassembler::Fail;
+
+  MCRegister Reg = RISCV::TR0 + RegNo;
+  Inst.addOperand(MCOperand::createReg(Reg));
+  return MCDisassembler::Success;
+}
+
+static DecodeStatus DecodeMatrixACCRegisterClass(MCInst &Inst, uint32_t RegNo,
+                                                 uint64_t Address,
+                                                 const MCDisassembler *Decoder) {
+  if (RegNo < 4 || RegNo > 7)
+    return MCDisassembler::Fail;
+
+  MCRegister Reg = static_cast<MCRegister>(RISCV::ACC0 + (RegNo - 4));
+  Inst.addOperand(MCOperand::createReg(Reg));
+  return MCDisassembler::Success;
+}
+
+static DecodeStatus DecodeMatrixMRRegisterClass(MCInst &Inst, uint32_t RegNo,
+                                                uint64_t Address,
+                                                const MCDisassembler *Decoder) {
+  if (RegNo > 7)
+    return MCDisassembler::Fail;
+
+  if (RegNo < 4) {
+    MCRegister Reg = RISCV::TR0 + RegNo;
+    Inst.addOperand(MCOperand::createReg(Reg));
+  } else {
+    MCRegister Reg = RISCV::ACC0 + (RegNo - 4);
+    Inst.addOperand(MCOperand::createReg(Reg));
+  }
+  return MCDisassembler::Success;
+}
+
 static DecodeStatus decodeVMaskReg(MCInst &Inst, uint32_t RegNo,
                                    uint64_t Address,
                                    const MCDisassembler *Decoder) {
@@ -514,6 +552,8 @@ static constexpr FeatureBitset XSMTGroup = {RISCV::FeatureVendorXSMTVDot};
 
 static constexpr FeatureBitset XAIFGroup = {RISCV::FeatureVendorXAIFET};
 
+static constexpr FeatureBitset XETESTGroup = {RISCV::FeatureVendorXETESTMatrix};
+
 static constexpr DecoderListEntry DecoderList32[]{
     // Vendor Extensions
     {DecoderTableXCV32, XCVFeatureGroup, "CORE-V extensions"},
@@ -530,6 +570,7 @@ static constexpr DecoderListEntry DecoderList32[]{
     {DecoderTableXAndes32, XAndesGroup, "Andes extensions"},
     {DecoderTableXSMT32, XSMTGroup, "SpacemiT extensions"},
     {DecoderTableXAIF32, XAIFGroup, "AI Foundry extensions"},
+    {DecoderTableXETEST32, XETESTGroup, "ETEST Matrix extensions"},
     // Standard Extensions
     {DecoderTable32, {}, "standard 32-bit instructions"},
     {DecoderTableRV32Only32, {}, "RV32-only standard 32-bit instructions"},

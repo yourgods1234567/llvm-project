@@ -624,3 +624,22 @@ let FeaturesRequired = [{ {RISCV::FeatureVendorXAIFET} }] in {
   def : SysReg<"aif.validation2", 0x8d2>;
   def : SysReg<"aif.validation3", 0x8d3>;
 } // FeatureVendorXAIFET
+
+//===----------------------------------------------------------------------===//
+// ETEST Matrix Extension CSRs
+//===----------------------------------------------------------------------===//
+let FeaturesRequired = [{ {RISCV::FeatureVendorXETESTMatrix} }] in {
+  def SysRegXMCSR    : SysReg<"xmcsr", 0x802>;
+  def SysRegMTILEM   : SysReg<"mtilem", 0x803>;
+  def SysRegMTILEN   : SysReg<"mtilen", 0x804>;
+  def SysRegMTILEK   : SysReg<"mtilek", 0x805>;
+  def SysRegXMXRM    : SysReg<"xmxrm", 0x806>;
+  def SysRegXMSAT    : SysReg<"xmsat", 0x807>;
+  def SysRegXMFFLAGS : SysReg<"xmfflags", 0x808>;
+  def SysRegXMFRM    : SysReg<"xmfrm", 0x809>;
+  def SysRegXMSATEN  : SysReg<"xmsaten", 0x80A>;
+  def SysRegXMISA    : SysReg<"xmisa", 0xCC0>;
+  def SysRegXTLENB   : SysReg<"xtlenb", 0xCC1>;
+  def SysRegXTRLENB  : SysReg<"xtrlenb", 0xCC2>;
+  def SysRegXALENB   : SysReg<"xalenb", 0xCC3>;
+}

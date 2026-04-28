@@ -1829,6 +1829,28 @@ ParseStatus RISCVAsmParser::parseRegister(OperandVector &Operands,
     SMLoc E = getTok().getEndLoc();
     getLexer().Lex();
     Operands.push_back(RISCVOperand::createReg(Reg, S, E));
+
+    // After a register, check for [index] syntax (e.g., tr3[0], tr0[4])
+    if (getLexer().is(AsmToken::LBrac)) {
+      SMLoc BracketS = getLexer().getTok().getLoc();
+      getLexer().Lex(); // Eat '['
+      Operands.push_back(RISCVOperand::createToken("[", BracketS));
+
+      const MCExpr *IdxExpr;
+      SMLoc IdxS = getLoc(), IdxE;
+      if (getParser().parseExpression(IdxExpr, IdxE))
+        return ParseStatus::Failure;
+      Operands.push_back(
+          RISCVOperand::createExpr(IdxExpr, IdxS, IdxE, isRV64()));
+
+      if (!getLexer().is(AsmToken::RBrac)) {
+        Error(getLexer().getLoc(), "expected ']'");
+        return ParseStatus::Failure;
+      }
+      SMLoc RBracS = getLexer().getTok().getLoc();
+      getLexer().Lex(); // Eat ']'
+      Operands.push_back(RISCVOperand::createToken("]", RBracS));
+    }
   }
 
   if (HadParens) {

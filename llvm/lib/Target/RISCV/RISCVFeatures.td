@@ -1307,6 +1307,13 @@ def FeatureVendorXSfmm32a
                      "TEW=32-bit accumulation operands - int: 8b; float: fp16, bf16, fp32",
                      [FeatureVendorXSfmm32a8i, FeatureVendorXSfmm32a16f, FeatureVendorXSfmm32a32f]>;
 
+// ETEST Matrix Extension
+def FeatureVendorXETESTMatrix
+    : RISCVExperimentalExtension<0, 6, "ETEST Matrix Extension">;
+def HasVendorXETESTMatrix : Predicate<"Subtarget->hasVendorXETESTMatrix()">,
+                            AssemblerPredicate<(all_of FeatureVendorXETESTMatrix),
+                                               "'ETEST-Matrix' (ETEST Matrix Extension)">;
+
 def FeatureVendorXSfvqmaccdod
     : RISCVExtension<1, 0,
                      "SiFive Int8 Matrix Multiplication Instructions (2-by-8 and 8-by-2)",

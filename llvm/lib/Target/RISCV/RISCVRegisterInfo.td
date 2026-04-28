@@ -791,6 +791,69 @@ def VCSR : RISCVRegisterClass<[XLenVT], 32,
   let isAllocatable = 0;
 }
 
+// ETEST Matrix Extension CSRs
+def XMCSR    : RISCVReg<0, "xmcsr">,
+               DwarfRegNum<[!add(4096, SysRegXMCSR.Encoding)]>;
+def MTILEM   : RISCVReg<0, "mtilem">,
+               DwarfRegNum<[!add(4096, SysRegMTILEM.Encoding)]>;
+def MTILEN   : RISCVReg<0, "mtilen">,
+               DwarfRegNum<[!add(4096, SysRegMTILEN.Encoding)]>;
+def MTILEK   : RISCVReg<0, "mtilek">,
+               DwarfRegNum<[!add(4096, SysRegMTILEK.Encoding)]>;
+def XMXRM    : RISCVReg<0, "xmxrm">,
+               DwarfRegNum<[!add(4096, SysRegXMXRM.Encoding)]>;
+def XMSAT    : RISCVReg<0, "xmsat">,
+               DwarfRegNum<[!add(4096, SysRegXMSAT.Encoding)]>;
+def XMFFLAGS : RISCVReg<0, "xmfflags">,
+               DwarfRegNum<[!add(4096, SysRegXMFFLAGS.Encoding)]>;
+def XMFRM    : RISCVReg<0, "xmfrm">,
+               DwarfRegNum<[!add(4096, SysRegXMFRM.Encoding)]>;
+def XMSATEN  : RISCVReg<0, "xmsaten">,
+               DwarfRegNum<[!add(4096, SysRegXMSATEN.Encoding)]>;
+
+let isConstant = true in {
+  def XMISA   : RISCVReg<0, "xmisa">,
+                DwarfRegNum<[!add(4096, SysRegXMISA.Encoding)]>;
+  def XTLENB  : RISCVReg<0, "xtlenb">,
+                DwarfRegNum<[!add(4096, SysRegXTLENB.Encoding)]>;
+  def XTRLENB : RISCVReg<0, "xtrlenb">,
+                DwarfRegNum<[!add(4096, SysRegXTRLENB.Encoding)]>;
+  def XALENB  : RISCVReg<0, "xalenb">,
+                DwarfRegNum<[!add(4096, SysRegXALENB.Encoding)]>;
+}
+
+def MCSR : RISCVRegisterClass<[XLenVT], 32,
+                              (add XMCSR, MTILEM, MTILEN, MTILEK, XMXRM,
+                                   XMSAT, XMFFLAGS, XMFRM, XMSATEN,
+                                   XMISA, XTLENB, XTRLENB, XALENB)> {
+  let RegInfos = XLenRI;
+  let isAllocatable = 0;
+}
+
+// ETEST Matrix Extension -- Tile Registers (TR)
+// Encoding: 0-3 (2 bits)
+foreach i = 0-3 in
+  def TR#i : RISCVReg<i, "tr"#i>,
+             DwarfRegNum<[!add(4096, !add(0x1000, i))]>;
+
+// ETEST Matrix Extension -- Accumulator Registers (ACC)
+// Encoding: 4-7 (3 bits: bit2=1, bit1-0 map to index)
+foreach i = 0-3 in
+  def ACC#i : RISCVReg<!add(i, 4), "acc"#i>,
+              DwarfRegNum<[!add(4096, !add(0x1100, i))]>;
+
+// Register classes
+def MatrixTR : RISCVRegisterClass<[XLenVT], 32, (add TR0, TR1, TR2, TR3)> {
+  let RegInfos = XLenRI;
+}
+def MatrixACC : RISCVRegisterClass<[XLenVT], 32, (add ACC0, ACC1, ACC2, ACC3)> {
+  let RegInfos = XLenRI;
+}
+def MatrixMR : RISCVRegisterClass<[XLenVT], 32, (add TR0, TR1, TR2, TR3,
+                                                      ACC0, ACC1, ACC2, ACC3)> {
+  let RegInfos = XLenRI;
+  let isAllocatable = 0;
+}
 
 foreach m = [1, 2, 4] in {
   foreach n = NFList<m>.L in {
